@@ -4,10 +4,6 @@ VALIDATOR := tools/validate.py
 PHYSICAL_GENERATOR := tools/generators/physical.py
 DOMAIN_MODEL := model/domain.yml
 DESIGN_MODEL := model/design.yml
-# Expose the already installed NVM exporter to environment checks as well.
-DBML_TOOL_BIN := $(shell $(PYTHON) -c 'import sys; sys.path.insert(0, "tools/generators"); from domain_model import find_tool; print(find_tool("dbml2sql").parent)' 2>/dev/null)
-export PATH := $(DBML_TOOL_BIN):$(PATH)
-
 .PHONY: all check-env validate validate-domain validate_design validate-logical-expo validate-physical-expo validate-c4-expo classes physical physical-expo logical logical-expo c4 c4-expo db dbml sql er dictionary clean
 
 all: check-env validate physical physical-expo logical logical-expo c4 c4-expo db classes
@@ -80,3 +76,13 @@ clean:
 	@echo "==> Cleaning generated artifacts"
 	@find build -mindepth 1 -maxdepth 1 -type f -delete
 	@find out -mindepth 1 -maxdepth 1 -type f -delete
+
+.PHONY: test verify-artifacts test-postgres
+test:
+	@$(PYTHON) -m unittest discover -s tests -v
+
+verify-artifacts:
+	@$(PYTHON) tools/verify_artifacts.py
+
+test-postgres: sql
+	@$(PYTHON) tools/test_postgres.py

@@ -15,7 +15,7 @@ from domain_validation import validate_domain
 from to_dbml import generate_dbml
 from to_dictionary import generate_dictionary
 from to_er_d2 import generate_er
-from to_sql import generate_extras
+from to_sql import generate_extras, validate_export
 
 
 class DomainGenerationTests(unittest.TestCase):
@@ -128,6 +128,12 @@ class DomainGenerationTests(unittest.TestCase):
     def test_rag_traceability_cannot_be_removed(self):
         self.column("diagnosis_source_links", "knowledge_chunk_id").pop("logical_ref")
         self.rejected("required logical_ref to knowledge.knowledge_chunks.id")
+
+    def test_empty_or_partial_export_cannot_replace_sql(self):
+        for sql in ('', '-- succeeded', 'CREATE TABLE "ops"."repositories" (id uuid);'):
+            with self.subTest(sql=sql):
+                with self.assertRaisesRegex(ValueError, 'incomplete/unexpected'):
+                    validate_export(sql, self.model)
 
     def test_dictionary_contains_all_fields_and_decisions(self):
         dictionary = generate_dictionary(self.model)

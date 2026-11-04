@@ -122,6 +122,25 @@ def generate_extras(model):
     return "\n".join(parts)
 
 
+def validate_export(sql, model):
+    """Reject empty/partial successful CLI output before replacing artifacts.
+
+    This is an exporter contract, not a PostgreSQL syntax/security validator.
+    Actual DDL behavior is exercised by make test-postgres.
+    """
+    tables = set(re.findall(r'CREATE TABLE "(\w+)"\."(\w+)"', sql))
+    expected = {(e['schema'], e['table']) for e in model['entities']}
+    if tables != expected:
+        raise ValueError('dbml2sql returned incomplete/unexpected CREATE TABLE output')
+    for entity in model['entities']:
+        for check in entity.get('checks', []):
+            if f'CONSTRAINT "{check["name"]}" CHECK' not in sql:
+                raise ValueError(f'dbml2sql omitted CHECK {check["name"]}')
+        for constraint in entity.get('unique_constraints', []):
+            if f'CREATE UNIQUE INDEX "{constraint["name"]}"' not in sql:
+                raise ValueError(f'dbml2sql omitted unique index {constraint["name"]}')
+
+
 def main():
     model = load_domain()
     dbml = ROOT / "model/db.dbml"
@@ -133,6 +152,7 @@ def main():
                             capture_output=True, text=True, env=env, check=False)
     if result.returncode:
         raise RuntimeError("dbml2sql failed: " + (result.stderr or result.stdout))
+    validate_export(result.stdout, model)
     sql = re.sub(r'^CREATE SCHEMA(?: IF NOT EXISTS)? "?[A-Za-z_][A-Za-z0-9_]*"?;\s*',
                  '', result.stdout, flags=re.M)
     preamble = ["-- GENERATED — DO NOT EDIT. model/domain.yml → model/db.dbml → dbml2sql.",

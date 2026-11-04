@@ -1,0 +1,10 @@
+{
+  "name": "pipesor-docs-generation-tools",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Development-only DBML generation toolchain",
+  "devDependencies": {
+    "@dbml/cli": "11.0.1"
+  },
+  "engines": {"node": ">=22"}
+}
