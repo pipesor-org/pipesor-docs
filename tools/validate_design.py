@@ -43,6 +43,12 @@ PACKAGES = {
 ZOOMS = {"CD-1": "diagnostic_api_component",
          "CD-2": "diagnostic_orchestrator_component",
          "CD-3": "human_review_component"}
+OPEN_QUESTIONS = {
+    "DQ-002": "model/domain.yml#open_questions",
+    "DCQ-001": "model/architecture.yml#human_review_component",
+    "DCQ-002": "model/architecture.yml#rel_correlation_diagnostic_api",
+    "DCQ-003": "model/architecture.yml#recommendation_service.diagnostic_output",
+}
 PERSISTED = {"Diagnosis": ("Aggregate", "diagnosis.diagnoses"),
              "Recommendation": ("Entity", "diagnosis.recommendations"),
              "HumanReview": ("Aggregate", "diagnosis.human_reviews")}
@@ -96,6 +102,18 @@ def _validate(design, architecture, domain, root):
             errors.append(f"design.{field} must contain mappings")
     if errors:
         return errors
+    questions = design["open_questions"]
+    ids = [q.get("id") for q in questions]
+    if len(ids) != len(set(ids)):
+        errors.append("design.open_questions: duplicate IDs")
+    for ident, source in OPEN_QUESTIONS.items():
+        matches = [q for q in questions if q.get("id") == ident]
+        if not matches:
+            errors.append(f"design.open_questions: missing {ident}")
+        elif any(q.get("source") != source or q.get("status", "open_question") != "open_question"
+                 or not isinstance(q.get("description"), str)
+                 or not q["description"].strip() for q in matches):
+            errors.append(f"design.open_questions: {ident} requires its source, open status and description")
     if not isinstance(design["model_version"], str) or not design["model_version"].strip():
         errors.append("model_version must be a nonempty string")
     rules = design["design_rules"]

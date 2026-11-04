@@ -56,6 +56,25 @@ class DesignTests(unittest.TestCase):
         with self.assertRaises(OSError):
             load_models([ROOT / "model/design.yml", ROOT / "model/architecture.yml", ROOT / "missing-domain.yml"])
 
+    def test_open_questions_preserve_ids_sources_and_descriptions(self):
+        for question in self.design["open_questions"]:
+            ident = question["id"]
+            with self.subTest(id=ident, mutation="removed"):
+                self.model = deepcopy(self.design)
+                self.model["open_questions"] = [q for q in self.model["open_questions"] if q["id"] != ident]
+                self.rejected(f"missing {ident}")
+            for field, value in (("source", "unrelated"), ("description", ""), ("status", "resolved")):
+                with self.subTest(id=ident, field=field):
+                    self.model = deepcopy(self.design)
+                    next(q for q in self.model["open_questions"] if q["id"] == ident)[field] = value
+                    self.rejected(f"{ident} requires its source, open status and description")
+        self.model = deepcopy(self.design)
+        self.model["open_questions"].append(deepcopy(self.model["open_questions"][0]))
+        self.rejected("duplicate IDs")
+        self.model = deepcopy(self.design)
+        self.model["open_questions"].append({"id": "DCQ-new", "source": "future", "description": "Open"})
+        self.assertEqual(self.errors(), [])
+
     def test_fourth_diagram_and_node_limit_rejected(self):
         self.model["class_diagrams"].append({"id": "CD-4", "zoom_target": "diagnostic_output_component", "elements": []})
         self.rejected("exactly CD-1, CD-2, CD-3")
