@@ -29,6 +29,22 @@ No se sustituye verificación TLS ni se afirma una firma independiente de D2.
 Las versiones D2 0.9.0 / DBML 10.2.0 mencionadas en el documento histórico de
 modelado no fueron las usadas en esta ejecución. No se modifica aquel registro.
 
+### Perfil WSL2 para los artefactos versionados
+
+Los diagramas versionados se regeneraron en WSL2 con Python 3.14.8, Node
+24.22.2 / npm 11.19.1, OpenJDK 25.0.4.1, Graphviz `dot`/`neato` 14.1.2,
+Fontconfig 2.17.1, D2 0.7.1 y los mismos paquetes Python, DBML CLI y JAR
+indicados arriba. El `DejaVuSans.ttf` resuelto localmente por Fontconfig tiene
+SHA-256 `9c3dac8639c6f7bf623fe78ef941a8cc47d5147d27a2427b55635ad48ce442b3`.
+Graphviz requiere también su plugin `neato` para las vistas C4 de presentación.
+
+El perfil Cloud anterior sigue documentado como evidencia histórica. Con ambos
+perfiles la salida gráfica puede diferir en bytes y geometría; no se ha probado
+que reproducir solo estas versiones y esta fuente baste en otra máquina. La
+verificación permanece estricta: no normaliza diferencias ni demuestra igualdad
+entre entornos distintos. Ante diferencias, revisar el perfil y los gráficos
+antes de regenerar o actualizar artefactos.
+
 ## Ejecución
 
 Exponer D2, Node y Graphviz en PATH. Para DBML instalado por el lockfile:
