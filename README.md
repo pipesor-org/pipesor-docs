@@ -75,4 +75,4 @@ python3 -B tools/validate.py model/architecture.yml model/domain.yml
 python3 -B tools/validate_design.py model/design.yml model/architecture.yml model/domain.yml
 ```
 
-La recuperación de fuentes ausentes, el registro agregado de pendientes, los contratos entre repositorios y el fortalecimiento de la reproducibilidad permanecen como trabajo posterior; este documento no los resuelve.
+El [registro agregado de decisiones pendientes](docs/architecture/pending-decisions.md) centraliza preguntas abiertas, discrepancias y evidencias faltantes, conservando los estados de sus fuentes. La recuperación de fuentes ausentes, el cierre de esos asuntos, los contratos entre repositorios y el fortalecimiento de la reproducibilidad permanecen como trabajo posterior.
