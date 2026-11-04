@@ -95,6 +95,9 @@ class PersistenceTests(unittest.TestCase):
     def test_checks_and_unique_constraints(self):
         self.rejected('UPDATE ops.pipeline_executions SET run_attempt=0')
         self.rejected('UPDATE knowledge.knowledge_chunks SET chunk_index=-1')
+        self.rejected("UPDATE evidence.evidence_items SET storage_container='synthetic', blob_object_key=NULL")
+        self.rejected("UPDATE evidence.evidence_items SET size_bytes=-1")
+        self.rejected("UPDATE diagnosis.human_reviews SET decision='PENDING'", '22P02')
         self.rejected("UPDATE knowledge.knowledge_documents SET provenance=' '")
         self.rejected("UPDATE diagnosis.human_reviews SET decision='CORRECTED', actual_cause=NULL")
         self.rejected(f"INSERT INTO diagnosis.diagnoses SELECT '{TWO}', incident_id, version, status, probable_cause, explanation, limitations, confidence, diagnosis_ready_at, correlation_id, created_at FROM diagnosis.diagnoses", '23505')

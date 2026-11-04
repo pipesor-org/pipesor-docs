@@ -96,6 +96,8 @@ def validate_constraints(domain):
         for name in names:
             if columns.get(f'{table}.{name}', {}).get('nullable') is not False:
                 errors.append(f'{table}.{name}: approved constraint requires NOT NULL')
+    if columns.get('ops.repositories.github_repository_id', {}).get('unique') is not True:
+        errors.append('ops.repositories.github_repository_id: approved identity requires UNIQUE')
     confidence = columns.get('diagnosis.diagnoses.confidence', {})
     if confidence.get('type') != 'jsonb' or confidence.get('nullable') is not True:
         errors.append('confidence must remain nullable JSONB while DQ-002 is open')

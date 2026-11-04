@@ -88,6 +88,11 @@ class PolicyRegressionTests(unittest.TestCase):
                     with self.subTest(table=entity['table'], column=column['name']):
                         self.assertTrue(validate_domain(domain, self.arch))
 
+    def test_repository_external_identity_is_unique(self):
+        repo = next(e for e in self.domain['entities'] if e['table'] == 'repositories')
+        next(c for c in repo['attributes'] if c['name'] == 'github_repository_id')['unique'] = False
+        self.assertTrue(validate_domain(self.domain, self.arch))
+
     def test_duplicate_questions_and_relationships_rejected(self):
         for field in ('open_questions', 'relationships'):
             domain = deepcopy(self.domain)
