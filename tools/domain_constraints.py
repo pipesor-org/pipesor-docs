@@ -16,6 +16,29 @@ REQUIRED_UNIQUES = {
     'diagnosis_source_links': [('diagnosis_id', 'knowledge_chunk_id')],
     'knowledge_chunks': [('document_id', 'chunk_index')],
 }
+REQUIRED_REFERENCES = {
+    'ops.pipelines.repository_id': ('fk', 'ops.repositories.id'),
+    'ops.pipeline_executions.pipeline_id': ('fk', 'ops.pipelines.id'),
+    'ops.execution_stages.execution_id': ('fk', 'ops.pipeline_executions.id'),
+    'ops.incidents.pipeline_id': ('fk', 'ops.pipelines.id'),
+    'ops.incident_runs.incident_id': ('fk', 'ops.incidents.id'),
+    'ops.incident_runs.execution_id': ('fk', 'ops.pipeline_executions.id'),
+    'ops.pipeline_access_grants.pipeline_id': ('fk', 'ops.pipelines.id'),
+    'evidence.evidence_items.incident_id': ('logical_ref', 'ops.incidents.id'),
+    'evidence.evidence_items.execution_id': ('logical_ref', 'ops.pipeline_executions.id'),
+    'evidence.correlated_contexts.incident_id': ('logical_ref', 'ops.incidents.id'),
+    'evidence.correlated_contexts.execution_id': ('logical_ref', 'ops.pipeline_executions.id'),
+    'evidence.correlated_contexts.evidence_ids': ('logical_ref', 'evidence.evidence_items.id'),
+    'diagnosis.diagnoses.incident_id': ('logical_ref', 'ops.incidents.id'),
+    'diagnosis.recommendations.diagnosis_id': ('fk', 'diagnosis.diagnoses.id'),
+    'diagnosis.diagnosis_evidence_links.diagnosis_id': ('fk', 'diagnosis.diagnoses.id'),
+    'diagnosis.diagnosis_evidence_links.evidence_id': ('logical_ref', 'evidence.evidence_items.id'),
+    'diagnosis.diagnosis_source_links.diagnosis_id': ('fk', 'diagnosis.diagnoses.id'),
+    'diagnosis.diagnosis_source_links.knowledge_chunk_id': ('logical_ref', 'knowledge.knowledge_chunks.id'),
+    'diagnosis.human_reviews.diagnostic_id': ('fk', 'diagnosis.diagnoses.id'),
+    'knowledge.knowledge_documents.reviewed_incident_id': ('logical_ref', 'ops.incidents.id'),
+    'knowledge.knowledge_chunks.document_id': ('fk', 'knowledge.knowledge_documents.id'),
+}
 REQUIRED_CHECKS = {
     'pipeline_executions': ['run_attempt > 0'],
     'evidence_items': ['size_bytes IS NULL OR size_bytes >= 0', '(storage_container IS NULL) = (blob_object_key IS NULL)'],
@@ -58,6 +81,24 @@ def validate_constraints(domain):
         for c in checks:
             if not c.get('expression', '').strip():
                 errors.append(f'{name}: empty CHECK expression')
+    columns = {f"{e['schema']}.{e['table']}.{c['name']}": c
+               for e in domain['entities'] for c in e.get('attributes', [])}
+    for column, (kind, target) in REQUIRED_REFERENCES.items():
+        if columns.get(column, {}).get(kind) != target:
+            errors.append(f'{column}: required {kind} to {target}')
+    for table, names in {
+        'ops.pipeline_executions': ['run_attempt'],
+        'diagnosis.diagnoses': ['version', 'status', 'incident_id'],
+        'diagnosis.human_reviews': ['decision'],
+        'knowledge.knowledge_documents': ['provenance', 'corpus_kind'],
+        'knowledge.knowledge_chunks': ['chunk_index', 'document_id', 'provenance'],
+    }.items():
+        for name in names:
+            if columns.get(f'{table}.{name}', {}).get('nullable') is not False:
+                errors.append(f'{table}.{name}: approved constraint requires NOT NULL')
+    confidence = columns.get('diagnosis.diagnoses.confidence', {})
+    if confidence.get('type') != 'jsonb' or confidence.get('nullable') is not True:
+        errors.append('confidence must remain nullable JSONB while DQ-002 is open')
     questions = domain['open_questions']
     if len({q.get('id') for q in questions}) != len(questions):
         errors.append('Duplicate open question ID')

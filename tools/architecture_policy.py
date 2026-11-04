@@ -11,6 +11,11 @@ def validate_policy(doc):
     relations = doc.get('relationships', [])
     invariants = {i['id'] for i in doc.get('architectural_invariants', [])}
     # Generic fixtures without this project's invariants remain usable.
+    if doc.get('architecture', {}).get('id') == 'ey_aiops_ci_cd_diagnosis':
+        required = {'INV-001', 'INV-002', 'INV-003', 'INV-010'}
+        if not required <= invariants:
+            errors.append('Missing current privacy/read-only/RAG invariants')
+        invariants |= required
     if 'INV-003' in invariants:
         expected = {'mechanism': 'GitHub App', 'access': 'read_only',
                     'credential_type': 'installation_token'}

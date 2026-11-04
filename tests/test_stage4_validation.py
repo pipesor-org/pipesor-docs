@@ -71,6 +71,23 @@ class PolicyRegressionTests(unittest.TestCase):
                         with self.subTest(table=entity['table'], field=field, number=number, weaken=weaken):
                             self.assertTrue(validate_domain(domain, self.arch))
 
+    def test_removing_invariants_does_not_disable_guards(self):
+        self.arch['architectural_invariants'] = []
+        self.assertTrue(validate_policy(self.arch))
+
+    def test_all_reference_contracts_are_retained(self):
+        for i, entity in enumerate(self.domain['entities']):
+            for j, column in enumerate(entity['attributes']):
+                for kind in ('fk', 'logical_ref'):
+                    if not column.get(kind):
+                        continue
+                    domain = deepcopy(self.domain)
+                    del domain['entities'][i]['attributes'][j][kind]
+                    domain['relationships'] = [r for r in domain['relationships']
+                                              if r['from'] != f"{entity['schema']}.{entity['table']}.{column['name']}"]
+                    with self.subTest(table=entity['table'], column=column['name']):
+                        self.assertTrue(validate_domain(domain, self.arch))
+
     def test_duplicate_questions_and_relationships_rejected(self):
         for field in ('open_questions', 'relationships'):
             domain = deepcopy(self.domain)
