@@ -31,7 +31,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='pipesor-reproduce-') as directory:
         copies = [Path(directory) / name for name in ('first', 'second')]
         for copy in copies:
-            shutil.copytree(ROOT, copy, ignore=shutil.ignore_patterns('.git', '.venv', '__pycache__', 'build', 'out'))
+            shutil.copytree(ROOT, copy, ignore=shutil.ignore_patterns('.git', '.venv', 'node_modules', '__pycache__', 'build', 'out'))
             # All generators must create fresh outputs, not reuse tracked files.
             (copy / 'out').mkdir()
             result = subprocess.run(['make', 'all', f'PYTHON={sys.executable}'], cwd=copy)

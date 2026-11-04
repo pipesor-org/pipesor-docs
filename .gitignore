@@ -11,3 +11,6 @@ build/
 
 # OS
 .DS_Store
+
+# Local JavaScript generation dependencies
+node_modules/
