@@ -5,6 +5,7 @@ import re
 import sys
 
 import yaml
+from domain_constraints import validate_constraints
 
 
 IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -214,6 +215,10 @@ def validate_domain(domain, architecture):
             errors.append(f"Invalid/duplicate domain relationship ID: {rid}")
         relation_ids.add(rid)
         relationships.add((r.get("from"), r.get("to"), r.get("kind")))
+        if r.get("kind") not in {"fk", "logical_ref"}:
+            errors.append(f"{rid}: invalid relationship kind")
+        if len(relationships) < len(relation_ids):
+            errors.append(f"{rid}: duplicate relationship endpoints/kind")
         if r.get("from") not in attributes or r.get("to") not in attributes:
             errors.append(f"{rid}: relationship references nonexistent table/column")
     if relationships != declared_refs:
@@ -256,6 +261,7 @@ def validate_domain(domain, architecture):
     retention = domain.get("retention", {})
     if retention.get("duration_days") != architecture.get("retention", {}).get("duration_days"):
         errors.append("Domain retention must match architecture/ADR-013 (365 days)")
+    errors.extend(validate_constraints(domain))
     return errors
 
 

@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 import yaml
 from domain_validation import validate_domain
+from architecture_policy import validate_policy
 
 FILE = Path(sys.argv[1] if len(sys.argv) > 1 else "model/architecture.yml")
 errors = []
@@ -154,6 +155,8 @@ for output in outputs:
             f"{oid}: no directed path from published_by {publisher!r} "
             f"to produced_by {producer!r}"
         )
+
+errors.extend(validate_policy(doc))
 
 domain_path = Path(sys.argv[2]) if len(sys.argv) > 2 else FILE.with_name("domain.yml")
 domain_checked = False
