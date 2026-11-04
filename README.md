@@ -4,7 +4,7 @@ Pipesor es un prototipo de diagnóstico asistido de fallos CI/CD identificados p
 
 Este repositorio mantiene la arquitectura como código: modelos, decisiones, validadores y documentación derivada. Sirve como referencia para agentes que trabajen en repositorios independientes de backend e infraestructura como código (IaC), conforme a [ADR-018](docs/architecture/decisions/ADR-018-application-architecture-ddd-cqrs.md). Los modelos y diagramas describen diseño; no acreditan servicios implementados ni recursos desplegados.
 
-El repositorio procede de `Chaomeum/aiops-dac` y está destinado a `pipesor-org/pipesor-docs`. Los nombres e IDs históricos se conservan para mantener la trazabilidad; esta documentación no implica que la migración remota se haya realizado.
+El repositorio se mantiene en `pipesor-org/pipesor-docs`. Los nombres e IDs históricos se conservan para mantener la trazabilidad.
 
 ## Lectura y estructura
 

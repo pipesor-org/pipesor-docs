@@ -1,7 +1,7 @@
 # Overview — Línea base arquitectónica del prototipo AIOps
 
 - **Fecha de inspección:** 19 de octubre de 2026.
-- **Repositorio inspeccionado:** `aiops-dac`.
+- **Repositorio inspeccionado:** `pipesor-docs`.
 - **Revisión de referencia:** `80f5727b01b461c6e685ff708f9fab2c33eef623` — último commit del 7 de octubre de 2026.
 - **Modelo arquitectónico:** `0.4.0-c4-views`, fase `phase_4_c4_views`, estado `draft`. Último cambio del modelo: 3 de octubre de 2026.
 
