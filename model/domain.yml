@@ -1,5 +1,5 @@
 # SSOT del dominio persistente. DBML/SQL/ER/diccionario se generan; no editar derivados.
-model_version: 1.0.0
+model_version: 1.1.0
 source_authority:
   scope: SRC_CHARTER
   architecture:
@@ -732,13 +732,13 @@ entities:
   table: evidence_items
   schema: evidence
   owner_container: log_event_service
-  description_es: Metadata y extracto normalizado; logs grandes en Azure Blob Storage por referencia sin
-    SAS ni secretos.
+  description_es: Metadata y extracto normalizado en PostgreSQL; logs originales en GitHub Actions.
+    Recuperación y conservación independientes siguen pendientes (ADR-019).
   scope_basis: approved_domain
   status: confirmed
   source: &id007
   - architecture.yml#log_event_service
-  - architecture.yml#object_evidence_store
+  - SRC_ADR_019
   - architecture.yml#INV-001
   - SRC_ADR_013
   - DD-006
@@ -836,22 +836,6 @@ entities:
     er_visible: false
     assumption: null
     description_es: Orden de evidencia cuando la fuente lo proporciona.
-  - name: storage_container
-    type: text
-    pk: false
-    nullable: true
-    unique: false
-    er_visible: false
-    assumption: null
-    description_es: Nombre de container Blob; sin tokens, credenciales ni URL SAS.
-  - name: blob_object_key
-    type: text
-    pk: false
-    nullable: true
-    unique: false
-    er_visible: false
-    assumption: null
-    description_es: Clave del objeto Blob; sin SAS ni material secreto.
   - name: content_hash
     type: text
     pk: false
@@ -884,8 +868,6 @@ entities:
   checks:
   - name: evidence_items_check_1
     expression: size_bytes IS NULL OR size_bytes >= 0
-  - name: evidence_items_check_2
-    expression: (storage_container IS NULL) = (blob_object_key IS NULL)
 - id: correlated_contexts
   table: correlated_contexts
   schema: evidence

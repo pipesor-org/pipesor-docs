@@ -17,12 +17,7 @@ usa fixtures, sin integración backend ni auth implementada. La landing accesibl
 es `pipesor-landing` (no `pipesor-landing-page`); contiene código/configuración
 Workers, pero su despliegue no está verificado.
 
-Las decisiones MVP registradas en IaC (native ingress sin APIM, exclusión de Blob
-de workload y preparación dev-only temporal) se distinguen del modelo canónico y
-sus diagramas, que todavía reflejan el baseline anterior. El informe expone las
-contradicciones pendientes sin modificar modelos, aprobar contratos ni convertir
-Terraform en evidencia de despliegue. Consultarlo junto con los ADRs antes de
-implementar; no tomar Overview ni las salidas generadas como inventario cloud.
+[ADR-019](docs/architecture/decisions/ADR-019-align-mvp-with-iac.md) alinea ahora el modelo canónico con las decisiones MVP de IaC: ingress nativo de ACA sin gateway dedicado, exclusión de Blob de workload, fundación Microsoft Foundry y preparación Terraform dev-only temporal. Los diagramas derivan de ese modelo; no acreditan despliegue. Se conservan Entra ID, las siete fronteras backend, PostgreSQL/pgvector y la retención de 365 días. Exposición/auth, contratos, modelos AI y garantías de recuperación/retención siguen pendientes. Los antecedentes APIM/Blob se leen con la evolución de ADR-019.
 
 ## Lectura y estructura
 

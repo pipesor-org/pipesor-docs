@@ -12,6 +12,19 @@ def validate_policy(doc):
     invariants = {i['id'] for i in doc.get('architectural_invariants', [])}
     # Generic fixtures without this project's invariants remain usable.
     if doc.get('architecture', {}).get('id') == 'ey_aiops_ci_cd_diagnosis':
+        if {'api_management', 'object_evidence_store'} & elements.keys():
+            errors.append('ADR-019 excludes APIM and workload Blob from the MVP')
+        ingress = doc.get('deployment', {}).get('identity_and_api_perimeter', {})
+        if ingress.get('api_ingress') != 'Azure Container Apps native ingress' or ingress.get('dedicated_gateway') is not False:
+            errors.append('ADR-019 requires native ACA ingress without a dedicated gateway')
+        mvp = doc.get('deployment', {}).get('mvp_preparation', {})
+        if mvp.get('active_environment') != 'dev' or mvp.get('deployment_authorized') is not False:
+            errors.append('ADR-019 permits only dev preparation, not deployment')
+        foundation = elements.get('pretrained_llm_diagnostic_service', {}).get('foundation', {})
+        if (foundation.get('technology') != 'Microsoft Foundry'
+                or foundation.get('authentication') != 'Entra_only'
+                or foundation.get('model_deployments_selected') is not False):
+            errors.append('ADR-019 requires the Entra-only Foundry foundation without model selection')
         required = {'INV-001', 'INV-002', 'INV-003', 'INV-010'}
         if not required <= invariants:
             errors.append('Missing current privacy/read-only/RAG invariants')
@@ -29,7 +42,7 @@ def validate_policy(doc):
             endpoints = {r.get('from'), r.get('to')}
             if endpoints & {'github', 'github_actions'}:
                 internal = endpoints - {'github', 'github_actions'}
-                if internal and r.get('id') != 'rel_github_actions_apim_diagnostic' and r.get('access') != 'read_only':
+                if internal and r.get('access') != 'read_only':
                     errors.append(f"{r.get('id')}: GitHub integration must declare read_only")
                 if r.get('access') not in (None, 'read_only'):
                     errors.append(f"{r.get('id')}: GitHub write access is prohibited")
@@ -51,8 +64,10 @@ def validate_policy(doc):
         # Check all alternate paths: existence of one safe route is insufficient.
         adjacency = {}
         for r in relations:
-            query = (r.get('id') == 'rel_github_actions_apim_diagnostic'
-                     and r.get('from') == 'github_actions' and r.get('to') == 'api_management')
+            query = (r.get('id') in {'rel_github_actions_diagnostic', 'rel_github_actions_diagnostic_api'}
+                     and r.get('from') == 'github_actions'
+                     and r.get('to') in {'recommendation_service', 'diagnostic_api_component'}
+                     and r.get('access') == 'read_only')
             if not query and r.get('from') != gateway and r.get('to') != gateway:
                 adjacency.setdefault(r.get('from'), set()).add(r.get('to'))
         pending = ['github', 'github_actions', 'observability_sources']

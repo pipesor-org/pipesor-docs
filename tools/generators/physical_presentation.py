@@ -44,6 +44,8 @@ def technology_lines(element):
         lines.append(parser["selected"])
     if element.get("model_family"):
         lines.append(element["model_family"] + " family")
+    if element.get("foundation", {}).get("technology"):
+        lines.append(element["foundation"]["technology"] + " account/project")
     return [line for line in lines if line]
 
 

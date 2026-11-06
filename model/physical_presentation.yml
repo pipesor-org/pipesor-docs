@@ -1,6 +1,6 @@
 # Proyección física para exposición. Hechos y tecnologías proceden del SSOT.
 # Las agrupaciones de lectura no declaran redes, recursos o hosts adicionales.
-model_version: "1.0.0"
+model_version: "1.1.0"
 architecture_source: model/architecture.yml
 purpose: Sustentación académica — síntesis de la arquitectura física
 show_protocols: false
@@ -28,16 +28,14 @@ relationship_labels:
   rel_recommendation_llm: "Inference with evidence and RAG"
   rel_technical_users_dashboard: "Querying and human review"
   rel_dashboard_entra: "Corporate authentication"
-  rel_dashboard_apim: "Protected APIs"
-  rel_apim_pipeline_service: "Queries executions"
-  rel_apim_log_event_service: "Queries evidence"
-  rel_apim_recommendation_service: "Diagnosis and review"
+  rel_dashboard_pipeline_service: "Queries executions"
+  rel_dashboard_log_event_service: "Queries evidence"
+  rel_dashboard_recommendation_service: "Diagnosis and review"
   rel_pipeline_service_postgresql: "Pipeline context"
   rel_log_event_service_postgresql: "Evidence references"
-  rel_log_event_service_object_store: "Large logs and evidence"
   rel_recommendation_service_postgresql: "Diagnosis and recommendations"
   rel_human_review_postgresql: "Review decisions"
-  rel_github_actions_apim_diagnostic: "Queries diagnosis for artifact"
+  rel_github_actions_diagnostic: "Queries diagnosis for artifact"
   rel_correlation_postgresql: "Context and traceability"
 
 views:
@@ -105,7 +103,7 @@ views:
       NLP y RAG usan Python y FastAPI; correlación y diagnóstico usan Java y Spring
       Boot. Los cuatro servicios tienen runtime propio en Azure Container Apps.
       NLP utiliza Drain3. Diagnóstico orquesta RAG, que consulta pgvector sobre
-      PostgreSQL, y solicita inferencia a Azure OpenAI, familia GPT-4 sin modelo
+      PostgreSQL, y solicita inferencia a Azure OpenAI con fundación Microsoft Foundry, familia GPT-4 sin modelo
       concreto fijado. Azure OpenAI es externo y no se aloja en Container Apps.
 
   - id: fisica_expo_03
@@ -119,29 +117,26 @@ views:
       - web_dashboard
       - entra_id
       - github_actions
-      - api_management
       - pipeline_service
       - log_event_service
       - recommendation_service
       - postgresql_operational_store
-      - object_evidence_store
     groups:
       - id: interaction
         title: "Presentation and identity"
         elements: [technical_users, web_dashboard, entra_id]
       - id: perimeter
         title: "API access"
-        elements: [github_actions, api_management]
+        elements: [github_actions]
       - id: services
         title: "Application services"
         elements: [pipeline_service, log_event_service, recommendation_service]
       - id: persistence
         title: "Persistence"
-        elements: [postgresql_operational_store, object_evidence_store]
-    continuation: "Actions retrieves the diagnosis through APIM and publishes its artifact. Human review is within the diagnostic service."
+        elements: [postgresql_operational_store]
+    continuation: "Actions retrieves the diagnosis through ACA native ingress and publishes its artifact. Human review is within the diagnostic service."
     narration: >
       El dashboard React y TypeScript se aloja en Azure Static Web Apps. Entra ID
-      autentica y APIM protege y enruta las APIs; ninguno se despliega en Container
-      Apps. Los servicios mantienen datos estructurados en PostgreSQL y evidencias
-      extensas en Azure Blob Storage. La revisión humana se registra dentro del
+      autentica; las APIs usan ingress nativo de ACA y autorización en los servicios.
+      PostgreSQL conserva evidencia saneada; los logs originales permanecen en GitHub Actions. La revisión humana se registra dentro del
       servicio diagnóstico. El workflow publica el artifact con su paso nativo.

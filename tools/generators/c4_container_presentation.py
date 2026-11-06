@@ -209,7 +209,7 @@ def generate_dot(presentation, architecture, view, projection):
     graph.node("relation_legend", legend, pos="1700,560!", width="5.5", height="12.0", shape="plaintext", style="", fixedsize="false")
     footer = "Blue: prototype · Gray: actors/external systems · Green: persistence | Solid: synchronous · Dashed: asynchronous · Dotted: event"
     graph.node("slide_footer", footer, pos="960,85!", shape="plaintext", style="", width="25", height="0.4", fontsize="14")
-    note = "PostgreSQL/pgvector: one physical instance. Azure OpenAI: external API; GPT-4 family, specific model unspecified." if projection.combined_postgres else "Human review within Diagnostic & Recommendation Service. Actions publishes the artifact through its own workflow."
+    note = "PostgreSQL/pgvector: one physical instance. Managed AI: Foundry foundation; GPT-4 family, model/deployment unspecified." if projection.combined_postgres else "Human review within Diagnostic & Recommendation Service. Actions publishes the artifact through its own workflow."
     graph.node("slide_note", note, pos="960,45!", shape="plaintext", style="", width="25", height="0.4", fontsize="15")
     return graph.source
 

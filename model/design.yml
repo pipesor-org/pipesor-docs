@@ -1,5 +1,5 @@
 # SSOT exclusivo del diseño de clases; no describe código implementado.
-model_version: 1.0.0
+model_version: 1.1.0
 design_rules:
   container: recommendation_service
   language: Java
@@ -114,7 +114,7 @@ classes:
     methods:
       - {name: getDiagnosticOutput, parameters: [], returns: DiagnosticView, effect: read}
     ingress:
-      architecture_relationship: rel_apim_diagnostic_api
+      architecture_relationship: rel_dashboard_diagnostic_api
       protocol: REST/HTTPS
   - id: GenerateDiagnosisCommand
     name: GenerateDiagnosisCommand
@@ -399,7 +399,7 @@ classes:
     methods:
       - {name: recordHumanReview, parameters: [], returns: UUID, effect: write}
     ingress:
-      architecture_relationship: rel_apim_diagnostic_api
+      architecture_relationship: rel_dashboard_diagnostic_api
       protocol: REST/HTTPS
   - id: HumanReviewQueryController
     name: HumanReviewQueryController
@@ -412,7 +412,7 @@ classes:
     methods:
       - {name: getHumanReview, parameters: [], returns: 'Map<String, Object>', effect: read}
     ingress:
-      architecture_relationship: rel_apim_diagnostic_api
+      architecture_relationship: rel_dashboard_diagnostic_api
       protocol: REST/HTTPS
   - id: RecordHumanReviewCommand
     name: RecordHumanReviewCommand

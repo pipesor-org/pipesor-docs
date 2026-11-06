@@ -79,7 +79,8 @@ def technology(element, warnings, *, with_pgvector=False):
     model = text(element.get("model"))
     if provider:
         detail = model or (f"{family} family" if family else "")
-        return " / ".join(part for part in (provider, detail) if part)
+        foundation = text((element.get("foundation") or {}).get("technology"))
+        return " / ".join(part for part in (provider, detail, foundation) if part)
     framework = text(tech.get("framework"))
     if framework:
         return " ".join(part for part in

@@ -1,7 +1,7 @@
 <!-- GENERATED — DO NOT EDIT. SSOT: model/domain.yml -->
 # Diccionario de datos
 
-Modelo: `1.0.0`. Una instancia PostgreSQL; 17 tablas.
+Modelo: `1.1.0`. Una instancia PostgreSQL; 17 tablas.
 
 Los tipos enum se materializan en el schema propietario de cada tabla.
 FK significa constraint físico intra-schema; logical_ref significa ID sin FK física.
@@ -176,33 +176,31 @@ Owners permitidos: log_event_service, evidence_correlation_engine.
 
 ### `evidence.evidence_items`
 
-Metadata y extracto normalizado; logs grandes en Azure Blob Storage por referencia sin SAS ni secretos.
+Metadata y extracto normalizado en PostgreSQL; logs originales en GitHub Actions. Recuperación y conservación independientes siguen pendientes (ADR-019).
 
 Owner: `log_event_service`. scope_basis: `approved_domain`. status: `confirmed`.
 
-Fuentes: architecture.yml#log_event_service, architecture.yml#object_evidence_store, architecture.yml#INV-001, SRC_ADR_013, DD-006.
+Fuentes: architecture.yml#log_event_service, SRC_ADR_019, architecture.yml#INV-001, SRC_ADR_013, DD-006.
 
 Retención: 365 días (ADR-013), anclada en `created_at`; no hay purge jobs.
 
-Checks: `size_bytes IS NULL OR size_bytes >= 0`; `(storage_container IS NULL) = (blob_object_key IS NULL)`.
+Checks: `size_bytes IS NULL OR size_bytes >= 0`.
 
 | Columna | Tipo | PK | FK | logical_ref | Nullable | Unique | Enum | Descripción | Fuente | Assumption |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| id | uuid | Sí | — | — | No | No | — | Identificador estable asignado por el servicio propietario. | architecture.yml#log_event_service; architecture.yml#object_evidence_store; architecture.yml#INV-001; SRC_ADR_013; DD-006 | A-001 |
-| incident_id | uuid | No | — | ops.incidents.id | No | No | — | Incidente asociado por ID lógico. | architecture.yml#log_event_service; architecture.yml#object_evidence_store; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
-| execution_id | uuid | No | — | ops.pipeline_executions.id | No | No | — | Ejecución observada por ID lógico. | architecture.yml#log_event_service; architecture.yml#object_evidence_store; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
+| id | uuid | Sí | — | — | No | No | — | Identificador estable asignado por el servicio propietario. | architecture.yml#log_event_service; SRC_ADR_019; architecture.yml#INV-001; SRC_ADR_013; DD-006 | A-001 |
+| incident_id | uuid | No | — | ops.incidents.id | No | No | — | Incidente asociado por ID lógico. | architecture.yml#log_event_service; SRC_ADR_019; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
+| execution_id | uuid | No | — | ops.pipeline_executions.id | No | No | — | Ejecución observada por ID lógico. | architecture.yml#log_event_service; SRC_ADR_019; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
 | correlation_id | text | No | — | — | No | No | — | Identificador de correlación end-to-end; no contiene información sensible. | architecture.yml#CTRL-003 | — |
-| source | text | No | — | — | No | No | — | Procedencia operacional autorizada, independiente de provenance RAG. | architecture.yml#log_event_service; architecture.yml#object_evidence_store; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
-| stage | evidence.PipelineStage | No | — | — | No | No | PipelineStage | Etapa operacional observada. | architecture.yml#log_event_service; architecture.yml#object_evidence_store; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
-| job | text | No | — | — | Sí | No | — | Job externo cuando existe. | architecture.yml#log_event_service; architecture.yml#object_evidence_store; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
-| summary | text | No | — | — | No | No | — | Resumen normalizado y saneado. | architecture.yml#log_event_service; architecture.yml#object_evidence_store; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
-| excerpt | text | No | — | — | Sí | No | — | Extracto minimizado y enmascarado; nunca payload sensible crudo. | architecture.yml#log_event_service; architecture.yml#object_evidence_store; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
-| observed_at | timestamptz | No | — | — | No | No | — | Instante observado en la fuente. | architecture.yml#log_event_service; architecture.yml#object_evidence_store; architecture.yml#INV-001; SRC_ADR_013; DD-006 | A-002 |
-| sequence | bigint | No | — | — | Sí | No | — | Orden de evidencia cuando la fuente lo proporciona. | architecture.yml#log_event_service; architecture.yml#object_evidence_store; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
-| storage_container | text | No | — | — | Sí | No | — | Nombre de container Blob; sin tokens, credenciales ni URL SAS. | architecture.yml#log_event_service; architecture.yml#object_evidence_store; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
-| blob_object_key | text | No | — | — | Sí | No | — | Clave del objeto Blob; sin SAS ni material secreto. | architecture.yml#log_event_service; architecture.yml#object_evidence_store; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
-| content_hash | text | No | — | — | Sí | No | — | Hash del objeto cuando existe; algoritmo no fijado. | architecture.yml#log_event_service; architecture.yml#object_evidence_store; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
-| size_bytes | bigint | No | — | — | Sí | No | — | Tamaño externo en bytes cuando está disponible. | architecture.yml#log_event_service; architecture.yml#object_evidence_store; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
+| source | text | No | — | — | No | No | — | Procedencia operacional autorizada, independiente de provenance RAG. | architecture.yml#log_event_service; SRC_ADR_019; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
+| stage | evidence.PipelineStage | No | — | — | No | No | PipelineStage | Etapa operacional observada. | architecture.yml#log_event_service; SRC_ADR_019; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
+| job | text | No | — | — | Sí | No | — | Job externo cuando existe. | architecture.yml#log_event_service; SRC_ADR_019; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
+| summary | text | No | — | — | No | No | — | Resumen normalizado y saneado. | architecture.yml#log_event_service; SRC_ADR_019; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
+| excerpt | text | No | — | — | Sí | No | — | Extracto minimizado y enmascarado; nunca payload sensible crudo. | architecture.yml#log_event_service; SRC_ADR_019; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
+| observed_at | timestamptz | No | — | — | No | No | — | Instante observado en la fuente. | architecture.yml#log_event_service; SRC_ADR_019; architecture.yml#INV-001; SRC_ADR_013; DD-006 | A-002 |
+| sequence | bigint | No | — | — | Sí | No | — | Orden de evidencia cuando la fuente lo proporciona. | architecture.yml#log_event_service; SRC_ADR_019; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
+| content_hash | text | No | — | — | Sí | No | — | Hash del objeto cuando existe; algoritmo no fijado. | architecture.yml#log_event_service; SRC_ADR_019; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
+| size_bytes | bigint | No | — | — | Sí | No | — | Tamaño externo en bytes cuando está disponible. | architecture.yml#log_event_service; SRC_ADR_019; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
 | created_at | timestamptz | No | — | — | No | No | — | Instante de persistencia; permite aplicar retención cuando corresponde. | SRC_ADR_013; DD-015 | A-002 |
 
 ### `evidence.correlated_contexts`
@@ -484,6 +482,8 @@ Fuentes: SRC_ADR_011, architecture.yml#audit_trail, architecture.yml#CTRL-002, D
 
 ### DD-006 — Blob por referencia, no contenido grande en PostgreSQL
 
+Nota de evolución: representación histórica de Blob sustituida parcialmente por ADR-019 y DD-018 para el MVP; se conserva el texto original como trazabilidad.
+
 - id: DD-006
 - contexto: Los logs extensos viven en Azure Blob Storage; el diagnóstico debe conservar evidencia sustentante.
 - decisión: evidence_items almacena metadata, summary y excerpt normalizados. storage_container/blob_object_key se informan juntos cuando existen. diagnosis_evidence_links identifica evidencia sustentante por ID lógico. No se guardan SAS, secretos, credenciales ni payload sensible crudo.
@@ -589,6 +589,14 @@ Fuentes: SRC_ADR_011, architecture.yml#audit_trail, architecture.yml#CTRL-002, D
 - fuentes: arquitectura-informacion.md; SRC_ADR_003; Prompt §7; DQ-005/DQ-006.
 - impacto: Se muestra con borde punteado y etiqueta IA-only / inferred; la política de alta de workflows y RBAC siguen abiertas.
 - reversibilidad: Puede retirarse o cambiarse cuando se apruebe implementación definitiva; nunca promoverla automáticamente.
+
+### DD-018 — Evidencia MVP sin almacenamiento Blob de workload
+
+- fuente y autoridad: ADR-019, Accepted por confirmación explícita del usuario en la reconciliación local de 06/11/2026.
+- decisión: evidencia saneada y metadata permanecen en evidence_items; los logs originales se obtienen de GitHub Actions. Se retiran storage_container/blob_object_key y su CHECK conjunto. No se introduce otro formato de localizador, copia completa de logs ni mecanismo de recuperación.
+- impacto: DBML/SQL/diccionario se regeneran desde domain.yml; no se ejecuta migración sobre una base existente. Size/hash y referencias lógicas conservan su semántica. Ownership, saneamiento y trazabilidad siguen vigentes.
+- pendiente: retención independiente de logs originales, pérdida de acceso/borrado en GitHub y recuperación permanecen en PD-017/030/031; la exclusión no reduce ni demuestra los 365 días de ADR-013.
+- reversibilidad: cualquier consumidor existente necesita evaluación de migración y contrato; reincorporar Blob requiere una nueva decisión explícita. El backend Blob de state Terraform no es almacenamiento de workload.
 
 ## Assumptions
 

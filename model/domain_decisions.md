@@ -55,6 +55,8 @@ Generación: `make validate` y `make db`; `make all` conserva physical/logical/C
 
 ## DD-006 — Blob por referencia, no contenido grande en PostgreSQL
 
+Nota de evolución: representación histórica de Blob sustituida parcialmente por ADR-019 y DD-018 para el MVP; se conserva el texto original como trazabilidad.
+
 - id: DD-006
 - contexto: Los logs extensos viven en Azure Blob Storage; el diagnóstico debe conservar evidencia sustentante.
 - decisión: evidence_items almacena metadata, summary y excerpt normalizados. storage_container/blob_object_key se informan juntos cuando existen. diagnosis_evidence_links identifica evidencia sustentante por ID lógico. No se guardan SAS, secretos, credenciales ni payload sensible crudo.
@@ -160,3 +162,11 @@ Generación: `make validate` y `make db`; `make all` conserva physical/logical/C
 - fuentes: arquitectura-informacion.md; SRC_ADR_003; Prompt §7; DQ-005/DQ-006.
 - impacto: Se muestra con borde punteado y etiqueta IA-only / inferred; la política de alta de workflows y RBAC siguen abiertas.
 - reversibilidad: Puede retirarse o cambiarse cuando se apruebe implementación definitiva; nunca promoverla automáticamente.
+
+## DD-018 — Evidencia MVP sin almacenamiento Blob de workload
+
+- fuente y autoridad: ADR-019, Accepted por confirmación explícita del usuario en la reconciliación local de 06/11/2026.
+- decisión: evidencia saneada y metadata permanecen en evidence_items; los logs originales se obtienen de GitHub Actions. Se retiran storage_container/blob_object_key y su CHECK conjunto. No se introduce otro formato de localizador, copia completa de logs ni mecanismo de recuperación.
+- impacto: DBML/SQL/diccionario se regeneran desde domain.yml; no se ejecuta migración sobre una base existente. Size/hash y referencias lógicas conservan su semántica. Ownership, saneamiento y trazabilidad siguen vigentes.
+- pendiente: retención independiente de logs originales, pérdida de acceso/borrado en GitHub y recuperación permanecen en PD-017/030/031; la exclusión no reduce ni demuestra los 365 días de ADR-013.
+- reversibilidad: cualquier consumidor existente necesita evaluación de migración y contrato; reincorporar Blob requiere una nueva decisión explícita. El backend Blob de state Terraform no es almacenamiento de workload.

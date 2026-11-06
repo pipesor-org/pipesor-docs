@@ -59,7 +59,7 @@ class C4GenerationTests(unittest.TestCase):
         self.assertEqual(c4.technology(self.elements["web_dashboard"], warnings),
                          "React SPA / Azure Static Web Apps")
         self.assertEqual(c4.technology(self.elements["pretrained_llm_diagnostic_service"],
-                                      warnings), "Azure OpenAI Service / GPT-4 family")
+                                      warnings), "Azure OpenAI Service / GPT-4 family / Microsoft Foundry")
 
     def test_context_lifts_and_merges_by_direction(self):
         model = deepcopy(self.model)
@@ -85,7 +85,7 @@ class C4GenerationTests(unittest.TestCase):
 
     def test_processing_projects_one_physical_postgres(self):
         projection, warnings = self.projection("c4_container_processing")
-        self.assertEqual(projection.count, 13)
+        self.assertEqual(projection.count, 12)
         self.assertNotIn("pgvector_knowledge_store",
                          [e["id"] for e in projection.inside])
         vector_edge = next(r for r in projection.relationships if r["id"] == "rel_rag_pgvector")
@@ -103,14 +103,14 @@ class C4GenerationTests(unittest.TestCase):
 
     def test_component_boundary_and_derived_edges(self):
         projection, warnings = self.projection("c4_component_diagnostic")
-        self.assertEqual(projection.count, 9)
+        self.assertEqual(projection.count, 10)
         self.assertEqual(len(projection.inside), 4)
         self.assertTrue(all(e["parent"] == projection.view["container"]
                             for e in projection.inside))
         ids = {r["id"] for r in projection.relationships}
-        self.assertIn("rel_apim_diagnostic_api", ids)
+        self.assertIn("rel_dashboard_diagnostic_api", ids)
         self.assertIn("rel_human_review_postgresql", ids)
-        self.assertNotIn("rel_apim_recommendation_service", ids)
+        self.assertNotIn("rel_dashboard_recommendation_service", ids)
         self.assertNotIn("rel_recommendation_service_postgresql", ids)
         source = c4.generate_puml(self.model, projection, warnings)
         self.assertIn('Container_Boundary(recommendation_service, '
@@ -118,7 +118,7 @@ class C4GenerationTests(unittest.TestCase):
         self.assertEqual(source.count("  Component("), 4)
         self.assertEqual(source.count("\nContainer_Ext("), 3)
         self.assertEqual(source.count("\nContainerDb_Ext("), 1)
-        self.assertEqual(source.count("\nSystem_Ext("), 1)
+        self.assertEqual(source.count("\nSystem_Ext("), 2)
 
     def test_missing_or_unresolved_relationship_fields_fail(self):
         for field in ("label", "protocol"):

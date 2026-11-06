@@ -41,7 +41,7 @@ REQUIRED_REFERENCES = {
 }
 REQUIRED_CHECKS = {
     'pipeline_executions': ['run_attempt > 0'],
-    'evidence_items': ['size_bytes IS NULL OR size_bytes >= 0', '(storage_container IS NULL) = (blob_object_key IS NULL)'],
+    'evidence_items': ['size_bytes IS NULL OR size_bytes >= 0'],
     'diagnoses': ['version > 0', "status <> 'DIAGNOSIS_READY' OR (probable_cause IS NOT NULL AND btrim(probable_cause) <> '' AND diagnosis_ready_at IS NOT NULL)"],
     'human_reviews': ["decision <> 'CORRECTED' OR (actual_cause IS NOT NULL AND btrim(actual_cause) <> '')"],
     'knowledge_documents': ["btrim(provenance) <> ''", "corpus_kind <> 'reviewed_incidents' OR reviewed_incident_id IS NOT NULL"],
@@ -58,6 +58,8 @@ def validate_constraints(domain):
     errors = []
     for entity in domain['entities']:
         name = entity.get('table')
+        if name == 'evidence_items' and any(c.get('name') in {'storage_container', 'blob_object_key'} for c in entity.get('attributes', [])):
+            errors.append('ADR-019 excludes workload Blob locator columns')
         uniques = entity.get('unique_constraints', [])
         actual = {frozenset(c.get('columns', [])) for c in uniques}
         for required in REQUIRED_UNIQUES.get(name, []):

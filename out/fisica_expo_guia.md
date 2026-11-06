@@ -31,7 +31,7 @@ Service Bus also delivers events to NLP (view 02). Persistence and access: view 
 
 [SVG](fisica_expo_02.svg) · [PNG para diapositivas](fisica_expo_02.png)
 
-7 nodos. NLP y RAG usan Python y FastAPI; correlación y diagnóstico usan Java y Spring Boot. Los cuatro servicios tienen runtime propio en Azure Container Apps. NLP utiliza Drain3. Diagnóstico orquesta RAG, que consulta pgvector sobre PostgreSQL, y solicita inferencia a Azure OpenAI, familia GPT-4 sin modelo concreto fijado. Azure OpenAI es externo y no se aloja en Container Apps.
+7 nodos. NLP y RAG usan Python y FastAPI; correlación y diagnóstico usan Java y Spring Boot. Los cuatro servicios tienen runtime propio en Azure Container Apps. NLP utiliza Drain3. Diagnóstico orquesta RAG, que consulta pgvector sobre PostgreSQL, y solicita inferencia a Azure OpenAI con fundación Microsoft Foundry, familia GPT-4 sin modelo concreto fijado. Azure OpenAI es externo y no se aloja en Container Apps.
 
 Input from view 01. PostgreSQL/pgvector: the same physical instance. Consumption and review: view 03.
 
@@ -48,19 +48,17 @@ Input from view 01. PostgreSQL/pgvector: the same physical instance. Consumption
 
 [SVG](fisica_expo_03.svg) · [PNG para diapositivas](fisica_expo_03.png)
 
-10 nodos. El dashboard React y TypeScript se aloja en Azure Static Web Apps. Entra ID autentica y APIM protege y enruta las APIs; ninguno se despliega en Container Apps. Los servicios mantienen datos estructurados en PostgreSQL y evidencias extensas en Azure Blob Storage. La revisión humana se registra dentro del servicio diagnóstico. El workflow publica el artifact con su paso nativo.
+8 nodos. El dashboard React y TypeScript se aloja en Azure Static Web Apps. Entra ID autentica; las APIs usan ingress nativo de ACA y autorización en los servicios. PostgreSQL conserva evidencia saneada; los logs originales permanecen en GitHub Actions. La revisión humana se registra dentro del servicio diagnóstico. El workflow publica el artifact con su paso nativo.
 
-Actions retrieves the diagnosis through APIM and publishes its artifact. Human review is within the diagnostic service.
+Actions retrieves the diagnosis through ACA native ingress and publishes its artifact. Human review is within the diagnostic service.
 
 | Relación canónica | Protocolo |
 |---|---|
 | Persists pipelines, stages, states and execution metadata | PostgreSQL |
 | Persists and queries normalized evidence metadata and references | PostgreSQL |
-| Stores and resolves references to large logs and evidence | Object Storage API |
 | Persists diagnosis, recommendations and evidence links | PostgreSQL |
 | Queries results and records human review | HTTPS |
 | Authenticates corporate users | OIDC/OAuth2/HTTPS |
-| Consumes protected prototype APIs | REST/HTTPS |
 | Routes pipeline and execution queries | REST/HTTPS |
 | Routes log, event and evidence queries | REST/HTTPS |
 | Routes diagnosis and review queries and operations | REST/HTTPS |

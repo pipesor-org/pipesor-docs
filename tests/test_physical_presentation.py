@@ -31,7 +31,7 @@ class PhysicalPresentationTests(unittest.TestCase):
         self.assertEqual(nlp, ["Azure Container Apps", "Python / FastAPI", "Drain3"])
         diagnostic = renderer.technology_lines(self.elements["recommendation_service"])
         self.assertEqual(diagnostic, ["Azure Container Apps", "Java / Spring Boot"])
-        for eid in ("entra_id", "api_management", "pretrained_llm_diagnostic_service", "web_dashboard"):
+        for eid in ("entra_id", "pretrained_llm_diagnostic_service", "web_dashboard"):
             self.assertNotIn("Azure Container Apps", renderer.technology_lines(self.elements[eid]))
 
     def test_does_not_invent_postgresql_host_or_concrete_llm(self):
@@ -40,7 +40,7 @@ class PhysicalPresentationTests(unittest.TestCase):
         llm = self.elements["pretrained_llm_diagnostic_service"]
         self.assertEqual(llm["kind"], "external_system")
         self.assertIsNone(llm["model"])
-        self.assertEqual(renderer.technology_lines(llm), ["GPT-4 family"])
+        self.assertEqual(renderer.technology_lines(llm), ["GPT-4 family", "Microsoft Foundry account/project"])
 
     def test_icons_are_installed_and_embedded_without_local_paths(self):
         fallbacks = set()

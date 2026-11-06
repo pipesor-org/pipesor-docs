@@ -140,7 +140,7 @@ class DesignTests(unittest.TestCase):
         del rel["protocol"]
         self.rejected("protocol must match architecture.yml")
         rel["protocol"] = "REST/HTTPS"
-        rel["architecture_relationship"] = "rel_apim_diagnostic_api"
+        rel["architecture_relationship"] = "rel_dashboard_diagnostic_api"
         self.rejected("endpoint differs")
         self.model = deepcopy(self.design)
         self.item("PostgresAuditTrailAdapter")["persistence"]["tables"] = ["knowledge.knowledge_documents"]

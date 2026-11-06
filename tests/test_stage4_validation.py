@@ -25,6 +25,34 @@ class PolicyRegressionTests(unittest.TestCase):
         self.assertEqual(validate_policy(self.arch), [])
         self.assertEqual(validate_domain(self.domain, self.arch), [])
 
+    def test_mvp_direction_cannot_silently_restore_gateway_blob_or_authorize_deployment(self):
+        for ident in ('api_management', 'object_evidence_store'):
+            arch = deepcopy(self.arch)
+            arch['elements'].append({'id': ident})
+            self.assertTrue(any('ADR-019 excludes' in e for e in validate_policy(arch)))
+        for field, value in (('active_environment', 'prod'), ('deployment_authorized', True)):
+            arch = deepcopy(self.arch)
+            arch['deployment']['mvp_preparation'][field] = value
+            self.assertTrue(any('only dev preparation' in e for e in validate_policy(arch)))
+        arch = deepcopy(self.arch)
+        llm = next(e for e in arch['elements'] if e['id'] == 'pretrained_llm_diagnostic_service')
+        llm['foundation']['authentication'] = 'keys'
+        self.assertTrue(any('Entra-only Foundry' in e for e in validate_policy(arch)))
+        for column in ('storage_container', 'blob_object_key'):
+            domain = deepcopy(self.domain)
+            entity = next(e for e in domain['entities'] if e['table'] == 'evidence_items')
+            field = deepcopy(entity['attributes'][0])
+            field.update(name=column, pk=False)
+            entity['attributes'].append(field)
+            self.assertTrue(any('excludes workload Blob locator' in e for e in validate_domain(domain, self.arch)))
+
+    def test_workflow_query_does_not_authorize_an_evidence_bypass(self):
+        for endpoint in ('rag_retrieval', 'pretrained_llm_diagnostic_service'):
+            arch = deepcopy(self.arch)
+            query = next(r for r in arch['relationships'] if r['id'] == 'rel_github_actions_diagnostic')
+            query['to'] = endpoint
+            self.assertTrue(any('bypasses ingestion' in e for e in validate_policy(arch)))
+
     def test_github_auth_and_workflow_publication(self):
         for auth in (self.arch['deployment']['github_authentication'],
                      next(e for e in self.arch['elements'] if e['id'] == 'github')['authentication']):
