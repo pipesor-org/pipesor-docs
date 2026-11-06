@@ -4,6 +4,22 @@ Estas herramientas desarrollan la documentación; no son decisiones sobre el sta
 runtime de los microservicios. No requieren configuración WSL2. Usar el checkout
 existente y leer `AGENTS.md`. No cambiar modelos para obtener una ejecución verde.
 
+## Alcance de los checks y consumo entre repositorios
+
+La [reconciliación entre repositorios](../architecture/cross-repository-reconciliation.md)
+separa versiones de herramientas documentales, runtime backend y fundaciones IaC.
+El PostgreSQL 16/pgvector usado históricamente en el test desechable no verifica
+la fundación PG17/Entra/red privada ahora implementada en IaC. Un parámetro
+`azure.extensions=vector` en Terraform tampoco ejecuta la extensión SQL.
+
+Para cambios solo documentales, AGENTS exige coherencia, enlaces y diff; no hace
+falta regenerar los SVG ni ejecutar `make all` sobre el checkout. Si se comprueba
+reproducibilidad, `make verify-artifacts` genera solo en copias temporales y puede
+detectar diferencias por el perfil gráfico versionado WSL2 frente a Cloud. Registrar
+el resultado real; no normalizar ni regenerar artefactos ajenos al alcance. Validar
+modelos no demuestra alineamiento con decisiones externas aún sin reconciliar,
+permisos de Azure, despliegue de servicios ni costes reales.
+
 ## Dependencias
 
 Perfil ejecutado el 04/11/2026:
@@ -108,8 +124,10 @@ producto en este repositorio para probar esos controles runtime.
 
 No se resuelven CF-001, TMD, aprobación de fuentes, RBAC, modelo/dimensión de
 embeddings, contratos operacionales ni preguntas de `pending-decisions.md`.
-La discrepancia de colapso implícito C4 descrita en Overview requiere una decisión
-de presentación/gobernanza separada; no se altera aquí la topología aprobada.
+La discrepancia histórica de colapso C4 descrita en Overview debe leerse con
+AGENTS.md vigente: ya documenta y preserva las proyecciones C4 existentes,
+incluida la agrupación PostgreSQL/pgvector. Esto no autoriza agrupaciones nuevas
+ni requiere regenerar diagramas en una reconciliación documental.
 La integración SQL prueba transacciones secuenciales, no carga ni concurrencia
 exhaustiva. Continúan ocho advertencias C4 de metadatos/estilos ya documentadas;
 no se inventan tecnologías/descripciones. No hubo fallback de iconos. No se realizó

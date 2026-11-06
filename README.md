@@ -6,6 +6,24 @@ Este repositorio mantiene la arquitectura como código: modelos, decisiones, val
 
 El repositorio se mantiene en `pipesor-org/pipesor-docs`. Los nombres e IDs históricos se conservan para mantener la trazabilidad.
 
+## Estado entre repositorios — 06/11/2026
+
+La [reconciliación actual](docs/architecture/cross-repository-reconciliation.md)
+registra revisiones exactas de IaC, frontend y los siete servicios. IaC ya contiene
+fundaciones opcionales de ACA/red/monitoring, Service Bus, PostgreSQL, Foundry y
+SWA Free, además de state y presupuesto; no contiene aplicaciones backend ni
+acredita recursos desplegados. Los servicios siguen en readiness y el frontend
+usa fixtures, sin integración backend ni auth implementada. La landing accesible
+es `pipesor-landing` (no `pipesor-landing-page`); contiene código/configuración
+Workers, pero su despliegue no está verificado.
+
+Las decisiones MVP registradas en IaC (native ingress sin APIM, exclusión de Blob
+de workload y preparación dev-only temporal) se distinguen del modelo canónico y
+sus diagramas, que todavía reflejan el baseline anterior. El informe expone las
+contradicciones pendientes sin modificar modelos, aprobar contratos ni convertir
+Terraform en evidencia de despliegue. Consultarlo junto con los ADRs antes de
+implementar; no tomar Overview ni las salidas generadas como inventario cloud.
+
 ## Lectura y estructura
 
 Leer primero [AGENTS.md](AGENTS.md), que define las reglas de trabajo. Consultar después las fuentes de la materia afectada y los ADRs aplicables. [Overview.md](Overview.md) ofrece una síntesis histórica con su propia fecha y revisión de referencia; sus resultados de validación no certifican el checkout actual.
@@ -14,6 +32,7 @@ Leer primero [AGENTS.md](AGENTS.md), que define las reglas de trabajo. Consultar
 |---|---|
 | `model/` | Arquitectura, dominio persistente, diseño de clases, decisiones explicativas y modelos de presentación. |
 | `docs/architecture/decisions/` | ADRs y evolución de decisiones arquitectónicas. |
+| `docs/architecture/cross-repository-reconciliation.md` | Corte actual de evidencia integrada, decisiones externas, drift y dependencias entre repositorios. |
 | `docs/sources/` | Copias íntegras de fuentes y registro de procedencia, integridad y aprobación verificable. |
 | `docs/research/` | Derivación funcional y propuestas, sujetas a los límites arquitectónicos aprobados. |
 | `tools/` | Validadores, generadores y comprobaciones del entorno documental. |

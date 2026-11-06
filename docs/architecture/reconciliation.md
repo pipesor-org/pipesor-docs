@@ -1,5 +1,11 @@
 # Reconciliación documental del Charter, drift y ADRs
 
+La matriz siguiente conserva el corte histórico de etapa 2. Para el estado
+integrado al 06/11/2026, las revisiones vecinas y las discrepancias MVP de
+perímetro, Blob, AI y preparación operativa, consultar la
+[reconciliación entre repositorios](cross-repository-reconciliation.md).
+Ese seguimiento no reescribe las fuentes ni acredita despliegue.
+
 Informe descriptivo de la etapa 2, de 31/10/2026. Base Git inspeccionada: `c1e7e5f4ac2775d0eeb929328d24eb98b2a13265`, junto con los documentos suministrados localmente y los cambios documentales de la etapa 1. Se contrastaron las 50 resoluciones del drift, los 18 ADRs y los modelos existentes. Este informe no cambia decisiones, estados, tecnologías, topologías ni alcance; no resuelve TMD ni CF-001 y no altera documentos propietarios.
 
 ## Fuentes y criterio de lectura

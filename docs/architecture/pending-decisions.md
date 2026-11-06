@@ -2,6 +2,13 @@
 
 Etapa 3, inspección del 04/11/2026 sobre `1879fc6feee772361dd40283f743e0076c509eb7`. Registro descriptivo: agrega preguntas, discrepancias, evidencia faltante y detalles expresamente no especificados. No aprueba decisiones, no cambia estados de las fuentes y no certifica implementación. La aprobación de la etapa 2 autoriza sus cambios documentales; no acredita por sí misma los actos de aprobación de las fuentes que esa etapa declaró no verificables.
 
+Actualización documental del 06/11/2026: las 32 entradas originales se conservan.
+El [corte entre repositorios](cross-repository-reconciliation.md) añade evidencia
+integrada de IaC/servicios/frontend y seguimiento XR-001–008. No incorpora el
+overlay PD-033–036/stage-5 reportado en repositorios vecinos: sus bytes/aprobaciones
+no son recuperables de la revisión docs consultada. Menciones o hashes externos
+no se presentan como contenido integrado ni cierran preguntas de los modelos.
+
 ## Uso y referencias
 
 No existía un registro agregado independiente. La [reconciliación][R] conserva la matriz histórica de 50 resoluciones y sus pendientes; el [índice de decisiones][I] conserva la evolución de los 18 ADRs; el [registro de fuentes][S] conserva procedencia, hashes y límites de aprobación. Este archivo centraliza el seguimiento sin copiar esos registros ni sustituir a los propietarios. Los IDs `PD-*` son localizadores documentales de este agregado, no nuevos IDs de modelos o ADRs.
@@ -88,6 +95,25 @@ Estas entradas no convierten opciones en tecnologías aprobadas ni obligan a res
 | PD-032 — Algoritmos de identidad/hash y versiones de aplicación | DD-013, impacto; dominio: `evidence_items.content_hash`, A-001; ADR-018, Decision. | **Detalle no especificado** (algoritmos y versiones): DD-013 no selecciona algoritmo UUID/hash ni versiones Java/Spring/Python. No confundirlos con SHA-256 de archivo documental o versiones de herramientas de generación. | Precisar solo lo requerido por la implementación autorizada y registrar su respaldo sin presentarlo como decisión ya tomada. | **No identificada**. Afecta compatibilidad/reproducibilidad del backend; no amplía tecnologías aprobadas ni modifica dependencias aquí. |
 
 ## Cobertura y límites de cierre
+
+### Seguimiento entre repositorios — 06/11/2026
+
+Las fuentes exactas y los gates de cada fila están en la
+[matriz XR](cross-repository-reconciliation.md#discrepancias-y-dependencias-que-quedan-abiertas).
+Estos localizadores no renumeran PD/DQ ni crean decisiones arquitectónicas.
+
+| Seguimiento | Evidencia actual y límite | Dependencias existentes / acción pendiente |
+|---|---|---|
+| XR-001 — Ingress | IaC ADR 003 Accepted registra native ingress sin gateway para el MVP; docs/modelo/contratos conservan APIM. | Reconciliación autorizada model-first y exposición/auth por servicio. No se cambia el estado de ADR-003/016 aquí. |
+| XR-002 — Blob de workload | IaC registra exclusión aceptada del MVP; modelo/DD-006/Log/Event conservan objetos. Blob de state está fuera de esa exclusión. | PD-016/017/030/031: alinear recuperación/retención y contratos; la exclusión no resuelve disponibilidad de logs originales en GitHub. |
+| XR-003 — AI | IaC implementa fundación Foundry account/project Entra-only, sin modelos/grants. | PD-005/006/023/026: endpoint/SDK, geografía, embedding/dimensión, corpus y callers siguen abiertos. No inferir modelo del recurso S0. |
+| XR-004 — Entrega y fuente | Los siete contratos siguen readiness no aprobado; PD-033–036 y autoridad de contrato se remiten a overlay no disponible. | PD-010/011/027/031/032 y contratos referidos: recuperar revisión revisada, regla de aprobación, imágenes/config/probes/access/migraciones. No reconstruir PD-035 desde sus menciones. |
+| XR-005 — Scope/gates/coste | IaC ADR 004 acepta preparación local dev-only en Students temporal y aprobaciones dev procedimentales; otras premisas de presupuesto/coste y custodia son históricas. Sin despliegue acreditado. | Revalidar oferta/moneda/forecast, acceso, recuperación y activación tras servicios integrados/validados. Planes un día, backups de state 90 días, soft-delete 30 días y backup PG siete días no sustituyen PD-017/030. |
+| XR-006 — Frontend/landing | SWA Free hosting-only está aceptado e implementado en IaC; frontend sigue fixtures sin auth/API. La landing accesible es `pipesor-landing` con código y CI dry-run; Workers live solo reportado. | Evidencia de landing/dominios, routing/CORS, Entra y configuración pública de runtime/promoción aún pendiente; no afirmar DNS/TLS ni sitio desplegado. |
+| XR-007 — Mensajería/datos | Namespace Standard implementado; entidades/topología siguen diferidas, sin SQL/grants ejecutados. | PD-015/031 y PD-033 reportado: aceptación de topología, schemas/filtros/TTL/settlement, idempotencia/DLQ y llegada independiente de datos. |
+| XR-008 — Representaciones | Los modelos/diagramas conservan baseline canónico, no reflejan aún las excepciones MVP ni son inventario cloud. | Mantener historial y perfiles de reproducibilidad; actualizar derivados solo en un cambio autorizado de sus fuentes. |
+
+### Cobertura histórica de las 32 entradas originales
 
 - **32 entradas:** 2 discrepancias, 9 preguntas únicas, 13 asuntos de evidencia/procedencia, 1 referencia desactualizada y 7 detalles explícitamente diferidos.
 - **Modelos:** DQ-001–006 → PD-003–008; DCQ-001–003 → PD-009–011; DQ-002 de diseño → PD-004. CF-001 → PD-002; TMD → PD-001. A-001–012 y DA-001–006 conservan su condición de supuestos; su inclusión como evidencia no los aprueba ni exige convertir cada supuesto en otra pregunta.
