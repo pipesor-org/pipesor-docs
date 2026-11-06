@@ -90,3 +90,7 @@ python3 -B tools/validate_design.py model/design.yml model/architecture.yml mode
 ```
 
 El [registro agregado de decisiones pendientes](docs/architecture/pending-decisions.md) centraliza preguntas abiertas, discrepancias y evidencias faltantes, conservando los estados de sus fuentes. La recuperación de fuentes ausentes, el cierre de esos asuntos, los contratos entre repositorios y el fortalecimiento de la reproducibilidad permanecen como trabajo posterior.
+
+## Convenciones de desarrollo backend
+
+Consultar las [convenciones comunes](docs/development/backend-conventions.md) y las [convenciones Java/Spring](docs/development/java-spring-conventions.md), acordadas para la primera iteración y revisables. No sustituyen los modelos fuente ni aprueban contratos pendientes.
