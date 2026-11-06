@@ -1,6 +1,6 @@
 # Convenciones Java y Spring
 
-Acuerdo inicial del 2026-11-06. Aplicar junto con las [convenciones backend](backend-conventions.md). Alcance: ingestion_normalization_service, pipeline_service, log_event_service, evidence_correlation_engine y recommendation_service. Maven, Java/Spring Boot según ADR-018 y la base de desarrollo del servicio. Versiones exactas se comprobarán y fijarán al implementar.
+Acuerdo inicial del 2026-11-06, refinado por indicación del usuario tras la revisión de Clean Architecture de Pipeline Service en la misma fecha. Este refinamiento permanece local hasta su revisión e integración. Sigue vigente el historial integrado del acuerdo inicial. Aplicar junto con las [convenciones backend](backend-conventions.md). Alcance: ingestion_normalization_service, pipeline_service, log_event_service, evidence_correlation_engine y recommendation_service. Maven, Java/Spring Boot según ADR-018 y la base de desarrollo del servicio. Versiones exactas se comprobarán y fijarán al implementar.
 
 ## Estructura por funcionalidad
 
@@ -12,10 +12,11 @@ src/main/java/<paquete-base>/<servicio>/
         aggregates/
         entities/
         valueobjects/
-        commands/
-        queries/
       services/
     application/
+      commands/
+      queries/
+      services/
       commandhandlers/
       queryhandlers/
       ports/
@@ -43,15 +44,21 @@ Crear únicamente los paquetes necesarios. Las pruebas reflejan la funcionalidad
 
 ## Contratos, handlers y transformers
 
-Command y Query son records internos inmutables en domain/model/commands y queries. No contienen recursos HTTP, tipos Azure, anotaciones JPA o dependencias de Spring. Las interfaces de servicio en domain/services expresan capacidades del negocio; las implementaciones en application/commandhandlers y queryhandlers coordinan el caso de uso. No crear interfaces para toda clase ni un dispatcher genérico.
+Command y Query son records internos inmutables en application/commands y application/queries. Las interfaces que describen casos de uso viven en application/services y las implementaciones en application/commandhandlers y queryhandlers. Reservar domain/services para operaciones propias del negocio, no coordinación de casos de uso. Dominio y aplicación permanecen libres de Spring, JPA, tipos Azure y recursos HTTP. Registrar handlers mediante configuración externa con dependencias por constructor. Esta revisión sustituye expresamente la ubicación inicial de estos contratos en domain. No crear interfaces para toda clase ni un dispatcher genérico.
 
-Los puertos de I/O requeridos por aplicación viven en application/ports y sus implementaciones en infrastructure. El dominio no depende de aplicación. Los handlers establecen los límites transaccionales necesarios. Las queries devuelven proyecciones específicas cuando corresponda; no exponer entidades JPA.
+Los puertos de I/O requeridos por aplicación viven en application/ports y sus implementaciones en infrastructure. El dominio no depende de aplicación. El caso de uso determina la atomicidad necesaria, y la composición técnica implementa su transacción sin anotar el handler con Spring. En una consulta simple la transacción puede envolver el adaptador y su transformación. Un comando con varias escrituras requiere una transacción alrededor de todo el caso de uso mediante infraestructura; no dividirla entre adaptadores. Las queries devuelven proyecciones específicas cuando corresponda; no exponer entidades JPA.
 
 Transformaciones: recurso REST o mensaje → Command/Query; resultado de dominio o proyección → recurso de respuesta; entidad JPA ↔ dominio en infraestructura. Los transformers de interfaces viven junto al adaptador correspondiente, los de persistencia junto a JPA. Usar métodos explícitos inicialmente; invocar constructores/fábricas del dominio para preservar invariantes.
 
+## Agregados y objetos de valor
+
+Entity expresa identidad estable. Aggregate delimita invariantes que deben mantenerse consistentes y sus modificaciones pasan por una raíz, que también es Entity. Una tabla o una FK no determina un agregado. Documentar invariantes, raíz y atomicidad antes del primer comando; no crear una base AggregateRoot vacía para simular el diseño.
+
+Un Value Object aporta significado, igualdad por valor, validación o prevención de confusiones concretas. UUID e Instant ya son tipos de valor útiles. Introducir RepositoryId, PipelineId o un identificador externo propio cuando las reglas o los casos de uso justifiquen esa distinción; no envolver todos los campos. La lectura CQRS puede usar proyecciones sin reconstruir agregados.
+
 ## Persistencia y clases base
 
-Spring Data JPA con Hibernate es la opción acordada para servicios Java con tablas propias. Mantener modelos JPA en infraestructura y dominio libre de anotaciones ORM. Usar proyecciones o SQL explícito cuando una consulta lo justifique. Sin navegación JPA entre contextos; asociaciones dentro del contexto solo cuando el caso de uso las requiera.
+Spring Data JPA con Hibernate es la opción acordada para servicios Java con tablas propias. Distinguir el puerto de lectura de aplicación, su adaptador JPA y la interfaz técnica de Spring Data (por ejemplo SpringDataGitHubRepository). Un repositorio de agregados para comandos debe expresar el contrato en términos de dominio; no confundirlo con esa interfaz técnica. Mantener modelos JPA en infraestructura y dominio libre de anotaciones ORM. Usar proyecciones o SQL explícito cuando una consulta lo justifique. Sin navegación JPA entre contextos; asociaciones dentro del contexto solo cuando el caso de uso las requiera.
 
 Usar la estrategia estándar soportada por la versión de Spring Boot/Hibernate elegida para nombres físicos snake_case en minúsculas, sin normalizador propio. Declarar explícitamente @Table(name = "pipeline_executions", schema = "ops") y nombres de columnas cuando corresponda al modelo. No inferir pluralización desde nombres de clases; JPA y Flyway deben coincidir con model/domain.yml.
 
