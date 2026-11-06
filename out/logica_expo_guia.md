@@ -28,7 +28,7 @@ Input from view 01. Diagnosis persistence, querying and human review: view 03.
 
 [Abrir SVG](logica_expo_03.svg) · [PNG para diapositivas](logica_expo_03.png)
 
-10 nodos. Los usuarios se autentican con Entra ID y consumen el dashboard mediante APIs protegidas por APIM. Los servicios consultan y conservan contexto, evidencia, diagnósticos y revisión humana. GitHub Actions recupera el diagnóstico mediante APIM y publica el artifact con un paso nativo.
+8 nodos. Los usuarios se autentican con Entra ID y consumen el dashboard mediante APIs mediante ingress nativo de ACA. Los servicios consultan y conservan contexto, evidencia, diagnósticos y revisión humana. GitHub Actions recupera el diagnóstico mediante ingress nativo de ACA y publica el artifact con un paso nativo.
 
 Services from views 01/02 reappear as the same elements. Actions publishes its own artifact.
 
@@ -43,7 +43,6 @@ Las cajas de agrupación organizan la lectura; no son nuevos elementos arquitect
 | Delivers normalized evidence for registration and querying | Azure Service Bus | logica_expo_01 |
 | Persists pipelines, stages, states and execution metadata | PostgreSQL | logica_expo_03 |
 | Persists and queries normalized evidence metadata and references | PostgreSQL | logica_expo_03 |
-| Stores and resolves references to large logs and evidence | Object Storage API | logica_expo_03 |
 | Persists diagnosis, recommendations and evidence links | PostgreSQL | logica_expo_03 |
 | Retrieves authorized logs, artifacts and metadata | GitHub API/HTTPS | logica_expo_01 |
 | Publishes normalized and protected evidence | Azure Service Bus | logica_expo_01 |
@@ -57,7 +56,6 @@ Las cajas de agrupación organizan la lectura; no son nuevos elementos arquitect
 | Requests authorized contextual knowledge for the incident | REST/HTTPS | logica_expo_02 |
 | Requests diagnostic inference with sanitized evidence and RAG context | Azure OpenAI API/HTTPS | logica_expo_02 |
 | Authenticates corporate users | OIDC/OAuth2/HTTPS | logica_expo_03 |
-| Consumes protected prototype APIs | REST/HTTPS | logica_expo_03 |
 | Routes pipeline and execution queries | REST/HTTPS | logica_expo_03 |
 | Routes log, event and evidence queries | REST/HTTPS | logica_expo_03 |
 | Routes diagnosis and review queries and operations | REST/HTTPS | logica_expo_03 |

@@ -1,6 +1,6 @@
 # Decisiones propuestas del diseño de clases
 
-SSOT exclusivo: `model/design.yml`, versión 1.0.0. Todas las clases son
+SSOT exclusivo: `model/design.yml`, versión 1.1.0. Todas las clases son
 `proposed`: este repositorio DaC no contiene el microservicio Java/Spring Boot.
 Estas decisiones concretan clases dentro de las fronteras ya aprobadas; no
 modifican ADR-018 ni resuelven preguntas del dominio.
@@ -65,3 +65,5 @@ rehidratación del contexto operacional al consultar el read model; no elige
 almacenamiento ni una comunicación nueva. Las restantes preguntas de
 `domain.yml` siguen intactas. Ninguna de estas decisiones necesita una nueva
 decisión arquitectónica para generar las figuras propuestas.
+
+Alineación ADR-019: las referencias de ingress de los controllers propuestos apuntan ahora a la proyección de dashboard → Diagnostic API por ACA, sin salto APIM. Las clases continúan propuestas y DCQ-001–003/DQ-002 abiertas; no se fijan rutas ni DTO.

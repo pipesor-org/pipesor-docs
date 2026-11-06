@@ -194,27 +194,24 @@ Table ops.pipeline_access_grants {
 }
 
 Table evidence.evidence_items {
-  id uuid [pk, not null, note: 'Identificador estable asignado por el servicio propietario. Assumption: A-001. Fuente: architecture.yml#log_event_service, architecture.yml#object_evidence_store, architecture.yml#INV-001, SRC_ADR_013, DD-006']
-  incident_id uuid [not null, note: 'Incidente asociado por ID lógico. Referencia lógica a ops.incidents.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#log_event_service, architecture.yml#object_evidence_store, architecture.yml#INV-001, SRC_ADR_013, DD-006']
-  execution_id uuid [not null, note: 'Ejecución observada por ID lógico. Referencia lógica a ops.pipeline_executions.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#log_event_service, architecture.yml#object_evidence_store, architecture.yml#INV-001, SRC_ADR_013, DD-006']
+  id uuid [pk, not null, note: 'Identificador estable asignado por el servicio propietario. Assumption: A-001. Fuente: architecture.yml#log_event_service, SRC_ADR_019, architecture.yml#INV-001, SRC_ADR_013, DD-006']
+  incident_id uuid [not null, note: 'Incidente asociado por ID lógico. Referencia lógica a ops.incidents.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#log_event_service, SRC_ADR_019, architecture.yml#INV-001, SRC_ADR_013, DD-006']
+  execution_id uuid [not null, note: 'Ejecución observada por ID lógico. Referencia lógica a ops.pipeline_executions.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#log_event_service, SRC_ADR_019, architecture.yml#INV-001, SRC_ADR_013, DD-006']
   correlation_id text [not null, note: 'Identificador de correlación end-to-end; no contiene información sensible. Fuente: architecture.yml#CTRL-003']
-  source text [not null, note: 'Procedencia operacional autorizada, independiente de provenance RAG. Fuente: architecture.yml#log_event_service, architecture.yml#object_evidence_store, architecture.yml#INV-001, SRC_ADR_013, DD-006']
-  stage evidence.PipelineStage [not null, note: 'Etapa operacional observada. Fuente: architecture.yml#log_event_service, architecture.yml#object_evidence_store, architecture.yml#INV-001, SRC_ADR_013, DD-006']
-  job text [null, note: 'Job externo cuando existe. Fuente: architecture.yml#log_event_service, architecture.yml#object_evidence_store, architecture.yml#INV-001, SRC_ADR_013, DD-006']
-  summary text [not null, note: 'Resumen normalizado y saneado. Fuente: architecture.yml#log_event_service, architecture.yml#object_evidence_store, architecture.yml#INV-001, SRC_ADR_013, DD-006']
-  excerpt text [null, note: 'Extracto minimizado y enmascarado; nunca payload sensible crudo. Fuente: architecture.yml#log_event_service, architecture.yml#object_evidence_store, architecture.yml#INV-001, SRC_ADR_013, DD-006']
-  observed_at timestamptz [not null, note: 'Instante observado en la fuente. Assumption: A-002. Fuente: architecture.yml#log_event_service, architecture.yml#object_evidence_store, architecture.yml#INV-001, SRC_ADR_013, DD-006']
-  sequence bigint [null, note: 'Orden de evidencia cuando la fuente lo proporciona. Fuente: architecture.yml#log_event_service, architecture.yml#object_evidence_store, architecture.yml#INV-001, SRC_ADR_013, DD-006']
-  storage_container text [null, note: 'Nombre de container Blob; sin tokens, credenciales ni URL SAS. Fuente: architecture.yml#log_event_service, architecture.yml#object_evidence_store, architecture.yml#INV-001, SRC_ADR_013, DD-006']
-  blob_object_key text [null, note: 'Clave del objeto Blob; sin SAS ni material secreto. Fuente: architecture.yml#log_event_service, architecture.yml#object_evidence_store, architecture.yml#INV-001, SRC_ADR_013, DD-006']
-  content_hash text [null, note: 'Hash del objeto cuando existe; algoritmo no fijado. Fuente: architecture.yml#log_event_service, architecture.yml#object_evidence_store, architecture.yml#INV-001, SRC_ADR_013, DD-006']
-  size_bytes bigint [null, note: 'Tamaño externo en bytes cuando está disponible. Fuente: architecture.yml#log_event_service, architecture.yml#object_evidence_store, architecture.yml#INV-001, SRC_ADR_013, DD-006']
+  source text [not null, note: 'Procedencia operacional autorizada, independiente de provenance RAG. Fuente: architecture.yml#log_event_service, SRC_ADR_019, architecture.yml#INV-001, SRC_ADR_013, DD-006']
+  stage evidence.PipelineStage [not null, note: 'Etapa operacional observada. Fuente: architecture.yml#log_event_service, SRC_ADR_019, architecture.yml#INV-001, SRC_ADR_013, DD-006']
+  job text [null, note: 'Job externo cuando existe. Fuente: architecture.yml#log_event_service, SRC_ADR_019, architecture.yml#INV-001, SRC_ADR_013, DD-006']
+  summary text [not null, note: 'Resumen normalizado y saneado. Fuente: architecture.yml#log_event_service, SRC_ADR_019, architecture.yml#INV-001, SRC_ADR_013, DD-006']
+  excerpt text [null, note: 'Extracto minimizado y enmascarado; nunca payload sensible crudo. Fuente: architecture.yml#log_event_service, SRC_ADR_019, architecture.yml#INV-001, SRC_ADR_013, DD-006']
+  observed_at timestamptz [not null, note: 'Instante observado en la fuente. Assumption: A-002. Fuente: architecture.yml#log_event_service, SRC_ADR_019, architecture.yml#INV-001, SRC_ADR_013, DD-006']
+  sequence bigint [null, note: 'Orden de evidencia cuando la fuente lo proporciona. Fuente: architecture.yml#log_event_service, SRC_ADR_019, architecture.yml#INV-001, SRC_ADR_013, DD-006']
+  content_hash text [null, note: 'Hash del objeto cuando existe; algoritmo no fijado. Fuente: architecture.yml#log_event_service, SRC_ADR_019, architecture.yml#INV-001, SRC_ADR_013, DD-006']
+  size_bytes bigint [null, note: 'Tamaño externo en bytes cuando está disponible. Fuente: architecture.yml#log_event_service, SRC_ADR_019, architecture.yml#INV-001, SRC_ADR_013, DD-006']
   created_at timestamptz [not null, note: 'Instante de persistencia; permite aplicar retención cuando corresponde. Assumption: A-002. Fuente: SRC_ADR_013, DD-015']
   checks {
     `size_bytes IS NULL OR size_bytes >= 0` [name: 'evidence_items_check_1']
-    `(storage_container IS NULL) = (blob_object_key IS NULL)` [name: 'evidence_items_check_2']
   }
-  Note: 'Metadata y extracto normalizado; logs grandes en Azure Blob Storage por referencia sin SAS ni secretos. Owner: log_event_service. approved_domain / confirmed.'
+  Note: 'Metadata y extracto normalizado en PostgreSQL; logs originales en GitHub Actions. Recuperación y conservación independientes siguen pendientes (ADR-019). Owner: log_event_service. approved_domain / confirmed.'
 }
 
 Table evidence.correlated_contexts {

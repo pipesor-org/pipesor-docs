@@ -5,6 +5,12 @@ aprobación de arquitectura/despliegue. Distingue lo declarado en decisiones, c�
 integrado, propuestas y recursos realmente observados. Las fuentes vecinas se
 consultaron en copias temporales de sus ramas por defecto; no se modificaron.
 
+## Evolución posterior: alineación canónica MVP
+
+La [decisión ADR-019](decisions/ADR-019-align-mvp-with-iac.md) registra la confirmación explícita del usuario del 06/11/2026 y la alineación model-first de native ingress, exclusión de Blob de workload, Foundry y preparación dev-only. Resuelve el desfase de representación canónica de XR-001/002/003/005; no cierra contratos, autenticación, grants/modelos AI, conservación/recuperación ni preparación de despliegue. Los datos de IaC se contrastaron también con `4b42c0c8e66578dfb890ae1cca8c9c31c774026e` (incluye el ciclo de identidad por aplicación).
+
+Las tablas siguientes conservan el corte histórico previo a esa alineación. Sus expresiones «modelo conserva APIM/Blob» y «reflejo canónico pendiente» describen ese corte, no el modelo activo posterior a ADR-019. El Blob de state y las autorizaciones específicas de operaciones Azure permanecen separados.
+
 ## Baseline verificable
 
 El checkout de docs comenzó limpio en `main@c0871ac9a62bad62b8c679255fe0a4b9c6574d2e`.
@@ -51,13 +57,21 @@ un suplemento fuera de `pipesor-docs@c0871ac`:
 - `docs/architecture/stage-5-result.md`, entonces sin seguimiento, SHA-256
   `1a1228c6869cbe602ff78c0ba0c87466db4b6c7cc9d3500f6b6c3e9e7d86d6a0`.
 
-Ese contenido no está disponible en el checkout sincronizado. Los hashes y las
+En el checkout sincronizado usado para este corte ese contenido no estaba disponible. Los hashes y las
 menciones externas no recuperan sus bytes ni prueban aprobación. PD-033–036 se
 usan en los servicios para eventos, APIs, entrega backend–IaC y acceso de workflows;
 este informe registra esas referencias externas sin reconstruir las entradas ni
 atribuirlas al registro de 32 PD integrado. La autoridad Jhon Galvez/Ramiro Guzman
 es reportada por esos documentos; no se verificó CODEOWNERS ni la regla de una o
 ambas aprobaciones. Recuperar una revisión revisada y publicable sigue pendiente.
+
+### Recuperación posterior en la rama local de etapa 5
+
+Al reconciliar esta rama con `origin/main@f02f7cf8b902be80a07e4653d8389fef50e815d0`, se comprobaron los dos archivos locales antes de integrarlos: sus SHA-256 coincidían exactamente con los citados arriba. El [registro ampliado](pending-decisions.md#ampliación-de-etapa-5-contratos-de-consumo) y el [informe de etapa 5](stage-5-result.md) quedan recuperados en el árbol local; su publicación/revisión y la aprobación de contratos concretos siguen siendo asuntos diferentes. Las modificaciones de reconciliación posteriores cambian sus hashes; los hashes anteriores identifican el suplemento previo a esta integración, preservado en la copia de seguridad local.
+
+La autoridad de aprobación de contratos Jhon Galvez/Ramiro Guzman está respaldada por la indicación del usuario en esta conversación, transcrita en el registro ampliado. No se ha establecido si deben aprobar ambos ni se ha verificado una configuración equivalente en GitHub. XR-004 se actualiza en ese sentido: recuperar bytes deja de ser un bloqueo local; disponer de una revisión publicable y aprobaciones concretas sigue pendiente. Las filas XR siguientes conservan el corte remoto original, con esta actualización de disponibilidad para XR-004.
+
+PD-033/034/035/036 corresponden respectivamente a eventos, APIs, entrega backend–IaC y acceso de workflows. Complementan XR-007/004; PD-034/036 deben leerse junto con la discrepancia de perímetro XR-001. La recuperación no aplica automáticamente las decisiones externas a los modelos/ADRs ni resuelve XR-001/002/003.
 
 ## Estados que no deben confundirse
 

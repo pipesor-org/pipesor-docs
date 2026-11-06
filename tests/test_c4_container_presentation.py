@@ -21,7 +21,7 @@ class C4ContainerPresentationTests(unittest.TestCase):
         originals, _ = renderer.c4.prepare(self.architecture)
         originals = {p.view["id"]: p for p in originals}
         self.assertEqual(self.architecture, before)
-        self.assertEqual([(p.count, len(p.relationships)) for _, p in adapted], [(13, 18), (10, 12)])
+        self.assertEqual([(p.count, len(p.relationships)) for _, p in adapted], [(12, 18), (8, 10)])
         for view, projected in adapted:
             source = originals[view["source_view"]]
             self.assertEqual(projected.inside, source.inside)

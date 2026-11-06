@@ -1,6 +1,6 @@
 # Navegación C4 → diseño de clases
 
-Modelo 1.0.0 — Diseño propuesto
+Modelo 1.1.0 — Diseño propuesto
 
 SSOT: `model/design.yml`. Las figuras C4 existentes conservan su modelo y membresía.
 
