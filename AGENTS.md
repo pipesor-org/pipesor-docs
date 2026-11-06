@@ -41,6 +41,10 @@ Never edit generated files manually.
 - Architecture changes are model-first and require explicit instruction.
 - Never modify the architecture model merely to make a validator or renderer succeed.
 
+## Backend development conventions
+
+For backend development documentation and implementation guidance, consult [common conventions](docs/development/backend-conventions.md) and, for Java services, [Java/Spring conventions](docs/development/java-spring-conventions.md). These session-authorized conventions do not change model ownership, approve integration contracts or add columns implicitly.
+
 ## Validation
 
 Use the repository Makefile as the canonical execution interface when execution is relevant to the task.
