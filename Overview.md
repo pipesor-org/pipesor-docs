@@ -1,5 +1,11 @@
 # Overview — Línea base arquitectónica del prototipo AIOps
 
+> Inspección histórica: conservar sus fechas, revisiones y resultados como tales.
+> El [corte entre repositorios del 06/11/2026](docs/architecture/cross-repository-reconciliation.md)
+> registra el estado integrado actual y las discrepancias pendientes de los
+> modelos/diagramas frente a decisiones MVP de IaC. Este Overview no es un
+> inventario de recursos desplegados ni evidencia de checks actuales.
+
 - **Fecha de inspección:** 19 de octubre de 2026.
 - **Repositorio inspeccionado:** `pipesor-docs`.
 - **Revisión de referencia:** `80f5727b01b461c6e685ff708f9fab2c33eef623` — último commit del 7 de octubre de 2026.

@@ -6,6 +6,14 @@ El Charter determina objetivos, alcance y restricciones. El drift registra cambi
 
 ## Decisiones por tema
 
+El cuadro describe los ADRs **de este repositorio**. Los ADR 003/004 de
+`pipesor-iac` tienen numeración y alcance propios: no son estos ADR-003/004.
+El [contraste entre repositorios](../cross-repository-reconciliation.md#discrepancias-y-dependencias-que-quedan-abiertas)
+registra la aceptación MVP de native ingress, la exclusión de Blob de workload,
+Foundry y la preparación dev-only, junto con los reflejos canónicos pendientes.
+No se ha ejecutado aquí una sustitución de ADRs ni una actualización model-first;
+los enlaces de las decisiones anteriores y sus estados se preservan.
+
 Cada enlace de ADR identifica su sección `Decision`; los límites de la última columna deben leerse junto con esa decisión. «Vigente» se refiere al estado documentado, no a despliegue ni a ratificación independiente.
 
 | ADR | Tema y decisión documentada | Lectura vigente y límites |
