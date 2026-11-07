@@ -94,3 +94,7 @@ El [registro agregado de decisiones pendientes](docs/architecture/pending-decisi
 ## Convenciones de desarrollo backend
 
 Consultar las [convenciones comunes](docs/development/backend-conventions.md) y las [convenciones Java/Spring](docs/development/java-spring-conventions.md), acordadas para la primera iteración y revisables. No sustituyen los modelos fuente ni aprueban contratos pendientes.
+
+## Conexión GitHub y alta de workflows
+
+[ADR-020](docs/architecture/decisions/ADR-020-github-user-access-and-workflow-onboarding.md) registra la decisión aprobada el 06/11/2026: Entra vinculado explícitamente con GitHub, tokens de usuario para selección/acceso humano e installation tokens para monitoreo continuo. Dashboard, Ingestion y Pipeline tienen cambios directos; Log/Event y Recommendation tienen dependencias de autorización para sus APIs humanas. No se añade microservicio ni acceso GitHub a Python/correlación. La política funcional queda aprobada; los contratos, custodia y almacenamiento técnico siguen pendientes. El código local y los diagramas no prueban integración ni despliegue.

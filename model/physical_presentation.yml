@@ -13,6 +13,9 @@ collapse:
   diagnostic_output_component: recommendation_service
 
 relationship_labels:
+  rel_ingestion_github_connection: "Connects and verifies GitHub access"
+  rel_pipeline_ingestion_github_access: "Verifies GitHub user access"
+  rel_dashboard_ingestion_github_connection: "Connects GitHub and selects workflows"
   rel_github_github_actions: "Repository and workflows"
   rel_github_actions_ingestion_event: "Workflow events"
   rel_ingestion_github_actions_read: "Queries logs and artifacts"

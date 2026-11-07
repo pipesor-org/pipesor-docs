@@ -38,6 +38,13 @@ def validate_policy(doc):
         ):
             if any(auth.get(k) != v for k, v in expected.items()):
                 errors.append(f'{location}: ADR-005 requires GitHub App/read_only/installation_token')
+        for location, auth in (
+            ('github.authentication', elements.get('github', {}).get('authentication', {})),
+            ('deployment.github_authentication', doc.get('deployment', {}).get('github_authentication', {})),
+        ):
+            if (auth.get('user_credential_type') != 'user_access_token'
+                    or auth.get('user_connection_owner') != 'ingestion_normalization_service'):
+                errors.append(f'{location}: ADR-020 requires user tokens owned by Ingestion')
         for r in relations:
             endpoints = {r.get('from'), r.get('to')}
             if endpoints & {'github', 'github_actions'}:

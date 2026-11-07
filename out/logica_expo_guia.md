@@ -61,7 +61,10 @@ Las cajas de agrupación organizan la lectura; no son nuevos elementos arquitect
 | Routes diagnosis and review queries and operations | REST/HTTPS | logica_expo_03 |
 | Persists human review decisions and traceability | PostgreSQL | logica_expo_03 |
 | Queries diagnostic_output to publish the workflow artifact | REST/HTTPS | logica_expo_03 |
+| Authorizes users and verifies GitHub identity, installations and repository access | OAuth/HTTPS + REST/HTTPS | logica_expo_01 |
+| Requests verified user access and workflow metadata without GitHub credentials | REST/HTTPS | logica_expo_01 |
 
 ## Relaciones entre vistas
 
 - `rel_correlation_postgresql`: Evidence Correlation Service → PostgreSQL: Records correlated context and traceability (PostgreSQL).
+- `rel_dashboard_ingestion_github_connection`: AIOps Web Dashboard → Ingestion and Normalization Service: Connects GitHub identity and selects authorized repositories/workflows (REST/HTTPS).

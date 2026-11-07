@@ -28,6 +28,7 @@ node_summaries:
   web_dashboard: "Querying and human review"
 
 relationship_labels:
+  rel_pipeline_ingestion_github_access: "Verifies GitHub user access"
   rel_github_actions_ingestion_event: "Workflow events"
   rel_service_bus_pipeline_service: "Execution context"
   rel_service_bus_log_event_service: "Normalized evidence"
@@ -86,6 +87,7 @@ views:
       postgresql_operational_store: [450, 245]
       rag_retrieval: [720, 245]
     routes:
+      rel_pipeline_ingestion_github_access: {from: n, to: n, via: [[990, 915], [450, 915]], label: [585, 915]}
       rel_github_actions_ingestion_event: {from: e, to: w, via: [], label: [300, 810]}
       rel_service_bus_pipeline_service: {from: e, to: w, via: [], label: [855, 810]}
       rel_service_bus_log_event_service: {from: n, to: n, via: [[720, 900], [1260, 900]], label: [1050, 900]}

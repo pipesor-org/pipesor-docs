@@ -26,6 +26,8 @@ Service Bus also delivers events to NLP (view 02). Persistence and access: view 
 | Publishes normalized and protected evidence | Azure Service Bus |
 | Provides the repository, commits and CI/CD workflow definitions | GitHub API/HTTPS |
 | Provides authorized telemetry and operational evidence | REST/HTTPS |
+| Authorizes users and verifies GitHub identity, installations and repository access | OAuth/HTTPS + REST/HTTPS |
+| Requests verified user access and workflow metadata without GitHub credentials | REST/HTTPS |
 
 ## Physical View 02 — Assisted Diagnosis Runtime
 
@@ -68,6 +70,7 @@ Actions retrieves the diagnosis through ACA native ingress and publishes its art
 ## Relaciones entre vistas
 
 - `rel_correlation_postgresql`: Evidence Correlation Service → PostgreSQL: Records correlated context and traceability (PostgreSQL).
+- `rel_dashboard_ingestion_github_connection`: AIOps Web Dashboard → Ingestion and Normalization Service: Connects GitHub identity and selects authorized repositories/workflows (REST/HTTPS).
 
 ## Advertencias
 

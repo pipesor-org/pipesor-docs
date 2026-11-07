@@ -1993,8 +1993,12 @@ open_questions:
 - id: DQ-005
   topic: pipeline_rbac
   status: open_question
-  description_es: Implementación final de RBAC granular por pipeline.
+  description_es: ADR-020 aprueba la política MVP de capacidades condicionadas al acceso GitHub.
+    Pendientes representación física definitiva, recuperación de acceso y contratos de autorización;
+    no reabrir la política ni promover grants inferred automáticamente.
 - id: DQ-006
   topic: monitored_workflow_registration
   status: open_question
-  description_es: Política funcional final para alta de workflows monitorizados.
+  description_es: ADR-020 aprueba el alta con administración GitHub verificada y creación/reutilización
+    de Repository por Pipeline. Pendientes contrato REST versionado, custodia y esquema técnico
+    del conector; la política funcional MVP ya está aprobada.
