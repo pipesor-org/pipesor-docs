@@ -1,7 +1,7 @@
 architecture:
   id: ey_aiops_ci_cd_diagnosis
   name: "AIOps Prototype for CI/CD Failure Diagnosis"
-  model_version: "0.5.0-mvp-iac-alignment"
+  model_version: "0.6.0-github-user-access"
   phase: "phase_4_c4_views"
   status: draft
   renderable: true
@@ -118,6 +118,10 @@ sources:
     file: docs/architecture/decisions/ADR-019-align-mvp-with-iac.md
     role: approved_architectural_decision
 
+  - id: SRC_ADR_020
+    file: docs/architecture/decisions/ADR-020-github-user-access-and-workflow-onboarding.md
+    role: approved_architectural_decision
+
 layers:
   - id: L1
     name: "Presentation and Operational Consumption"
@@ -216,6 +220,9 @@ elements:
       mechanism: GitHub App
       access: read_only
       credential_type: installation_token
+      user_credential_type: user_access_token
+      user_connection_owner: ingestion_normalization_service
+      source: SRC_ADR_020
     status: confirmed
     source:
       - SRC_DRIFT#Repositorio-y-plataforma-CI-CD-principal
@@ -305,6 +312,15 @@ elements:
       - data_minimization
       - correlation_id_assignment
       - evidence_metadata_capture
+      - github_user_connection
+      - github_user_access_verification
+      - github_repository_workflow_discovery
+    github_connection:
+      kind: internal_component
+      credential_owner: ingestion_normalization_service
+      technical_storage_design: pending
+      authorization_policy_owner: resource_owning_service
+      source: SRC_ADR_020
     canonical_event_context:
       - pipeline
       - execution
@@ -322,6 +338,7 @@ elements:
     status: confirmed
     source:
       - SRC_ADR_018
+      - SRC_ADR_020
       - "TP202620027 - Product Backlog v.1.0.xlsx#Backlog_Detallado!A5:K17"
       - "TP202620027 - Historias de Usuario v.1.0.xlsx#HIstoria de Usuario!A6:I33"
       - "TP202620027 - Plan de trabajo v.1.0.xlsx#Plan de Trabajo!B21:C26"
@@ -392,6 +409,7 @@ elements:
     layer: L5
     responsibilities:
       - register_pipeline
+      - authorize_pipeline_with_verified_github_access
       - register_execution
       - maintain_pipeline_stages
       - maintain_execution_state
@@ -408,6 +426,7 @@ elements:
     status: confirmed
     source:
       - SRC_ADR_018
+      - SRC_ADR_020
       - "TP202620027 - Product Backlog v.1.0.xlsx#Backlog_Detallado!A19:K19"
       - "TP202620027 - Historias de Usuario v.1.0.xlsx#HIstoria de Usuario!A34:I35"
       - "TP202620027 - Plan de trabajo v.1.0.xlsx#Plan de Trabajo!B28:C28"
@@ -710,6 +729,8 @@ elements:
     - human_review_status_display
     - distinguish_generated_hypothesis_from_validated_diagnosis
     - role_protected_access
+    - github_account_connection
+    - authorized_workflow_selection
     backend_contract:
       entry_point: Azure Container Apps native ingress
       protocol: REST/HTTPS
@@ -717,6 +738,7 @@ elements:
       - pipeline_service
       - log_event_service
       - recommendation_service
+      - ingestion_normalization_service
     technology:
       decision_status: closed
       framework: React
@@ -727,6 +749,7 @@ elements:
     status: confirmed
     source:
     - SRC_ADR_018
+    - SRC_ADR_020
     - TP202620027 - Product Backlog v.1.0.xlsx#Backlog_Detallado!A35:K37
     - TP202620027 - Historias de Usuario v.1.0.xlsx#HIstoria de Usuario!A66:I71
     - TP202620027 - Plan de trabajo v.1.0.xlsx#Plan de Trabajo!B38:C38
@@ -1131,6 +1154,35 @@ relationships:
     - SRC_ADR_019
     - SRC_ADR_017
 
+  # ADR-020: direct onboarding/access impact only; no implicit downstream calls.
+  - id: rel_dashboard_ingestion_github_connection
+    from: web_dashboard
+    to: ingestion_normalization_service
+    label: "Connects GitHub identity and selects authorized repositories/workflows"
+    protocol: REST/HTTPS
+    style: sync
+    status: confirmed
+    source: [SRC_ADR_020]
+
+  - id: rel_ingestion_github_connection
+    from: ingestion_normalization_service
+    to: github
+    label: "Authorizes users and verifies GitHub identity, installations and repository access"
+    protocol: OAuth/HTTPS + REST/HTTPS
+    access: read_only
+    style: sync
+    status: confirmed
+    source: [SRC_ADR_020]
+
+  - id: rel_pipeline_ingestion_github_access
+    from: pipeline_service
+    to: ingestion_normalization_service
+    label: "Requests verified user access and workflow metadata without GitHub credentials"
+    protocol: REST/HTTPS
+    style: sync
+    status: confirmed
+    source: [SRC_ADR_020]
+
 outputs:
   - id: diagnostic_hypothesis
     name: Hipótesis diagnóstica
@@ -1403,9 +1455,12 @@ deployment:
     mechanism: GitHub App
     access: read_only
     credential_type: installation_token
+    user_credential_type: user_access_token
+    user_connection_owner: ingestion_normalization_service
     status: confirmed
     source:
     - SRC_ADR_005
+    - SRC_ADR_020
   llm:
     strategy: pretrained_model_integrated
     provider: Azure OpenAI Service

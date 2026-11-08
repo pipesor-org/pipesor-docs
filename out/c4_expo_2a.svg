@@ -59,6 +59,16 @@
 </g>
 <text xml:space="preserve" text-anchor="middle" x="737" y="-660.33" font-family="DejaVu Sans" font-size="14.00">09</text>
 </g>
+<!-- pipeline_service&#45;&gt;ingestion_normalization_service -->
+<g id="rel_pipeline_ingestion_github_access" class="edge">
+<title>pipeline_service&#45;&gt;ingestion_normalization_service</title>
+<g id="a_rel_pipeline_ingestion_github_access"><a xlink:title="19: Requests verified user access and workflow metadata without GitHub credentials (REST/HTTPS)">
+<path fill="none" stroke="#52647a" stroke-width="1.4" d="M990,-882C990,-893 990,-904 990,-915 810,-915 630,-915 450,-915 450,-906.67 450,-898.33 450,-890"/>
+<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="452.45,-891.12 450,-884.12 447.55,-891.12 452.45,-891.12"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="585" y="-910.33" font-family="DejaVu Sans" font-size="14.00">19</text>
+</g>
 <!-- pipeline_service&#45;&gt;postgresql_operational_store -->
 <g id="rel_pipeline_service_postgresql" class="edge">
 <title>pipeline_service&#45;&gt;postgresql_operational_store</title>
@@ -197,7 +207,7 @@
 <!-- slide_subtitle -->
 <g id="node2" class="node">
 <title>slide_subtitle</title>
-<text xml:space="preserve" text-anchor="middle" x="960" y="-989.55" font-family="DejaVu Sans" font-size="16.00">Proposed design · 12 nodes · 18 relationships · Numbers on arrows and in legend</text>
+<text xml:space="preserve" text-anchor="middle" x="960" y="-989.55" font-family="DejaVu Sans" font-size="16.00">Proposed design · 12 nodes · 19 relationships · Numbers on arrows and in legend</text>
 </g>
 <!-- prototype_boundary -->
 <g id="node3" class="node">
@@ -373,61 +383,64 @@
 <!-- relation_legend -->
 <g id="node17" class="node">
 <title>relation_legend</title>
-<text xml:space="preserve" text-anchor="start" x="1561.25" y="-851.77" font-family="DejaVu Sans" font-weight="bold" font-size="18.00">Relationships and protocols</text>
-<text xml:space="preserve" text-anchor="start" x="1561.25" y="-826.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">01</text>
-<text xml:space="preserve" text-anchor="start" x="1582.25" y="-826.88" font-family="DejaVu Sans" font-size="15.00"> Workflow events</text>
-<text xml:space="preserve" text-anchor="start" x="1587.12" y="-814.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">HTTPS/Webhook</text>
-<text xml:space="preserve" text-anchor="start" x="1561.25" y="-793.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">02</text>
-<text xml:space="preserve" text-anchor="start" x="1582.25" y="-793.88" font-family="DejaVu Sans" font-size="15.00"> Execution context</text>
-<text xml:space="preserve" text-anchor="start" x="1588.25" y="-781.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">Azure Service Bus</text>
-<text xml:space="preserve" text-anchor="start" x="1561.25" y="-760.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">03</text>
-<text xml:space="preserve" text-anchor="start" x="1582.25" y="-760.88" font-family="DejaVu Sans" font-size="15.00"> Normalized evidence</text>
-<text xml:space="preserve" text-anchor="start" x="1599.12" y="-748.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">Azure Service Bus</text>
-<text xml:space="preserve" text-anchor="start" x="1561.25" y="-727.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">04</text>
-<text xml:space="preserve" text-anchor="start" x="1582.25" y="-727.88" font-family="DejaVu Sans" font-size="15.00"> Persists pipeline context</text>
-<text xml:space="preserve" text-anchor="start" x="1631.38" y="-715.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL</text>
-<text xml:space="preserve" text-anchor="start" x="1561.25" y="-694.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">05</text>
-<text xml:space="preserve" text-anchor="start" x="1582.25" y="-694.88" font-family="DejaVu Sans" font-size="15.00"> Evidence references</text>
-<text xml:space="preserve" text-anchor="start" x="1616" y="-682.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL</text>
-<text xml:space="preserve" text-anchor="start" x="1561.25" y="-661.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">06</text>
-<text xml:space="preserve" text-anchor="start" x="1582.25" y="-661.88" font-family="DejaVu Sans" font-size="15.00"> Diagnosis and recommendations</text>
-<text xml:space="preserve" text-anchor="start" x="1662.5" y="-649.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL</text>
-<text xml:space="preserve" text-anchor="start" x="1561.25" y="-628.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">07</text>
-<text xml:space="preserve" text-anchor="start" x="1582.25" y="-628.88" font-family="DejaVu Sans" font-size="15.00"> Queries logs and artifacts</text>
-<text xml:space="preserve" text-anchor="start" x="1617.12" y="-616.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">GitHub API/HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="1561.25" y="-595.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">08</text>
-<text xml:space="preserve" text-anchor="start" x="1582.25" y="-595.88" font-family="DejaVu Sans" font-size="15.00"> Publishes protected evidence</text>
-<text xml:space="preserve" text-anchor="start" x="1631" y="-583.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">Azure Service Bus</text>
-<text xml:space="preserve" text-anchor="start" x="1561.25" y="-562.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">09</text>
-<text xml:space="preserve" text-anchor="start" x="1582.25" y="-562.88" font-family="DejaVu Sans" font-size="15.00"> Events for NLP</text>
-<text xml:space="preserve" text-anchor="start" x="1574.75" y="-550.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">Azure Service Bus</text>
-<text xml:space="preserve" text-anchor="start" x="1561.25" y="-529.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">10</text>
-<text xml:space="preserve" text-anchor="start" x="1582.25" y="-529.88" font-family="DejaVu Sans" font-size="15.00"> Processed evidence</text>
-<text xml:space="preserve" text-anchor="start" x="1611.5" y="-517.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="1561.25" y="-496.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">11</text>
-<text xml:space="preserve" text-anchor="start" x="1582.25" y="-496.88" font-family="DejaVu Sans" font-size="15.00"> Context and traceability</text>
-<text xml:space="preserve" text-anchor="start" x="1631" y="-484.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL</text>
-<text xml:space="preserve" text-anchor="start" x="1561.25" y="-463.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">12</text>
-<text xml:space="preserve" text-anchor="start" x="1582.25" y="-463.88" font-family="DejaVu Sans" font-size="15.00"> Semantic retrieval</text>
-<text xml:space="preserve" text-anchor="start" x="1580.38" y="-451.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL/pgvector</text>
-<text xml:space="preserve" text-anchor="start" x="1561.25" y="-430.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">13</text>
-<text xml:space="preserve" text-anchor="start" x="1582.25" y="-430.88" font-family="DejaVu Sans" font-size="15.00"> Authorized telemetry</text>
-<text xml:space="preserve" text-anchor="start" x="1617.12" y="-418.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="1561.25" y="-397.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">14</text>
-<text xml:space="preserve" text-anchor="start" x="1582.25" y="-397.88" font-family="DejaVu Sans" font-size="15.00"> Correlated context</text>
-<text xml:space="preserve" text-anchor="start" x="1607.75" y="-385.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="1561.25" y="-364.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">15</text>
-<text xml:space="preserve" text-anchor="start" x="1582.25" y="-364.88" font-family="DejaVu Sans" font-size="15.00"> Requests RAG knowledge</text>
-<text xml:space="preserve" text-anchor="start" x="1632.5" y="-352.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="1561.25" y="-331.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">16</text>
-<text xml:space="preserve" text-anchor="start" x="1582.25" y="-331.88" font-family="DejaVu Sans" font-size="15.00"> Inference with evidence and RAG</text>
-<text xml:space="preserve" text-anchor="start" x="1624.62" y="-319.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">Azure OpenAI API/HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="1561.25" y="-298.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">17</text>
-<text xml:space="preserve" text-anchor="start" x="1582.25" y="-298.88" font-family="DejaVu Sans" font-size="15.00"> Persists human review</text>
-<text xml:space="preserve" text-anchor="start" x="1623.5" y="-286.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL</text>
-<text xml:space="preserve" text-anchor="start" x="1561.25" y="-265.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">18</text>
-<text xml:space="preserve" text-anchor="start" x="1582.25" y="-265.88" font-family="DejaVu Sans" font-size="15.00"> Queries result for artifact</text>
-<text xml:space="preserve" text-anchor="start" x="1631.75" y="-253.72" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1561.25" y="-868.27" font-family="DejaVu Sans" font-weight="bold" font-size="18.00">Relationships and protocols</text>
+<text xml:space="preserve" text-anchor="start" x="1561.25" y="-843.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">01</text>
+<text xml:space="preserve" text-anchor="start" x="1582.25" y="-843.38" font-family="DejaVu Sans" font-size="15.00"> Workflow events</text>
+<text xml:space="preserve" text-anchor="start" x="1587.12" y="-831.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">HTTPS/Webhook</text>
+<text xml:space="preserve" text-anchor="start" x="1561.25" y="-810.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">02</text>
+<text xml:space="preserve" text-anchor="start" x="1582.25" y="-810.38" font-family="DejaVu Sans" font-size="15.00"> Execution context</text>
+<text xml:space="preserve" text-anchor="start" x="1588.25" y="-798.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">Azure Service Bus</text>
+<text xml:space="preserve" text-anchor="start" x="1561.25" y="-777.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">03</text>
+<text xml:space="preserve" text-anchor="start" x="1582.25" y="-777.38" font-family="DejaVu Sans" font-size="15.00"> Normalized evidence</text>
+<text xml:space="preserve" text-anchor="start" x="1599.12" y="-765.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">Azure Service Bus</text>
+<text xml:space="preserve" text-anchor="start" x="1561.25" y="-744.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">04</text>
+<text xml:space="preserve" text-anchor="start" x="1582.25" y="-744.38" font-family="DejaVu Sans" font-size="15.00"> Persists pipeline context</text>
+<text xml:space="preserve" text-anchor="start" x="1631.38" y="-732.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL</text>
+<text xml:space="preserve" text-anchor="start" x="1561.25" y="-711.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">05</text>
+<text xml:space="preserve" text-anchor="start" x="1582.25" y="-711.38" font-family="DejaVu Sans" font-size="15.00"> Evidence references</text>
+<text xml:space="preserve" text-anchor="start" x="1616" y="-699.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL</text>
+<text xml:space="preserve" text-anchor="start" x="1561.25" y="-678.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">06</text>
+<text xml:space="preserve" text-anchor="start" x="1582.25" y="-678.38" font-family="DejaVu Sans" font-size="15.00"> Diagnosis and recommendations</text>
+<text xml:space="preserve" text-anchor="start" x="1662.5" y="-666.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL</text>
+<text xml:space="preserve" text-anchor="start" x="1561.25" y="-645.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">07</text>
+<text xml:space="preserve" text-anchor="start" x="1582.25" y="-645.38" font-family="DejaVu Sans" font-size="15.00"> Queries logs and artifacts</text>
+<text xml:space="preserve" text-anchor="start" x="1617.12" y="-633.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">GitHub API/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1561.25" y="-612.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">08</text>
+<text xml:space="preserve" text-anchor="start" x="1582.25" y="-612.38" font-family="DejaVu Sans" font-size="15.00"> Publishes protected evidence</text>
+<text xml:space="preserve" text-anchor="start" x="1631" y="-600.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">Azure Service Bus</text>
+<text xml:space="preserve" text-anchor="start" x="1561.25" y="-579.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">09</text>
+<text xml:space="preserve" text-anchor="start" x="1582.25" y="-579.38" font-family="DejaVu Sans" font-size="15.00"> Events for NLP</text>
+<text xml:space="preserve" text-anchor="start" x="1574.75" y="-567.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">Azure Service Bus</text>
+<text xml:space="preserve" text-anchor="start" x="1561.25" y="-546.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">10</text>
+<text xml:space="preserve" text-anchor="start" x="1582.25" y="-546.38" font-family="DejaVu Sans" font-size="15.00"> Processed evidence</text>
+<text xml:space="preserve" text-anchor="start" x="1611.5" y="-534.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1561.25" y="-513.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">11</text>
+<text xml:space="preserve" text-anchor="start" x="1582.25" y="-513.38" font-family="DejaVu Sans" font-size="15.00"> Context and traceability</text>
+<text xml:space="preserve" text-anchor="start" x="1631" y="-501.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL</text>
+<text xml:space="preserve" text-anchor="start" x="1561.25" y="-480.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">12</text>
+<text xml:space="preserve" text-anchor="start" x="1582.25" y="-480.38" font-family="DejaVu Sans" font-size="15.00"> Semantic retrieval</text>
+<text xml:space="preserve" text-anchor="start" x="1580.38" y="-468.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL/pgvector</text>
+<text xml:space="preserve" text-anchor="start" x="1561.25" y="-447.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">13</text>
+<text xml:space="preserve" text-anchor="start" x="1582.25" y="-447.38" font-family="DejaVu Sans" font-size="15.00"> Authorized telemetry</text>
+<text xml:space="preserve" text-anchor="start" x="1617.12" y="-435.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1561.25" y="-414.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">14</text>
+<text xml:space="preserve" text-anchor="start" x="1582.25" y="-414.38" font-family="DejaVu Sans" font-size="15.00"> Correlated context</text>
+<text xml:space="preserve" text-anchor="start" x="1607.75" y="-402.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1561.25" y="-381.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">15</text>
+<text xml:space="preserve" text-anchor="start" x="1582.25" y="-381.38" font-family="DejaVu Sans" font-size="15.00"> Requests RAG knowledge</text>
+<text xml:space="preserve" text-anchor="start" x="1632.5" y="-369.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1561.25" y="-348.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">16</text>
+<text xml:space="preserve" text-anchor="start" x="1582.25" y="-348.38" font-family="DejaVu Sans" font-size="15.00"> Inference with evidence and RAG</text>
+<text xml:space="preserve" text-anchor="start" x="1624.62" y="-336.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">Azure OpenAI API/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1561.25" y="-315.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">17</text>
+<text xml:space="preserve" text-anchor="start" x="1582.25" y="-315.38" font-family="DejaVu Sans" font-size="15.00"> Persists human review</text>
+<text xml:space="preserve" text-anchor="start" x="1623.5" y="-303.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL</text>
+<text xml:space="preserve" text-anchor="start" x="1561.25" y="-282.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">18</text>
+<text xml:space="preserve" text-anchor="start" x="1582.25" y="-282.38" font-family="DejaVu Sans" font-size="15.00"> Queries result for artifact</text>
+<text xml:space="preserve" text-anchor="start" x="1631.75" y="-270.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1561.25" y="-249.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">19</text>
+<text xml:space="preserve" text-anchor="start" x="1582.25" y="-249.38" font-family="DejaVu Sans" font-size="15.00"> Verifies GitHub user access</text>
+<text xml:space="preserve" text-anchor="start" x="1638.88" y="-237.22" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
 </g>
 <!-- slide_footer -->
 <g id="node18" class="node">

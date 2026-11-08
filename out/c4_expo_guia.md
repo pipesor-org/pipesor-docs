@@ -16,9 +16,9 @@ Las fuentes externas entregan evidencia a ingesta, que la protege antes del topi
 
 | Nombre exacto | Tipo / frontera | Tecnologías | Responsabilidades del modelo |
 |---|---|---|---|
-| Ingestion and Normalization Service | container / dentro del prototipo | Azure Container Apps, Java / Spring Boot | authorized_capture, canonical_event_mapping, validation, parsing, cleaning, normalization, operational_noise_filtering, masking, anonymization, secret_filtering, data_minimization, correlation_id_assignment, evidence_metadata_capture |
+| Ingestion and Normalization Service | container / dentro del prototipo | Azure Container Apps, Java / Spring Boot | authorized_capture, canonical_event_mapping, validation, parsing, cleaning, normalization, operational_noise_filtering, masking, anonymization, secret_filtering, data_minimization, correlation_id_assignment, evidence_metadata_capture, github_user_connection, github_user_access_verification, github_repository_workflow_discovery |
 | Azure Service Bus | container / dentro del prototipo | Azure Service Bus | persistent_asynchronous_messaging |
-| Pipeline Service | container / dentro del prototipo | Azure Container Apps, Java / Spring Boot | register_pipeline, register_execution, maintain_pipeline_stages, maintain_execution_state, maintain_execution_metadata |
+| Pipeline Service | container / dentro del prototipo | Azure Container Apps, Java / Spring Boot | register_pipeline, authorize_pipeline_with_verified_github_access, register_execution, maintain_pipeline_stages, maintain_execution_state, maintain_execution_metadata |
 | Log/Event Service | container / dentro del prototipo | Azure Container Apps, Java / Spring Boot | register_normalized_evidence, query_logs_by_incident, query_events_by_incident, query_evidence_by_correlation_id, preserve_source_metadata, resolve_external_evidence_references |
 | NLP Log Processing | container / dentro del prototipo | Azure Container Apps, Python / FastAPI, Drain3 | semantic_representation, log_preprocessing, signal_preparation |
 | Evidence Correlation Service | container / dentro del prototipo | Azure Container Apps, Java / Spring Boot | Incident context |
@@ -51,6 +51,7 @@ Las fuentes externas entregan evidencia a ingesta, que la protege antes del topi
 | 16 | Diagnostic & Recommendation Service → Azure OpenAI Service | Requests diagnostic inference with sanitized evidence and RAG context | Azure OpenAI API/HTTPS | sync |
 | 17 | Diagnostic & Recommendation Service → PostgreSQL | Persists human review decisions and traceability | PostgreSQL | sync |
 | 18 | GitHub Actions → Diagnostic & Recommendation Service | Queries diagnostic_output to publish the workflow artifact | REST/HTTPS | sync |
+| 19 | Pipeline Service → Ingestion and Normalization Service | Requests verified user access and workflow metadata without GitHub credentials | REST/HTTPS | sync |
 
 ## C4 Level 2B — Consumption, Governance and Persistence
 
@@ -62,8 +63,8 @@ El usuario accede al dashboard, se autentica con Entra ID y consume APIs mediant
 
 | Nombre exacto | Tipo / frontera | Tecnologías | Responsabilidades del modelo |
 |---|---|---|---|
-| AIOps Web Dashboard | container / dentro del prototipo | Azure Static Web Apps, TypeScript / React, SPA | incident_query, diagnosis_query, evidence_query, recommendation_query, pipeline_status_query, tmd_metrics, comparative_diagnosis_metrics, human_review_registration, human_review_status_display, distinguish_generated_hypothesis_from_validated_diagnosis, role_protected_access |
-| Pipeline Service | container / dentro del prototipo | Azure Container Apps, Java / Spring Boot | register_pipeline, register_execution, maintain_pipeline_stages, maintain_execution_state, maintain_execution_metadata |
+| AIOps Web Dashboard | container / dentro del prototipo | Azure Static Web Apps, TypeScript / React, SPA | incident_query, diagnosis_query, evidence_query, recommendation_query, pipeline_status_query, tmd_metrics, comparative_diagnosis_metrics, human_review_registration, human_review_status_display, distinguish_generated_hypothesis_from_validated_diagnosis, role_protected_access, github_account_connection, authorized_workflow_selection |
+| Pipeline Service | container / dentro del prototipo | Azure Container Apps, Java / Spring Boot | register_pipeline, authorize_pipeline_with_verified_github_access, register_execution, maintain_pipeline_stages, maintain_execution_state, maintain_execution_metadata |
 | Log/Event Service | container / dentro del prototipo | Azure Container Apps, Java / Spring Boot | register_normalized_evidence, query_logs_by_incident, query_events_by_incident, query_evidence_by_correlation_id, preserve_source_metadata, resolve_external_evidence_references |
 | Diagnostic & Recommendation Service | container / dentro del prototipo | Azure Container Apps, Java / Spring Boot | generate_initial_recommendations, associate_recommendation_with_probable_cause, associate_recommendation_with_evidence, expose_evidence_limitations, orchestrate_diagnostic_flow |
 | PostgreSQL | datastore / dentro del prototipo | PostgreSQL | pipelines, incidents, diagnoses, human_reviews, recommendations, metrics, audit_metadata, evidence_references, traceability_metadata |

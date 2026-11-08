@@ -587,7 +587,7 @@ Nota de evolución: representación histórica de Blob sustituida parcialmente p
 - contexto: Las capacidades VIEW/OPERATE/CONFIGURE derivan principalmente de arquitectura de información.
 - decisión: pipeline_access_grants conserva scope_basis: ia_only y status: inferred; referencia principal Entra ID sin users/roles internos. Es representación provisional, no implementación final RBAC ni requisito core.
 - fuentes: arquitectura-informacion.md; SRC_ADR_003; Prompt §7; DQ-005/DQ-006.
-- impacto: Se muestra con borde punteado y etiqueta IA-only / inferred; la política de alta de workflows y RBAC siguen abiertas.
+- impacto: Se muestra con borde punteado y etiqueta IA-only / inferred; la política de alta de workflows y RBAC seguían abiertas en este corte. DD-019/ADR-020 aprueban después la política MVP; representación física y contratos pendientes conservan su estado.
 - reversibilidad: Puede retirarse o cambiarse cuando se apruebe implementación definitiva; nunca promoverla automáticamente.
 
 ### DD-018 — Evidencia MVP sin almacenamiento Blob de workload
@@ -597,6 +597,13 @@ Nota de evolución: representación histórica de Blob sustituida parcialmente p
 - impacto: DBML/SQL/diccionario se regeneran desde domain.yml; no se ejecuta migración sobre una base existente. Size/hash y referencias lógicas conservan su semántica. Ownership, saneamiento y trazabilidad siguen vigentes.
 - pendiente: retención independiente de logs originales, pérdida de acceso/borrado en GitHub y recuperación permanecen en PD-017/030/031; la exclusión no reduce ni demuestra los 365 días de ADR-013.
 - reversibilidad: cualquier consumidor existente necesita evaluación de migración y contrato; reincorporar Blob requiere una nueva decisión explícita. El backend Blob de state Terraform no es almacenamiento de workload.
+
+### DD-019 — Alta verificada y capacidades condicionadas al acceso GitHub
+
+- autoridad: confirmación explícita del usuario del 06/11/2026, registrada en [ADR-020](../docs/architecture/decisions/ADR-020-github-user-access-and-workflow-onboarding.md).
+- decisión: Pipeline crea/reutiliza Repository y registra Pipeline con datos GitHub verificados por el conector de Ingestion. Grants AIOps no conceden acceso fuera del alcance GitHub vigente; VIEW/OPERATE requieren lectura y CONFIGURE/alta administración efectiva. CONFIGURE incluye VIEW, no OPERATE. El creador recibe CONFIGURE con auditoría atómica; un duplicado no concede grants.
+- impacto: complementa DD-001/DD-017 y acota DQ-005/006 a detalles pendientes. Se conserva pipeline_access_grants como ia_only/inferred; no se aprueban columnas, tablas, users/roles/teams, pipeline owners ni asociaciones ORM nuevas. Credenciales/vinculaciones pertenecen lógicamente a Ingestion, nunca a ops ni a audit; su schema y custodia siguen pendientes.
+- límites: las APIs humanas de evidencia y diagnóstico requieren contrato para aplicar la restricción sin accesos cross-context. No hay grants automáticos por rol GitHub ni reescritura de IDs/filas históricas. Política aprobada no equivale a implementación ni modifica la retención.
 
 ## Assumptions
 
@@ -619,8 +626,8 @@ Nota de evolución: representación histórica de Blob sustituida parcialmente p
 - **DQ-002 / confidence_semantics** (open_question): Escala y semántica exacta de confidence.
 - **DQ-003 / embedding_dimension** (open_question): Dimensión del embedding; el modelo concreto sigue sin fijarse. `embedding_dimension: null`.
 - **DQ-004 / rag_corpus_updates** (open_question): Mecanismo definitivo de carga y actualización del corpus RAG.
-- **DQ-005 / pipeline_rbac** (open_question): Implementación final de RBAC granular por pipeline.
-- **DQ-006 / monitored_workflow_registration** (open_question): Política funcional final para alta de workflows monitorizados.
+- **DQ-005 / pipeline_rbac** (open_question): ADR-020 aprueba la política MVP de capacidades condicionadas al acceso GitHub. Pendientes representación física definitiva, recuperación de acceso y contratos de autorización; no reabrir la política ni promover grants inferred automáticamente.
+- **DQ-006 / monitored_workflow_registration** (open_question): ADR-020 aprueba el alta con administración GitHub verificada y creación/reutilización de Repository por Pipeline. Pendientes contrato REST versionado, custodia y esquema técnico del conector; la política funcional MVP ya está aprobada.
 
 ## IA-only / inferred
 

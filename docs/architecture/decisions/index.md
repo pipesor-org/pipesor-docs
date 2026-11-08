@@ -1,6 +1,6 @@
 # Índice de decisiones por tema y evolución documental
 
-Este índice describe la vigencia documental resultante de leer conjuntamente los 19 ADRs, el [Charter y el drift archivados](../../sources/README.md), y los modelos existentes. No aprueba decisiones, no modifica estados y no sustituye sus fuentes. ADR-001–018 declaran `Accepted` y fecha 03/10/2026; sus actos individuales no tienen evidencia independiente disponible. ADR-019 registra la confirmación explícita del usuario del 06/11/2026 para alinear las decisiones MVP con IaC. La numeración y la fecha común no bastan para inferir cronología: las relaciones siguientes se apoyan en disposiciones explícitas.
+Este índice describe la vigencia documental resultante de leer conjuntamente los 20 ADRs, el [Charter y el drift archivados](../../sources/README.md), y los modelos existentes. No aprueba decisiones, no modifica estados y no sustituye sus fuentes. ADR-001–018 declaran `Accepted` y fecha 03/10/2026; sus actos individuales no tienen evidencia independiente disponible. ADR-019 registra la confirmación explícita del usuario del 06/11/2026 para alinear las decisiones MVP con IaC. ADR-020 registra la aprobación explícita del usuario de la conexión GitHub y la política de alta/acceso; no acredita aprobación de contratos ejecutables ni despliegue. La numeración y la fecha común no bastan para inferir cronología: las relaciones siguientes se apoyan en disposiciones explícitas.
 
 El Charter determina objetivos, alcance y restricciones. El drift registra cambios frente a documentación histórica; su cabecera y §50 reconocen decisiones posteriores confirmadas. Las discrepancias TMD y CF-001 permanecen abiertas en la [reconciliación](../reconciliation.md#discrepancias-y-diferencias-de-cobertura); este índice no las dirime. Las clases de `model/design.yml` siguen propuestas.
 
@@ -20,7 +20,7 @@ Cada enlace de ADR identifica su sección `Decision`; los límites de la última
 | [ADR-002](ADR-002-azure-observability.md#decision) | Azure Monitor y Application Insights. | Observabilidad técnica; ADR-011 conserva auditoría funcional separada. Drift §36 no reabre la selección. |
 | [ADR-003](ADR-003-identity-api-perimeter.md#decision) | Entra ID y Azure API Management. | ADR-016 refina la representación histórica; ADR-019 conserva Entra y sustituye APIM por ingress nativo de ACA para el MVP. |
 | [ADR-004](ADR-004-azure-openai.md#decision) | Azure OpenAI por API, familia GPT-4. | Variante sin fijar. ADR-015 concreta sistema externo gestionado, sin hosting propio. |
-| [ADR-005](ADR-005-github-app-authentication.md#decision) | GitHub App read-only con installation tokens. | Gestión de secretos sin seleccionar. ADR-016 separa consumo del prototipo y publicación nativa del workflow. |
+| [ADR-005](ADR-005-github-app-authentication.md#decision) | GitHub App read-only con installation tokens. | ADR-020 añade tokens de usuario y conector en Ingestion; conserva installation tokens para máquina. Gestión de secretos sin seleccionar. ADR-016 separa consumo del prototipo y publicación nativa del workflow. |
 | [ADR-006](ADR-006-dashboard-api-contract.md#decision) | Dashboard consume backend existente mediante APIM. | Lista histórica actualizada por ADR-009/011/016; ADR-019 retira el salto APIM. No restaurar reporting_service ni audit_service. |
 | [ADR-007](ADR-007-log-processing-and-embeddings.md#decision) | Drain3 y Azure OpenAI Embeddings para RAG. | Modelo de embeddings sin fijar. ADR-010 retira detector, candidatura activa y OQ-001 del MVP. ADR-015 conserva parsing/embeddings. |
 | [ADR-008](ADR-008-react-azure-static-web-apps.md#decision) | React SPA en Azure Static Web Apps. | ADR-018 concreta TypeScript; ADR-019 sustituye el acceso por APIM con ingress nativo de ACA. |
@@ -77,3 +77,11 @@ Las diferencias de cobertura y la evidencia de aprobación faltante están regis
 | [ADR-019](ADR-019-align-mvp-with-iac.md) | Native ingress de ACA sin APIM; sin Blob de workload; fundación Foundry; Terraform y preparación dev-only temporal. Actualización autorizada model-first. | Exposición/auth por servicio, contratos, migraciones de consumidores existentes, modelos/grants AI, garantías de recuperación/retención y autorización de despliegue. |
 
 La aprobación de esta dirección se documenta en ADR-019 y no reemplaza los actos individuales de aprobación de fuentes históricas. Los 365 días de ADR-013 y la separación de datos de ADR-018 permanecen. El Blob de state Terraform no se excluye.
+
+## Conexión GitHub y acceso de usuario — ADR-020
+
+| Decisión | Evolución y alcance vigente | Pendientes preservados |
+|---|---|---|
+| [ADR-020](ADR-020-github-user-access-and-workflow-onboarding.md#decision) | Amplía ADR-005 con user access tokens, componente técnico en Ingestion, conexión/descubrimiento del dashboard y verificación interna desde Pipeline. Aprueba alta y capacidades condicionadas al acceso GitHub; amplía de forma limitada ADR-006/016/019. | Contratos REST/auth, custodia, almacenamiento técnico, recuperación de acceso y entrega. Log/Event y Recommendation tienen impacto de seguridad en APIs humanas sin relaciones nuevas implícitas; correlación/Python conservan sus flujos. |
+
+Aprobación de política en sesión del 06/11/2026; los modelos siguen draft/proposed donde corresponde y las implementaciones existentes no se declaran conformes por esta actualización. Consultar la matriz de servicios y los límites en ADR-020.

@@ -46,6 +46,16 @@ class PolicyRegressionTests(unittest.TestCase):
             entity['attributes'].append(field)
             self.assertTrue(any('excludes workload Blob locator' in e for e in validate_domain(domain, self.arch)))
 
+    def test_user_access_cannot_use_installation_tokens_or_move_to_pipeline(self):
+        for location in ('element', 'deployment'):
+            for field, value in (('user_credential_type', 'installation_token'),
+                                 ('user_connection_owner', 'pipeline_service')):
+                arch = deepcopy(self.arch)
+                auth = (next(e for e in arch['elements'] if e['id'] == 'github')['authentication']
+                        if location == 'element' else arch['deployment']['github_authentication'])
+                auth[field] = value
+                self.assertTrue(any('ADR-020 requires' in e for e in validate_policy(arch)))
+
     def test_workflow_query_does_not_authorize_an_evidence_bypass(self):
         for endpoint in ('rag_retrieval', 'pretrained_llm_diagnostic_service'):
             arch = deepcopy(self.arch)
