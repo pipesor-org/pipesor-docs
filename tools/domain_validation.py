@@ -6,11 +6,12 @@ import sys
 
 import yaml
 from domain_constraints import validate_constraints
+from connector_constraints import validate_connector
 
 
 IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 TYPES = {"uuid", "uuid[]", "text", "integer", "bigint", "boolean",
-         "timestamptz", "jsonb", "vector", "numeric"}
+         "timestamptz", "jsonb", "vector", "numeric", "bytea"}
 EXCLUDED = {"users", "teams", "roles", "workflows", "failure_types",
             "root_causes", "reporting_service", "audit_service",
             "anomaly_detector", "anomaly_detection_engine", "logbert",
@@ -67,8 +68,8 @@ def validate_domain(domain, architecture):
         owners = schema.get("owner_containers", [])
         if not owners or any(container(o) is None for o in owners):
             errors.append(f"{name}: invalid schema owner_containers")
-    if set(schemas) != {"ops", "evidence", "diagnosis", "knowledge", "audit"}:
-        errors.append("Expected approved schemas ops/evidence/diagnosis/knowledge/audit")
+    if set(schemas) != {"ops", "evidence", "diagnosis", "knowledge", "audit", "ingestion"}:
+        errors.append("Expected approved schemas ops/evidence/diagnosis/knowledge/audit/ingestion")
 
     enums = {e.get("id"): e for e in domain["enums"]}
     if len(enums) != len(domain["enums"]):
@@ -105,8 +106,8 @@ def validate_domain(domain, architecture):
         errors.append(f"Missing open questions: {sorted(required_topics - topics)}")
 
     entities = domain["entities"]
-    if len(entities) > 18:
-        errors.append(f"Domain has {len(entities)} tables; maximum is 18")
+    if len(entities) > 21:
+        errors.append(f"Domain has {len(entities)} tables; maximum is 21")
     tables, attributes, declared_refs = {}, {}, set()
     ids = set()
     for entity in entities:
@@ -262,6 +263,8 @@ def validate_domain(domain, architecture):
     if retention.get("duration_days") != architecture.get("retention", {}).get("duration_days"):
         errors.append("Domain retention must match architecture/ADR-013 (365 days)")
     errors.extend(validate_constraints(domain))
+    errors.extend(validate_connector(domain))
+    errors.extend(validate_composite_constraints(domain))
     return errors
 
 
@@ -284,5 +287,41 @@ def main():
     return 0
 
 
-if __name__ == "__main__":
+
+
+
+def validate_composite_constraints(domain):
+    errors = []
+    tables = {f"{e['schema']}.{e['table']}": e for e in domain['entities']}
+    for key, entity in tables.items():
+        attrs = {c['name']: c for c in entity['attributes']}
+        names = {c['name'] for c in entity.get('checks', []) + entity.get('unique_constraints', [])}
+        for constraint in entity.get('partial_unique_constraints', []) + entity.get('foreign_keys', []):
+            name = constraint.get('name', '')
+            if not IDENTIFIER.fullmatch(name) or name in names:
+                errors.append(f'{key}: invalid/duplicate constraint name')
+            names.add(name)
+        for index in entity.get('partial_unique_constraints', []):
+            if not index.get('columns') or not set(index['columns']) <= attrs.keys() or not index.get('where', '').strip():
+                errors.append(f'{key}: invalid partial unique constraint')
+        for fk in entity.get('foreign_keys', []):
+            cols = fk.get('columns', []); ref = fk.get('references', {})
+            target = tables.get(ref.get('table')); target_cols = ref.get('columns', [])
+            if not target or not cols or len(cols) != len(target_cols) or len(set(cols)) != len(cols) or not set(cols) <= attrs.keys():
+                errors.append(f'{key}: invalid composite FK'); continue
+            target_attrs = {c['name']: c for c in target['attributes']}
+            if not set(target_cols) <= target_attrs.keys():
+                errors.append(f'{key}: composite FK target columns missing'); continue
+            if entity['schema'] != target['schema']:
+                errors.append(f'{key}: physical cross-schema FK is prohibited')
+            keys = [u['columns'] for u in target.get('unique_constraints', [])] + [[c['name'] for c in target['attributes'] if c['pk']]]
+            if target_cols not in keys:
+                errors.append(f'{key}: composite FK target must be PK/unique')
+            if any(attrs[c]['type'] != target_attrs[t]['type'] for c,t in zip(cols,target_cols)):
+                errors.append(f'{key}: composite FK types do not match')
+            if fk.get('initially_deferred') and not fk.get('deferrable'):
+                errors.append(f'{key}: initially deferred FK must be deferrable')
+    return errors
+
+if __name__ == '__main__':
     raise SystemExit(main())

@@ -66,5 +66,6 @@ Las cajas de agrupación organizan la lectura; no son nuevos elementos arquitect
 
 ## Relaciones entre vistas
 
+- `rel_ingestion_postgresql_connector_metadata`: Ingestion and Normalization Service → PostgreSQL: Persists connector linkage, generations and credential-operation metadata; no tokens (PostgreSQL).
 - `rel_correlation_postgresql`: Evidence Correlation Service → PostgreSQL: Records correlated context and traceability (PostgreSQL).
 - `rel_dashboard_ingestion_github_connection`: AIOps Web Dashboard → Ingestion and Normalization Service: Connects GitHub identity and selects authorized repositories/workflows (REST/HTTPS).

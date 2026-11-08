@@ -1,5 +1,5 @@
 # SSOT del dominio persistente. DBML/SQL/ER/diccionario se generan; no editar derivados.
-model_version: 1.1.0
+model_version: 1.2.0
 source_authority:
   scope: SRC_CHARTER
   architecture:
@@ -33,6 +33,11 @@ schemas:
   owner_containers:
   - shared
   description_es: Auditoría transversal funcional.
+- id: ingestion
+  owner_containers:
+  - ingestion_normalization_service
+  description_es: Metadata del conector GitHub aprobada localmente en DD-020; sin
+    material secreto.
 entities:
 - id: repositories
   table: repositories
@@ -1663,7 +1668,716 @@ entities:
     - DD-015
   traceability_required: true
   retention_policy: null
+- id: github_connections
+  table: github_connections
+  schema: ingestion
+  owner_container: ingestion_normalization_service
+  description_es: 'Metadata técnica del conector GitHub: github_connections'
+  scope_basis: approved_domain
+  status: confirmed
+  source:
+  - SRC_ADR_020
+  - DD-020
+  - 'github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada'
+  attributes:
+  - name: id
+    type: uuid
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: id
+  - name: tenant_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: tenant id
+  - name: entra_object_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: entra object id
+  - name: revision
+    type: bigint
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: revision
+  - name: active_generation_id
+    type: uuid
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: active generation id
+  - name: created_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: created at
+  - name: updated_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: updated at
+  unique_constraints:
+  - name: github_connections_principal_uq
+    columns:
+    - tenant_id
+    - entra_object_id
+  - name: github_connections_membership_uq
+    columns:
+    - id
+    - tenant_id
+    - entra_object_id
+  checks:
+  - name: github_connections_revision_ck
+    expression: revision >= 0
+  - name: github_connections_timestamps_ck
+    expression: updated_at >= created_at
+  foreign_keys:
+  - name: github_connections_active_generation_fk
+    columns:
+    - id
+    - active_generation_id
+    references:
+      table: ingestion.github_connection_generations
+      columns:
+      - connection_id
+      - id
+    deferrable: true
+    initially_deferred: true
+  partial_unique_constraints: []
+  domain_constraints:
+  - connector_lifecycle
+  traceability_required: false
+  retention_policy: null
+- id: github_connection_generations
+  table: github_connection_generations
+  schema: ingestion
+  owner_container: ingestion_normalization_service
+  description_es: 'Metadata técnica del conector GitHub: github_connection_generations'
+  scope_basis: approved_domain
+  status: confirmed
+  source:
+  - SRC_ADR_020
+  - DD-020
+  - 'github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada'
+  attributes:
+  - name: id
+    type: uuid
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: id
+  - name: connection_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: connection id
+    fk: ingestion.github_connections.id
+  - name: github_user_id
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: github user id
+  - name: state
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: state
+  - name: secret_object_ref
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: secret object ref
+  - name: active_secret_version_ref
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: active secret version ref
+  - name: access_expires_at
+    type: timestamptz
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: access expires at
+  - name: refresh_expires_at
+    type: timestamptz
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: refresh expires at
+  - name: activated_at
+    type: timestamptz
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: activated at
+  - name: revision
+    type: bigint
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: revision
+  - name: created_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: created at
+  - name: updated_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: updated at
+  unique_constraints:
+  - name: github_generations_membership_uq
+    columns:
+    - connection_id
+    - id
+  - name: github_generations_object_ref_uq
+    columns:
+    - secret_object_ref
+  checks:
+  - name: github_connection_generations_state_ck
+    expression: state IN ('PREPARING','ACTIVE','BLOCKED','INVALIDATED')
+  - name: github_connection_generations_revision_ck
+    expression: revision >= 0
+  - name: github_connection_generations_activation_ck
+    expression: (activated_at IS NULL AND state IN ('PREPARING','INVALIDATED')) OR (activated_at IS NOT NULL AND github_user_id IS NOT NULL AND active_secret_version_ref IS NOT NULL AND access_expires_at IS NOT NULL AND refresh_expires_at IS NOT NULL)
+  - name: github_connection_generations_object_ref_ck
+    expression: btrim(secret_object_ref) <> ''
+  - name: github_connection_generations_user_identity_ck
+    expression: github_user_id IS NULL OR btrim(github_user_id) <> ''
+  - name: github_connection_generations_version_ref_ck
+    expression: active_secret_version_ref IS NULL OR (btrim(active_secret_version_ref) <> '' AND lower(btrim(active_secret_version_ref)) <> 'latest')
+  - name: github_connection_generations_timestamps_ck
+    expression: updated_at >= created_at
+  - name: github_generations_object_owner_ck
+    expression: secret_object_ref = 'generation:' || id::text
+  foreign_keys: []
+  partial_unique_constraints:
+  - name: github_generations_one_active_uq
+    columns:
+    - connection_id
+    where: state = 'ACTIVE'
+  domain_constraints:
+  - connector_lifecycle
+  traceability_required: false
+  retention_policy: null
+- id: github_authorization_attempts
+  table: github_authorization_attempts
+  schema: ingestion
+  owner_container: ingestion_normalization_service
+  description_es: 'Metadata técnica del conector GitHub: github_authorization_attempts'
+  scope_basis: approved_domain
+  status: confirmed
+  source:
+  - SRC_ADR_020
+  - DD-020
+  - 'github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada'
+  attributes:
+  - name: id
+    type: uuid
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: id
+  - name: connection_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: connection id
+  - name: tenant_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: tenant id
+  - name: entra_object_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: entra object id
+  - name: expected_connection_revision
+    type: bigint
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: expected connection revision
+  - name: expected_generation_id
+    type: uuid
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: expected generation id
+  - name: target_generation_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: target generation id
+  - name: state_digest
+    type: bytea
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: state digest
+  - name: expires_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: expires at
+  - name: phase
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: phase
+  - name: consumed_at
+    type: timestamptz
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: consumed at
+  - name: pkce_secret_object_ref
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: pkce secret object ref
+  - name: pkce_secret_version_ref
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: pkce secret version ref
+  - name: pkce_cleanup_state
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: pkce cleanup state
+  - name: pkce_cleanup_result
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: pkce cleanup result
+  - name: approved_return_ref
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: approved return ref
+  - name: correlation_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: correlation id
+  - name: created_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: created at
+  - name: updated_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: updated at
+  unique_constraints:
+  - name: github_attempts_target_generation_uq
+    columns:
+    - target_generation_id
+  - name: github_attempts_state_digest_uq
+    columns:
+    - state_digest
+  - name: github_attempts_pkce_object_ref_uq
+    columns:
+    - pkce_secret_object_ref
+  checks:
+  - name: github_authorization_attempts_phase_ck
+    expression: phase IN ('PREPARING','READY','CLAIMED','COMPLETED','FAILED','EXPIRED')
+  - name: github_authorization_attempts_cleanup_state_ck
+    expression: pkce_cleanup_state IN ('HELD','PENDING','COMPLETED','BLOCKED')
+  - name: github_authorization_attempts_cleanup_result_ck
+    expression: pkce_cleanup_result IS NULL OR pkce_cleanup_result IN ('CONFIRMED','UNAVAILABLE','SCOPE_UNAPPROVED','NOT_APPLICABLE')
+  - name: github_authorization_attempts_revision_ck
+    expression: expected_connection_revision >= 0
+  - name: github_authorization_attempts_verifier_required_ck
+    expression: phase NOT IN ('READY','CLAIMED','COMPLETED') OR pkce_secret_version_ref IS NOT NULL
+  - name: github_authorization_attempts_consumed_required_ck
+    expression: phase NOT IN ('CLAIMED','COMPLETED') OR consumed_at IS NOT NULL
+  - name: github_authorization_attempts_unconsumed_ck
+    expression: phase NOT IN ('PREPARING','READY') OR consumed_at IS NULL
+  - name: github_authorization_attempts_cleanup_intent_ck
+    expression: phase NOT IN ('COMPLETED','FAILED','EXPIRED') OR pkce_cleanup_state <> 'HELD'
+  - name: github_authorization_attempts_cleanup_complete_ck
+    expression: pkce_cleanup_state <> 'COMPLETED' OR (pkce_cleanup_result IS NOT NULL AND pkce_cleanup_result IN ('CONFIRMED','NOT_APPLICABLE'))
+  - name: github_authorization_attempts_object_ref_ck
+    expression: btrim(pkce_secret_object_ref) <> ''
+  - name: github_authorization_attempts_version_ref_ck
+    expression: pkce_secret_version_ref IS NULL OR (btrim(pkce_secret_version_ref) <> '' AND lower(btrim(pkce_secret_version_ref)) <> 'latest')
+  - name: github_authorization_attempts_return_ref_ck
+    expression: btrim(approved_return_ref) <> ''
+  - name: github_authorization_attempts_correlation_ck
+    expression: btrim(correlation_id) <> ''
+  - name: github_authorization_attempts_expiry_ck
+    expression: expires_at > created_at
+  - name: github_authorization_attempts_timestamps_ck
+    expression: updated_at >= created_at
+  - name: github_attempts_cleanup_terminal_ck
+    expression: pkce_cleanup_state <> 'COMPLETED' OR phase IN ('COMPLETED','FAILED','EXPIRED')
+  - name: github_attempts_pkce_object_owner_ck
+    expression: pkce_secret_object_ref = 'pkce:' || id::text
+  foreign_keys:
+  - name: github_attempts_identity_fk
+    columns:
+    - connection_id
+    - tenant_id
+    - entra_object_id
+    references:
+      table: ingestion.github_connections
+      columns:
+      - id
+      - tenant_id
+      - entra_object_id
+    deferrable: true
+    initially_deferred: true
+  - name: github_attempts_expected_generation_fk
+    columns:
+    - connection_id
+    - expected_generation_id
+    references:
+      table: ingestion.github_connection_generations
+      columns:
+      - connection_id
+      - id
+    deferrable: true
+    initially_deferred: true
+  - name: github_attempts_target_generation_fk
+    columns:
+    - connection_id
+    - target_generation_id
+    references:
+      table: ingestion.github_connection_generations
+      columns:
+      - connection_id
+      - id
+    deferrable: true
+    initially_deferred: true
+  partial_unique_constraints: []
+  domain_constraints:
+  - connector_lifecycle
+  traceability_required: false
+  retention_policy: null
+- id: github_credential_operations
+  table: github_credential_operations
+  schema: ingestion
+  owner_container: ingestion_normalization_service
+  description_es: 'Metadata técnica del conector GitHub: github_credential_operations'
+  scope_basis: approved_domain
+  status: confirmed
+  source:
+  - SRC_ADR_020
+  - DD-020
+  - 'github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada'
+  attributes:
+  - name: id
+    type: uuid
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: id
+  - name: connection_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: connection id
+  - name: generation_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: generation id
+  - name: expected_connection_revision
+    type: bigint
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: expected connection revision
+  - name: expected_generation_revision
+    type: bigint
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: expected generation revision
+  - name: kind
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: kind
+  - name: phase
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: phase
+  - name: owner_id
+    type: uuid
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: owner id
+  - name: fence
+    type: bigint
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: fence
+  - name: started_at
+    type: timestamptz
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: started at
+  - name: deadline_at
+    type: timestamptz
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: deadline at
+  - name: candidate_secret_version_ref
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: candidate secret version ref
+  - name: cleanup_target_version_ref
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: cleanup target version ref
+  - name: cleanup_scope
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: cleanup scope
+  - name: upstream_result
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: upstream result
+  - name: vault_result
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: vault result
+  - name: completed_at
+    type: timestamptz
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: completed at
+  - name: created_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: created at
+  - name: updated_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: updated at
+  unique_constraints: []
+  checks:
+  - name: github_credential_operations_kind_ck
+    expression: kind IN ('REFRESH','CLEANUP')
+  - name: github_credential_operations_phase_ck
+    expression: (kind = 'REFRESH' AND phase IN ('PENDING','CLAIMED','REQUEST_MAY_BE_IN_FLIGHT','VERSION_SAVED','COMPLETED','BLOCKED')) OR (kind = 'CLEANUP' AND phase IN ('PENDING','CLAIMED','COMPLETED','BLOCKED'))
+  - name: github_credential_operations_revision_ck
+    expression: fence >= 0 AND expected_connection_revision >= 0 AND expected_generation_revision >= 0
+  - name: github_credential_operations_claim_ck
+    expression: (phase = 'PENDING' AND owner_id IS NULL AND started_at IS NULL AND deadline_at IS NULL) OR (phase <> 'PENDING' AND owner_id IS NOT NULL AND started_at IS NOT NULL AND deadline_at IS NOT NULL AND deadline_at >= started_at)
+  - name: github_credential_operations_completion_ck
+    expression: (phase = 'COMPLETED') = (completed_at IS NOT NULL)
+  - name: github_credential_operations_kind_fields_ck
+    expression: (kind = 'REFRESH' AND cleanup_scope IS NULL AND cleanup_target_version_ref IS NULL AND upstream_result IS NULL AND vault_result IS NULL) OR (kind = 'CLEANUP' AND candidate_secret_version_ref IS NULL AND cleanup_scope IS NOT NULL AND cleanup_scope IN ('EXACT_VERSION','INVALIDATED_GENERATION') AND upstream_result IS NOT NULL AND upstream_result IN ('PENDING','CONFIRMED','UNAVAILABLE','SCOPE_UNAPPROVED','NOT_APPLICABLE') AND vault_result IS NOT NULL AND vault_result IN ('PENDING','CONFIRMED','UNAVAILABLE','SCOPE_UNAPPROVED','NOT_APPLICABLE'))
+  - name: github_credential_operations_cleanup_target_ck
+    expression: kind <> 'CLEANUP' OR ((cleanup_scope = 'EXACT_VERSION' AND cleanup_target_version_ref IS NOT NULL) OR (cleanup_scope = 'INVALIDATED_GENERATION' AND cleanup_target_version_ref IS NULL))
+  - name: github_credential_operations_exact_versions_ck
+    expression: (candidate_secret_version_ref IS NULL OR (btrim(candidate_secret_version_ref) <> '' AND lower(btrim(candidate_secret_version_ref)) <> 'latest')) AND (cleanup_target_version_ref IS NULL OR (btrim(cleanup_target_version_ref) <> '' AND lower(btrim(cleanup_target_version_ref)) <> 'latest'))
+  - name: github_credential_operations_candidate_version_ck
+    expression: kind <> 'REFRESH' OR phase NOT IN ('VERSION_SAVED','COMPLETED') OR candidate_secret_version_ref IS NOT NULL
+  - name: github_credential_operations_cleanup_complete_ck
+    expression: kind <> 'CLEANUP' OR phase <> 'COMPLETED' OR (upstream_result IN ('CONFIRMED','NOT_APPLICABLE') AND vault_result IN ('CONFIRMED','NOT_APPLICABLE'))
+  - name: github_credential_operations_timestamps_ck
+    expression: updated_at >= created_at
+  foreign_keys:
+  - name: github_operations_generation_fk
+    columns:
+    - connection_id
+    - generation_id
+    references:
+      table: ingestion.github_connection_generations
+      columns:
+      - connection_id
+      - id
+    deferrable: true
+    initially_deferred: true
+  partial_unique_constraints:
+  - name: github_operations_one_refresh_uq
+    columns:
+    - generation_id
+    where: kind = 'REFRESH' AND phase <> 'COMPLETED'
+  domain_constraints:
+  - connector_lifecycle
+  traceability_required: false
+  retention_policy: null
 relationships:
+- id: github_generation_connection
+  from: ingestion.github_connection_generations.connection_id
+  to: ingestion.github_connections.id
+  kind: fk
+  cardinality: N:1
+  description_es: Cada generación pertenece a su conexión.
 - id: pipelines_repository_id
   from: ops.pipelines.repository_id
   to: ops.repositories.id

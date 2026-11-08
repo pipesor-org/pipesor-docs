@@ -346,6 +346,139 @@ Table audit.audit_events {
   Note: 'Auditoría funcional transversal; before/after contienen solo metadata sanitizada, jamás logs crudos, secretos, tokens o credenciales. Owner: shared. approved_domain / confirmed.'
 }
 
+Table ingestion.github_connections {
+  id uuid [pk, not null, note: 'id Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  tenant_id uuid [not null, note: 'tenant id Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  entra_object_id uuid [not null, note: 'entra object id Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  revision bigint [not null, note: 'revision Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  active_generation_id uuid [null, note: 'active generation id Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  created_at timestamptz [not null, note: 'created at Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  updated_at timestamptz [not null, note: 'updated at Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  indexes {
+    (tenant_id, entra_object_id) [unique, name: 'github_connections_principal_uq']
+    (id, tenant_id, entra_object_id) [unique, name: 'github_connections_membership_uq']
+  }
+  checks {
+    `revision >= 0` [name: 'github_connections_revision_ck']
+    `updated_at >= created_at` [name: 'github_connections_timestamps_ck']
+  }
+  Note: 'Metadata técnica del conector GitHub: github_connections Owner: ingestion_normalization_service. approved_domain / confirmed. Composite FK github_connections_active_generation_fk; DEFERRABLE INITIALLY DEFERRED in extras.sql. Constraints complementarias en extras.sql: connector_lifecycle.'
+}
+
+Table ingestion.github_connection_generations {
+  id uuid [pk, not null, note: 'id Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  connection_id uuid [not null, note: 'connection id Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  github_user_id text [null, note: 'github user id Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  state text [not null, note: 'state Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  secret_object_ref text [not null, note: 'secret object ref Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  active_secret_version_ref text [null, note: 'active secret version ref Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  access_expires_at timestamptz [null, note: 'access expires at Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  refresh_expires_at timestamptz [null, note: 'refresh expires at Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  activated_at timestamptz [null, note: 'activated at Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  revision bigint [not null, note: 'revision Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  created_at timestamptz [not null, note: 'created at Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  updated_at timestamptz [not null, note: 'updated at Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  indexes {
+    (connection_id, id) [unique, name: 'github_generations_membership_uq']
+    (secret_object_ref) [unique, name: 'github_generations_object_ref_uq']
+  }
+  checks {
+    `state IN ('PREPARING','ACTIVE','BLOCKED','INVALIDATED')` [name: 'github_connection_generations_state_ck']
+    `revision >= 0` [name: 'github_connection_generations_revision_ck']
+    `(activated_at IS NULL AND state IN ('PREPARING','INVALIDATED')) OR (activated_at IS NOT NULL AND github_user_id IS NOT NULL AND active_secret_version_ref IS NOT NULL AND access_expires_at IS NOT NULL AND refresh_expires_at IS NOT NULL)` [name: 'github_connection_generations_activation_ck']
+    `btrim(secret_object_ref) <> ''` [name: 'github_connection_generations_object_ref_ck']
+    `github_user_id IS NULL OR btrim(github_user_id) <> ''` [name: 'github_connection_generations_user_identity_ck']
+    `active_secret_version_ref IS NULL OR (btrim(active_secret_version_ref) <> '' AND lower(btrim(active_secret_version_ref)) <> 'latest')` [name: 'github_connection_generations_version_ref_ck']
+    `updated_at >= created_at` [name: 'github_connection_generations_timestamps_ck']
+    `secret_object_ref = 'generation:' || id::text` [name: 'github_generations_object_owner_ck']
+  }
+  Note: 'Metadata técnica del conector GitHub: github_connection_generations Owner: ingestion_normalization_service. approved_domain / confirmed. Partial unique github_generations_one_active_uq (connection_id) WHERE state = \'ACTIVE\'; extras.sql. Constraints complementarias en extras.sql: connector_lifecycle.'
+}
+
+Table ingestion.github_authorization_attempts {
+  id uuid [pk, not null, note: 'id Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  connection_id uuid [not null, note: 'connection id Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  tenant_id uuid [not null, note: 'tenant id Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  entra_object_id uuid [not null, note: 'entra object id Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  expected_connection_revision bigint [not null, note: 'expected connection revision Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  expected_generation_id uuid [null, note: 'expected generation id Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  target_generation_id uuid [not null, note: 'target generation id Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  state_digest bytea [not null, note: 'state digest Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  expires_at timestamptz [not null, note: 'expires at Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  phase text [not null, note: 'phase Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  consumed_at timestamptz [null, note: 'consumed at Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  pkce_secret_object_ref text [not null, note: 'pkce secret object ref Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  pkce_secret_version_ref text [null, note: 'pkce secret version ref Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  pkce_cleanup_state text [not null, note: 'pkce cleanup state Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  pkce_cleanup_result text [null, note: 'pkce cleanup result Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  approved_return_ref text [not null, note: 'approved return ref Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  correlation_id text [not null, note: 'correlation id Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  created_at timestamptz [not null, note: 'created at Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  updated_at timestamptz [not null, note: 'updated at Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  indexes {
+    (target_generation_id) [unique, name: 'github_attempts_target_generation_uq']
+    (state_digest) [unique, name: 'github_attempts_state_digest_uq']
+    (pkce_secret_object_ref) [unique, name: 'github_attempts_pkce_object_ref_uq']
+  }
+  checks {
+    `phase IN ('PREPARING','READY','CLAIMED','COMPLETED','FAILED','EXPIRED')` [name: 'github_authorization_attempts_phase_ck']
+    `pkce_cleanup_state IN ('HELD','PENDING','COMPLETED','BLOCKED')` [name: 'github_authorization_attempts_cleanup_state_ck']
+    `pkce_cleanup_result IS NULL OR pkce_cleanup_result IN ('CONFIRMED','UNAVAILABLE','SCOPE_UNAPPROVED','NOT_APPLICABLE')` [name: 'github_authorization_attempts_cleanup_result_ck']
+    `expected_connection_revision >= 0` [name: 'github_authorization_attempts_revision_ck']
+    `phase NOT IN ('READY','CLAIMED','COMPLETED') OR pkce_secret_version_ref IS NOT NULL` [name: 'github_authorization_attempts_verifier_required_ck']
+    `phase NOT IN ('CLAIMED','COMPLETED') OR consumed_at IS NOT NULL` [name: 'github_authorization_attempts_consumed_required_ck']
+    `phase NOT IN ('PREPARING','READY') OR consumed_at IS NULL` [name: 'github_authorization_attempts_unconsumed_ck']
+    `phase NOT IN ('COMPLETED','FAILED','EXPIRED') OR pkce_cleanup_state <> 'HELD'` [name: 'github_authorization_attempts_cleanup_intent_ck']
+    `pkce_cleanup_state <> 'COMPLETED' OR (pkce_cleanup_result IS NOT NULL AND pkce_cleanup_result IN ('CONFIRMED','NOT_APPLICABLE'))` [name: 'github_authorization_attempts_cleanup_complete_ck']
+    `btrim(pkce_secret_object_ref) <> ''` [name: 'github_authorization_attempts_object_ref_ck']
+    `pkce_secret_version_ref IS NULL OR (btrim(pkce_secret_version_ref) <> '' AND lower(btrim(pkce_secret_version_ref)) <> 'latest')` [name: 'github_authorization_attempts_version_ref_ck']
+    `btrim(approved_return_ref) <> ''` [name: 'github_authorization_attempts_return_ref_ck']
+    `btrim(correlation_id) <> ''` [name: 'github_authorization_attempts_correlation_ck']
+    `expires_at > created_at` [name: 'github_authorization_attempts_expiry_ck']
+    `updated_at >= created_at` [name: 'github_authorization_attempts_timestamps_ck']
+    `pkce_cleanup_state <> 'COMPLETED' OR phase IN ('COMPLETED','FAILED','EXPIRED')` [name: 'github_attempts_cleanup_terminal_ck']
+    `pkce_secret_object_ref = 'pkce:' || id::text` [name: 'github_attempts_pkce_object_owner_ck']
+  }
+  Note: 'Metadata técnica del conector GitHub: github_authorization_attempts Owner: ingestion_normalization_service. approved_domain / confirmed. Composite FK github_attempts_identity_fk; DEFERRABLE INITIALLY DEFERRED in extras.sql. Composite FK github_attempts_expected_generation_fk; DEFERRABLE INITIALLY DEFERRED in extras.sql. Composite FK github_attempts_target_generation_fk; DEFERRABLE INITIALLY DEFERRED in extras.sql. Constraints complementarias en extras.sql: connector_lifecycle.'
+}
+
+Table ingestion.github_credential_operations {
+  id uuid [pk, not null, note: 'id Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  connection_id uuid [not null, note: 'connection id Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  generation_id uuid [not null, note: 'generation id Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  expected_connection_revision bigint [not null, note: 'expected connection revision Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  expected_generation_revision bigint [not null, note: 'expected generation revision Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  kind text [not null, note: 'kind Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  phase text [not null, note: 'phase Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  owner_id uuid [null, note: 'owner id Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  fence bigint [not null, note: 'fence Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  started_at timestamptz [null, note: 'started at Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  deadline_at timestamptz [null, note: 'deadline at Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  candidate_secret_version_ref text [null, note: 'candidate secret version ref Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  cleanup_target_version_ref text [null, note: 'cleanup target version ref Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  cleanup_scope text [null, note: 'cleanup scope Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  upstream_result text [null, note: 'upstream result Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  vault_result text [null, note: 'vault result Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  completed_at timestamptz [null, note: 'completed at Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  created_at timestamptz [not null, note: 'created at Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  updated_at timestamptz [not null, note: 'updated at Fuente: SRC_ADR_020, DD-020, github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada']
+  checks {
+    `kind IN ('REFRESH','CLEANUP')` [name: 'github_credential_operations_kind_ck']
+    `(kind = 'REFRESH' AND phase IN ('PENDING','CLAIMED','REQUEST_MAY_BE_IN_FLIGHT','VERSION_SAVED','COMPLETED','BLOCKED')) OR (kind = 'CLEANUP' AND phase IN ('PENDING','CLAIMED','COMPLETED','BLOCKED'))` [name: 'github_credential_operations_phase_ck']
+    `fence >= 0 AND expected_connection_revision >= 0 AND expected_generation_revision >= 0` [name: 'github_credential_operations_revision_ck']
+    `(phase = 'PENDING' AND owner_id IS NULL AND started_at IS NULL AND deadline_at IS NULL) OR (phase <> 'PENDING' AND owner_id IS NOT NULL AND started_at IS NOT NULL AND deadline_at IS NOT NULL AND deadline_at >= started_at)` [name: 'github_credential_operations_claim_ck']
+    `(phase = 'COMPLETED') = (completed_at IS NOT NULL)` [name: 'github_credential_operations_completion_ck']
+    `(kind = 'REFRESH' AND cleanup_scope IS NULL AND cleanup_target_version_ref IS NULL AND upstream_result IS NULL AND vault_result IS NULL) OR (kind = 'CLEANUP' AND candidate_secret_version_ref IS NULL AND cleanup_scope IS NOT NULL AND cleanup_scope IN ('EXACT_VERSION','INVALIDATED_GENERATION') AND upstream_result IS NOT NULL AND upstream_result IN ('PENDING','CONFIRMED','UNAVAILABLE','SCOPE_UNAPPROVED','NOT_APPLICABLE') AND vault_result IS NOT NULL AND vault_result IN ('PENDING','CONFIRMED','UNAVAILABLE','SCOPE_UNAPPROVED','NOT_APPLICABLE'))` [name: 'github_credential_operations_kind_fields_ck']
+    `kind <> 'CLEANUP' OR ((cleanup_scope = 'EXACT_VERSION' AND cleanup_target_version_ref IS NOT NULL) OR (cleanup_scope = 'INVALIDATED_GENERATION' AND cleanup_target_version_ref IS NULL))` [name: 'github_credential_operations_cleanup_target_ck']
+    `(candidate_secret_version_ref IS NULL OR (btrim(candidate_secret_version_ref) <> '' AND lower(btrim(candidate_secret_version_ref)) <> 'latest')) AND (cleanup_target_version_ref IS NULL OR (btrim(cleanup_target_version_ref) <> '' AND lower(btrim(cleanup_target_version_ref)) <> 'latest'))` [name: 'github_credential_operations_exact_versions_ck']
+    `kind <> 'REFRESH' OR phase NOT IN ('VERSION_SAVED','COMPLETED') OR candidate_secret_version_ref IS NOT NULL` [name: 'github_credential_operations_candidate_version_ck']
+    `kind <> 'CLEANUP' OR phase <> 'COMPLETED' OR (upstream_result IN ('CONFIRMED','NOT_APPLICABLE') AND vault_result IN ('CONFIRMED','NOT_APPLICABLE'))` [name: 'github_credential_operations_cleanup_complete_ck']
+    `updated_at >= created_at` [name: 'github_credential_operations_timestamps_ck']
+  }
+  Note: 'Metadata técnica del conector GitHub: github_credential_operations Owner: ingestion_normalization_service. approved_domain / confirmed. Partial unique github_operations_one_refresh_uq (generation_id) WHERE kind = \'REFRESH\' AND phase <> \'COMPLETED\'; extras.sql. Composite FK github_operations_generation_fk; DEFERRABLE INITIALLY DEFERRED in extras.sql. Constraints complementarias en extras.sql: connector_lifecycle.'
+}
+
+Ref github_generation_connection: ingestion.github_connection_generations.connection_id > ingestion.github_connections.id
 Ref pipelines_repository_id: ops.pipelines.repository_id > ops.repositories.id
 Ref pipeline_executions_pipeline_id: ops.pipeline_executions.pipeline_id > ops.pipelines.id
 Ref execution_stages_execution_id: ops.execution_stages.execution_id > ops.pipeline_executions.id
@@ -358,6 +491,11 @@ Ref diagnosis_evidence_links_diagnosis_id: diagnosis.diagnosis_evidence_links.di
 Ref diagnosis_source_links_diagnosis_id: diagnosis.diagnosis_source_links.diagnosis_id > diagnosis.diagnoses.id
 Ref human_reviews_diagnostic_id: diagnosis.human_reviews.diagnostic_id > diagnosis.diagnoses.id
 Ref knowledge_chunks_document_id: knowledge.knowledge_chunks.document_id > knowledge.knowledge_documents.id
+Ref github_connections_active_generation_fk: ingestion.github_connections.(id, active_generation_id) > ingestion.github_connection_generations.(connection_id, id)
+Ref github_attempts_identity_fk: ingestion.github_authorization_attempts.(connection_id, tenant_id, entra_object_id) > ingestion.github_connections.(id, tenant_id, entra_object_id)
+Ref github_attempts_expected_generation_fk: ingestion.github_authorization_attempts.(connection_id, expected_generation_id) > ingestion.github_connection_generations.(connection_id, id)
+Ref github_attempts_target_generation_fk: ingestion.github_authorization_attempts.(connection_id, target_generation_id) > ingestion.github_connection_generations.(connection_id, id)
+Ref github_operations_generation_fk: ingestion.github_credential_operations.(connection_id, generation_id) > ingestion.github_connection_generations.(connection_id, id)
 
 TableGroup ops {
   ops.repositories
@@ -389,4 +527,11 @@ TableGroup knowledge {
 
 TableGroup audit {
   audit.audit_events
+}
+
+TableGroup ingestion {
+  ingestion.github_connections
+  ingestion.github_connection_generations
+  ingestion.github_authorization_attempts
+  ingestion.github_credential_operations
 }

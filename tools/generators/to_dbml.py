@@ -39,12 +39,21 @@ def generate_dbml(model):
                 lines.append(f"    `{check['expression']}` [name: {dbml_string(check['name'])}]")
             lines.append("  }")
         note = f"{entity['description_es']} Owner: {entity['owner_container']}. {entity['scope_basis']} / {entity['status']}."
+        for index in entity.get('partial_unique_constraints', []):
+            note += f" Partial unique {index['name']} ({', '.join(index['columns'])}) WHERE {index['where']}; extras.sql."
+        for fk in entity.get('foreign_keys', []):
+            note += f" Composite FK {fk['name']}; DEFERRABLE INITIALLY DEFERRED in extras.sql."
         if entity.get("domain_constraints"):
             note += " Constraints complementarias en extras.sql: " + ", ".join(entity["domain_constraints"]) + "."
         lines.extend(["  Note: " + dbml_string(note), "}", ""])
     for relationship in model["relationships"]:
         if relationship["kind"] == "fk":
             lines.append(f"Ref {relationship['id']}: {relationship['from']} > {relationship['to']}")
+    for entity in model['entities']:
+        for fk in entity.get('foreign_keys', []):
+            left = f"{entity['schema']}.{entity['table']}.({', '.join(fk['columns'])})"
+            right = f"{fk['references']['table']}.({', '.join(fk['references']['columns'])})"
+            lines.append(f"Ref {fk['name']}: {left} > {right}")
     lines.append("")
     for schema in model["schemas"]:
         lines.append(f"TableGroup {schema['id']} {{")

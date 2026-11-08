@@ -82,6 +82,16 @@ make validate_design
 
 `make validate` comprueba arquitectura y dominio; `make validate_design` comprueba además el diseño. Cuando corresponda y esté dentro del alcance, ejecutar el generador afectado, `make all` y las pruebas relevantes. `make all` genera archivos y no ejecuta la suite unittest. El Makefile utiliza `.venv/bin/python`; las herramientas externas dependen del target y se comprueban en `tools/check_env.sh`. No instalar dependencias ni ampliar el alcance para ocultar un fallo.
 
+Para comprobar cambios con las dependencias ya instaladas:
+
+```sh
+make test
+PATH="$PWD/tools/node_modules/.bin:$PATH" make all
+PATH="$PWD/tools/node_modules/.bin:$PATH" make test-postgres
+```
+
+`make test` cubre reglas y contratos de generación. `make test-postgres` aplica DDL generado en PostgreSQL/pgvector aislado, sin puertos host ni credenciales de aplicación; requiere Docker y la imagen fijada por la herramienta. No aprueba runner, permisos ni integración productiva del conector.
+
 Si el entorno impide usar Make, reportar la limitación. Los validadores equivalentes pueden ejecutarse directamente con Python y PyYAML ya disponibles, sin generación:
 
 ```sh
@@ -97,4 +107,6 @@ Consultar las [convenciones comunes](docs/development/backend-conventions.md) y 
 
 ## Conexión GitHub y alta de workflows
 
-[ADR-020](docs/architecture/decisions/ADR-020-github-user-access-and-workflow-onboarding.md) registra la decisión aprobada el 06/11/2026: Entra vinculado explícitamente con GitHub, tokens de usuario para selección/acceso humano e installation tokens para monitoreo continuo. Dashboard, Ingestion y Pipeline tienen cambios directos; Log/Event y Recommendation tienen dependencias de autorización para sus APIs humanas. No se añade microservicio ni acceso GitHub a Python/correlación. La política funcional queda aprobada; los contratos, custodia y almacenamiento técnico siguen pendientes. El código local y los diagramas no prueban integración ni despliegue.
+[ADR-020](docs/architecture/decisions/ADR-020-github-user-access-and-workflow-onboarding.md) registra la decisión aprobada el 06/11/2026: Entra vinculado explícitamente con GitHub, tokens de usuario para selección/acceso humano e installation tokens para monitoreo continuo. Dashboard, Ingestion y Pipeline tienen cambios directos; Log/Event y Recommendation tienen dependencias de autorización para sus APIs humanas. No se añade microservicio ni acceso GitHub a Python/correlación. La política funcional queda aprobada; DD-020 concreta después almacenamiento técnico y modo de custodia localmente, conservando los detalles operativos pendientes. El código local y los diagramas no prueban integración ni despliegue.
+
+El 07/11/2026 el usuario aprobó explícitamente `github-connector-draft-0.2`: «Propuesta aprobada». [DD-020 y la definición física](model/domain_decisions.md#DD-020) adoptan localmente cuatro tablas de metadata del schema `ingestion`, ownership de Ingestion, y principios OBO, Key Vault Secrets y validez limitada a petición. [model/domain.yml](model/domain.yml) es la SSOT; DBML/SQL/ER/diccionario se regeneran desde ella. El [contrato semántico de Ingestion](https://github.com/pipesor-org/pipesor-ingestion-normalization-service/blob/main/docs/deployment-contract.md#connector-contract-proposal-for-decision) conserva binding/API. Aceptado localmente no significa integrado en main, recurso provisionado o integración segura desplegada. [PD-027/034/035](docs/architecture/pending-decisions.md) conservan configuración de identidad, protocolos y responsabilidades operativas pendientes sin reabrir las decisiones aprobadas; no se reescribe el snapshot histórico.
