@@ -1,7 +1,7 @@
 architecture:
   id: ey_aiops_ci_cd_diagnosis
   name: "AIOps Prototype for CI/CD Failure Diagnosis"
-  model_version: "0.6.0-github-user-access"
+  model_version: "0.7.0-github-connector-metadata"
   phase: "phase_4_c4_views"
   status: draft
   renderable: true
@@ -318,7 +318,9 @@ elements:
     github_connection:
       kind: internal_component
       credential_owner: ingestion_normalization_service
-      technical_storage_design: pending
+      technical_storage_design: approved_locally_github_connector_0_2
+      metadata_schema: ingestion
+      storage_source: model/domain_decisions.md#DD-020
       authorization_policy_owner: resource_owning_service
       source: SRC_ADR_020
     canonical_event_context:
@@ -798,6 +800,17 @@ relationships:
   # ----------------------------------------------------------
   # ADD — domain persistence
   # ----------------------------------------------------------
+  - id: rel_ingestion_postgresql_connector_metadata
+    from: ingestion_normalization_service
+    to: postgresql_operational_store
+    label: "Persists connector linkage, generations and credential-operation metadata; no tokens"
+    protocol: PostgreSQL
+    style: sync
+    status: confirmed
+    source:
+      - SRC_ADR_020
+      - "model/domain_decisions.md#DD-020 — aprobación local 2026-11-07"
+
   - id: rel_pipeline_service_postgresql
     from: pipeline_service
     to: postgresql_operational_store

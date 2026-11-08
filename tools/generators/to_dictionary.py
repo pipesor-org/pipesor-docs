@@ -32,6 +32,10 @@ def generate_dictionary(model):
                 lines.extend(["Retención: 365 días (ADR-013), anclada en `created_at`; no hay purge jobs.", ""])
             if e.get("unique_constraints"):
                 lines.extend(["Claves únicas compuestas: " + "; ".join("`(" + ", ".join(u["columns"]) + ")`" for u in e["unique_constraints"]) + ".", ""])
+            for fk in e.get('foreign_keys', []):
+                lines.extend([f"FK compuesta `{fk['name']}`: ({', '.join(fk['columns'])}) → {fk['references']['table']} ({', '.join(fk['references']['columns'])}); diferida al commit en extras.sql.", ''])
+            for index in e.get('partial_unique_constraints', []):
+                lines.extend([f"Unicidad parcial `{index['name']}`: ({', '.join(index['columns'])}) WHERE `{index['where']}`; extras.sql.", ''])
             if e.get("checks"):
                 lines.extend(["Checks: " + "; ".join("`" + c["expression"] + "`" for c in e["checks"]) + ".", ""])
             if e.get("domain_constraints"):

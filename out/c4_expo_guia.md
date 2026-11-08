@@ -36,22 +36,23 @@ Las fuentes externas entregan evidencia a ingesta, que la protege antes del topi
 | 01 | GitHub Actions → Ingestion and Normalization Service | Emits authorized workflow events | HTTPS/Webhook | event |
 | 02 | Azure Service Bus → Pipeline Service | Delivers execution events to register pipeline context | Azure Service Bus | async |
 | 03 | Azure Service Bus → Log/Event Service | Delivers normalized evidence for registration and querying | Azure Service Bus | async |
-| 04 | Pipeline Service → PostgreSQL | Persists pipelines, stages, states and execution metadata | PostgreSQL | sync |
-| 05 | Log/Event Service → PostgreSQL | Persists and queries normalized evidence metadata and references | PostgreSQL | sync |
-| 06 | Diagnostic & Recommendation Service → PostgreSQL | Persists diagnosis, recommendations and evidence links | PostgreSQL | sync |
-| 07 | Ingestion and Normalization Service → GitHub Actions | Retrieves authorized logs, artifacts and metadata | GitHub API/HTTPS | sync |
-| 08 | Ingestion and Normalization Service → Azure Service Bus | Publishes normalized and protected evidence | Azure Service Bus | async |
-| 09 | Azure Service Bus → NLP Log Processing | Delivers normalized events for processing | Azure Service Bus | async |
-| 10 | NLP Log Processing → Evidence Correlation Service | Delivers logs and processed evidence for correlation | REST/HTTPS | sync |
-| 11 | Evidence Correlation Service → PostgreSQL | Records correlated context and traceability | PostgreSQL | sync |
-| 12 | RAG Knowledge Retrieval → PostgreSQL | Retrieves semantically related operational knowledge | PostgreSQL/pgvector | sync |
-| 13 | Compatible Observability and Runtime Sources → Ingestion and Normalization Service | Provides authorized telemetry and operational evidence | REST/HTTPS | sync |
-| 14 | Evidence Correlation Service → Diagnostic & Recommendation Service | Delivers correlated incident context for assisted diagnosis | REST/HTTPS | sync |
-| 15 | Diagnostic & Recommendation Service → RAG Knowledge Retrieval | Requests authorized contextual knowledge for the incident | REST/HTTPS | sync |
-| 16 | Diagnostic & Recommendation Service → Azure OpenAI Service | Requests diagnostic inference with sanitized evidence and RAG context | Azure OpenAI API/HTTPS | sync |
-| 17 | Diagnostic & Recommendation Service → PostgreSQL | Persists human review decisions and traceability | PostgreSQL | sync |
-| 18 | GitHub Actions → Diagnostic & Recommendation Service | Queries diagnostic_output to publish the workflow artifact | REST/HTTPS | sync |
-| 19 | Pipeline Service → Ingestion and Normalization Service | Requests verified user access and workflow metadata without GitHub credentials | REST/HTTPS | sync |
+| 04 | Ingestion and Normalization Service → PostgreSQL | Persists connector linkage, generations and credential-operation metadata; no tokens | PostgreSQL | sync |
+| 05 | Pipeline Service → PostgreSQL | Persists pipelines, stages, states and execution metadata | PostgreSQL | sync |
+| 06 | Log/Event Service → PostgreSQL | Persists and queries normalized evidence metadata and references | PostgreSQL | sync |
+| 07 | Diagnostic & Recommendation Service → PostgreSQL | Persists diagnosis, recommendations and evidence links | PostgreSQL | sync |
+| 08 | Ingestion and Normalization Service → GitHub Actions | Retrieves authorized logs, artifacts and metadata | GitHub API/HTTPS | sync |
+| 09 | Ingestion and Normalization Service → Azure Service Bus | Publishes normalized and protected evidence | Azure Service Bus | async |
+| 10 | Azure Service Bus → NLP Log Processing | Delivers normalized events for processing | Azure Service Bus | async |
+| 11 | NLP Log Processing → Evidence Correlation Service | Delivers logs and processed evidence for correlation | REST/HTTPS | sync |
+| 12 | Evidence Correlation Service → PostgreSQL | Records correlated context and traceability | PostgreSQL | sync |
+| 13 | RAG Knowledge Retrieval → PostgreSQL | Retrieves semantically related operational knowledge | PostgreSQL/pgvector | sync |
+| 14 | Compatible Observability and Runtime Sources → Ingestion and Normalization Service | Provides authorized telemetry and operational evidence | REST/HTTPS | sync |
+| 15 | Evidence Correlation Service → Diagnostic & Recommendation Service | Delivers correlated incident context for assisted diagnosis | REST/HTTPS | sync |
+| 16 | Diagnostic & Recommendation Service → RAG Knowledge Retrieval | Requests authorized contextual knowledge for the incident | REST/HTTPS | sync |
+| 17 | Diagnostic & Recommendation Service → Azure OpenAI Service | Requests diagnostic inference with sanitized evidence and RAG context | Azure OpenAI API/HTTPS | sync |
+| 18 | Diagnostic & Recommendation Service → PostgreSQL | Persists human review decisions and traceability | PostgreSQL | sync |
+| 19 | GitHub Actions → Diagnostic & Recommendation Service | Queries diagnostic_output to publish the workflow artifact | REST/HTTPS | sync |
+| 20 | Pipeline Service → Ingestion and Normalization Service | Requests verified user access and workflow metadata without GitHub credentials | REST/HTTPS | sync |
 
 ## C4 Level 2B — Consumption, Governance and Persistence
 

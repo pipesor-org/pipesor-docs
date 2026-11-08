@@ -9,15 +9,16 @@ from domain_model import ROOT, find_tool, load_domain, main_guard, quote, write_
 
 def visible_columns(entity):
     unique_columns = {c for u in entity.get("unique_constraints", []) for c in u["columns"]}
+    composite_columns = {c for fk in entity.get("foreign_keys", []) for c in fk["columns"]}
     return [c for c in entity["attributes"] if c["er_visible"] or c["pk"] or c.get("fk")
             or c.get("logical_ref") or c["unique"] or c.get("enum")
-            or c["name"] == "correlation_id" or c["name"] in unique_columns]
+            or c["name"] == "correlation_id" or c["name"] in unique_columns or c["name"] in composite_columns]
 
 
 def generate_er(model):
     # load_domain performs the shared checks before any generated file is written.
-    if len(model["entities"]) > 18:
-        raise ValueError("ER exceeds 18 tables")
+    if len(model["entities"]) > 21:
+        raise ValueError("ER exceeds 21 tables")
     keys = {f"{e['schema']}.{e['table']}" for e in model["entities"]}
     for e in model["entities"]:
         if not any(c["pk"] for c in e["attributes"]):
@@ -30,7 +31,8 @@ def generate_er(model):
              f"title: {quote(title)} {{",
              "  shape: text", "  style.font-size: 26", "  near: top-center", "}", ""]
     colors = ["#DDEBF7", "#E2F0D9", "#FFF2CC", "#E4DDF5", "#E7E6E6"]
-    for schema, color in zip(model["schemas"], colors):
+    for i, schema in enumerate(model["schemas"]):
+        color = colors[i % len(colors)]
         lines.extend([f"{schema['id']}: {quote(schema['id'])} {{", "  direction: right",
                       f"  style.fill: {quote(color)}"])
         for e in model["entities"]:
@@ -42,11 +44,15 @@ def generate_er(model):
             if e["scope_basis"] == "ia_only":
                 lines.append("    style.stroke-dash: 2")
             unique_columns = {c for u in e.get("unique_constraints", []) for c in u["columns"]}
+            composite_columns = {c for fk in e.get("foreign_keys", []) for c in fk["columns"]}
+            partial_columns = {c for index in e.get("partial_unique_constraints", []) for c in index["columns"]}
             cols = visible_columns(e)
             for c in cols:
                 constraints = []
                 if c["pk"]: constraints.append("primary_key")
                 if c.get("fk"): constraints.append("foreign_key")
+                elif c["name"] in composite_columns: constraints.append("composite FK")
+                if c["name"] in partial_columns: constraints.append("partial UQ; see dictionary")
                 if c.get("logical_ref"): constraints.append("logical ID")
                 if c["unique"]: constraints.append("unique")
                 elif c["name"] in unique_columns: constraints.append("composite UQ")
@@ -66,6 +72,12 @@ def generate_er(model):
         lines.append(f"{r['from']} -> {r['to']}: {quote(label)} {{")
         lines.extend(["  style.stroke-dash: 5" if logical else "  style.stroke-dash: 0",
                       '  style.stroke: "#586174"', "}"])
+    for entity in model['entities']:
+        for fk in entity.get('foreign_keys', []):
+            left = f"{entity['schema']}.{entity['table']}.{fk['columns'][0]}"
+            right = f"{fk['references']['table']}.{fk['references']['columns'][0]}"
+            label = "composite FK deferred: " + ', '.join(fk['columns']) + ' → ' + ', '.join(fk['references']['columns'])
+            lines.append(f'{left} -> {right}: {quote(label)}')
     lines.extend(["", 'legend: "Legend\\nSolid line: intra-schema FK (N:1)\\nDashed line: logical reference by ID, no physical FK\\nDotted border: pipeline_access_grants (IA-only / inferred)\\nComposite UQ: member of a composite unique key\\n+N columns: see data dictionary\\nNo cross-context ORM navigation" {',
                   "  shape: text", "  style.font-size: 16", "  near: bottom-center", "}"])
     return "\n".join(lines)

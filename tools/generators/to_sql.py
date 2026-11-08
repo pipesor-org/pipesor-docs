@@ -7,6 +7,7 @@ import subprocess
 
 from domain_model import ROOT, find_tool, load_domain, main_guard, write_generated
 from to_dbml import generate_dbml
+from connector_constraints import generate_lifecycle_sql
 
 
 ORIGIN_CONSTRAINTS = """
@@ -108,17 +109,27 @@ FOR EACH STATEMENT EXECUTE FUNCTION diagnosis.reject_diagnoses_mutation();
 
 def generate_extras(model):
     constraints = {c for e in model["entities"] for c in e.get("domain_constraints", [])}
-    supported = {"at_most_one_origin", "exactly_one_failed_origin", "origin_pipeline_consistency", "append_only"}
+    supported = {"at_most_one_origin", "exactly_one_failed_origin", "origin_pipeline_consistency", "append_only", "connector_lifecycle"}
     if constraints - supported:
         raise ValueError(f"Unsupported domain constraints: {sorted(constraints - supported)}")
     parts = ["-- GENERATED — DO NOT EDIT. SSOT: model/domain.yml; DD-002 / DD-003."]
-    origin = supported - {"append_only"}
+    origin = supported - {"append_only", "connector_lifecycle"}
     if constraints & origin:
         if not origin <= constraints:
             raise ValueError("ORIGIN constraints must be declared together")
         parts.append(ORIGIN_CONSTRAINTS)
     if "append_only" in constraints:
         parts.append(APPEND_ONLY)
+    for entity in model['entities']:
+        table = f"{entity['schema']}.{entity['table']}"
+        for index in entity.get('partial_unique_constraints', []):
+            parts.append(f"CREATE UNIQUE INDEX {index['name']} ON {table} ({', '.join(index['columns'])}) WHERE {index['where']};")
+        for fk in entity.get('foreign_keys', []):
+            if fk.get('deferrable'):
+                mode = 'DEFERRED' if fk.get('initially_deferred') else 'IMMEDIATE'
+                parts.append(f"ALTER TABLE {table} ALTER CONSTRAINT {fk['name']} DEFERRABLE INITIALLY {mode};")
+    if 'connector_lifecycle' in constraints:
+        parts.append(generate_lifecycle_sql())
     return "\n".join(parts)
 
 
@@ -133,6 +144,9 @@ def validate_export(sql, model):
     if tables != expected:
         raise ValueError('dbml2sql returned incomplete/unexpected CREATE TABLE output')
     for entity in model['entities']:
+        for fk in entity.get('foreign_keys', []):
+            if f'ADD CONSTRAINT "{fk["name"]}" FOREIGN KEY' not in sql:
+                raise ValueError(f'dbml2sql omitted composite FK {fk["name"]}')
         for check in entity.get('checks', []):
             if f'CONSTRAINT "{check["name"]}" CHECK' not in sql:
                 raise ValueError(f'dbml2sql omitted CHECK {check["name"]}')
