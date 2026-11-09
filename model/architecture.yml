@@ -803,13 +803,14 @@ relationships:
   - id: rel_ingestion_postgresql_connector_metadata
     from: ingestion_normalization_service
     to: postgresql_operational_store
-    label: "Persists connector linkage, generations and credential-operation metadata; no tokens"
+    label: "Persists connector metadata and durable capture/publication ledger with temporary protected output bytes; no credential values"
     protocol: PostgreSQL
     style: sync
     status: confirmed
     source:
       - SRC_ADR_020
       - "model/domain_decisions.md#DD-020 — aprobación local 2026-11-07"
+      - "model/domain_decisions.md#DD-021 — adopción local 2026-11-08"
 
   - id: rel_pipeline_service_postgresql
     from: pipeline_service

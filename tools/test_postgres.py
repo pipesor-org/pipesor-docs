@@ -36,7 +36,7 @@ class PersistenceTests(unittest.TestCase):
                         '-e', 'POSTGRES_HOST_AUTH_METHOD=trust', IMAGE], check=True, capture_output=True)
         cls.addClassCleanup(subprocess.run, ['docker', 'rm', '-f', cls.container], check=True, capture_output=True)
         for _ in range(60):
-            ready = subprocess.run(['docker', 'exec', cls.container, 'pg_isready', '-U', 'postgres'], capture_output=True)
+            ready = subprocess.run(['docker', 'exec', cls.container, 'pg_isready', '-h', '127.0.0.1', '-U', 'postgres'], capture_output=True)
             if ready.returncode == 0:
                 break
             time.sleep(0.5)
@@ -120,11 +120,111 @@ VALUES ('{ONE}','{ONE}','{ONE}',1,0,'REFRESH','PENDING',0,now(),now());
         result = self.sql('BEGIN; ' + statement + '; SET CONSTRAINTS ALL IMMEDIATE; ROLLBACK;')
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def rejected(self, statement, code='23514'):
+    def rejected(self, statement, code='23514', constraint=None):
         # Each psql session rolls its failed transaction back on disconnect.
         result = self.sql('BEGIN; ' + statement + '; SET CONSTRAINTS ALL IMMEDIATE; ROLLBACK;')
         self.assertNotEqual(result.returncode, 0, result.stdout)
         self.assertIn(code, result.stderr)
+        if constraint is not None:
+            self.assertIn(constraint, result.stderr)
+
+    @staticmethod
+    def capture_fixture():
+        return """
+INSERT INTO ingestion.capture_receipts
+(id,capture_domain,tenant_id,source,body_digest,app_id,account_id,installation_id,repository_id,workflow_id,run_id,
+ run_attempt,scope_revision,correlation_id,snapshot_message_id,evidence_message_id,phase,revision,claim_fence,created_at,updated_at,replay_until)
+VALUES ('00000000-0000-4000-8000-000000000010','synthetic-domain','00000000-0000-4000-8000-000000000011',
+ 'github',repeat('a',64),'1','2','3','4','5','6',1,'scope-1','synthetic-correlation',
+ '00000000-0000-4000-8000-000000000012','00000000-0000-4000-8000-000000000013',
+ 'ACCEPTED',0,0,'2026-11-08 00:00:00+00','2026-11-08 00:00:00+00','2026-11-10 00:00:00+00');
+INSERT INTO ingestion.capture_delivery_aliases(id,capture_domain,source,delivery_id,receipt_id,created_at)
+VALUES ('00000000-0000-4000-8000-000000000014','synthetic-domain','github','synthetic-delivery',
+ '00000000-0000-4000-8000-000000000010','2026-11-08 00:00:00+00');
+UPDATE ingestion.capture_receipts SET revision=1,claim_fence=1,claim_owner='00000000-0000-4000-8000-000000000015',
+ lease_until='2026-11-08 00:01:00+00',updated_at='2026-11-08 00:00:01+00';
+INSERT INTO ingestion.capture_observations
+(id,capture_domain,source,observation_key,protected_content_digest,origin_receipt_id,repository_id,workflow_id,run_id,
+ run_attempt,observed_at,observed_at_submicro,source_updated_at,source_updated_at_submicro,normalizer_version,
+ protection_policy_version,correlation_id,required_output_count,created_at)
+VALUES ('00000000-0000-4000-8000-000000000016','synthetic-domain','github',repeat('d',64),repeat('b',64),
+ '00000000-0000-4000-8000-000000000010','4','5','6',1,'2026-11-08 00:00:00.123456+00',789,
+ '2026-11-08 00:00:00.999999+00',999,'v1','v1','synthetic-correlation',1,'2026-11-08 00:00:02+00');
+INSERT INTO ingestion.publication_outputs
+(id,observation_id,event_type,schema_major,payload,payload_digest,phase,revision,claim_fence,attempt_count,
+ payload_recover_until,created_at,updated_at)
+VALUES ('00000000-0000-4000-8000-000000000012','00000000-0000-4000-8000-000000000016',
+ 'execution.snapshot',1,decode('7b7d','hex'),repeat('c',64),'PENDING',0,0,0,
+ '2026-11-09 00:00:00+00','2026-11-08 00:00:02+00','2026-11-08 00:00:02+00');
+UPDATE ingestion.capture_receipts SET phase='PREPARED',revision=2,claim_owner=NULL,lease_until=NULL,
+ observation_id='00000000-0000-4000-8000-000000000016',prepared_at='2026-11-08 00:00:02+00',updated_at='2026-11-08 00:00:02+00';
+"""
+
+    @staticmethod
+    def output_claim():
+        return """UPDATE ingestion.publication_outputs SET phase='CLAIMED',revision=1,claim_fence=1,attempt_count=1,
+ claim_owner='00000000-0000-4000-8000-000000000015',lease_until='2026-11-08 00:01:00+00',
+ last_attempt_at='2026-11-08 00:00:03+00',updated_at='2026-11-08 00:00:03+00';"""
+
+    def test_capture_closed_plan_reserved_ids_and_source_instants(self):
+        fixture=self.capture_fixture()
+        self.accepted(fixture)
+        self.rejected(fixture.replace("repeat('d',64)", "'opaque-key'"), constraint='capture_observations_observation_key_ck')
+        self.rejected(fixture.replace("'synthetic-correlation',1,'2026-11-08 00:00:02+00'", "'synthetic-correlation',2,'2026-11-08 00:00:02+00'"))
+        self.rejected(fixture.replace("00:00:00.123456+00',789", "00:00:00.123456+00',1000"))
+        self.rejected(fixture + "UPDATE ingestion.capture_receipts SET phase='PUBLISHED',published_at='2026-11-08 00:00:03+00',revision=3,updated_at='2026-11-08 00:00:03+00'")
+        self.rejected(fixture.replace("'execution.snapshot',1,decode", "'protected_workflow_evidence',2,decode"))
+
+    def test_capture_context_alias_membership_and_append_only_guards(self):
+        fixture=self.capture_fixture()
+        for statement in ("UPDATE ingestion.capture_observations SET correlation_id='changed'",
+                          "UPDATE ingestion.capture_delivery_aliases SET delivery_id='changed'",
+                          "DELETE FROM ingestion.publication_outputs", "SET CONSTRAINTS ALL IMMEDIATE; TRUNCATE ingestion.capture_receipts CASCADE",
+                          "UPDATE ingestion.capture_receipts SET tenant_id='00000000-0000-4000-8000-000000000099',revision=3"):
+            with self.subTest(statement=statement): self.rejected(fixture+statement)
+        self.rejected(fixture.replace("'synthetic-domain','github','synthetic-delivery'", "'other-domain','github','synthetic-delivery'"), '23503')
+        self.rejected(fixture.replace("'4','5','6',1,'2026-11-08", "'9','5','6',1,'2026-11-08"))
+
+    def test_capture_blocking_cannot_bypass_preparation_and_acceptance_horizon(self):
+        fixture=self.capture_fixture()
+        bypass=fixture.replace("SET phase='PREPARED',revision=2", "SET phase='BLOCKED',blocked_reason='SYNTHETIC',revision=2")
+        self.rejected(bypass, constraint='capture_receipts_association_ck')
+        acceptance=fixture[:fixture.index('INSERT INTO ingestion.capture_delivery_aliases')]
+        self.rejected(acceptance+"UPDATE ingestion.capture_receipts SET replay_until='2026-11-11 00:00:00+00',revision=1,updated_at='2026-11-08 00:00:01+00'", constraint='capture_receipts_replay_horizon_ck')
+        self.rejected(acceptance.replace("'2026-11-10 00:00:00+00'", 'NULL'), '23502')
+        self.rejected(acceptance.replace("'2026-11-10 00:00:00+00'", "'2026-11-07 00:00:00+00'"), constraint='capture_receipts_lifecycle_times_ck')
+
+    def test_capture_equivalent_receipt_preserves_origin_context_and_rejects_other_tenant(self):
+        fixture=self.capture_fixture()
+        duplicate=fixture[:fixture.index('INSERT INTO ingestion.capture_delivery_aliases')]
+        for old,new in [('000000000010','000000000020'),('000000000012','000000000022'),
+                        ('000000000013','000000000023'),("repeat('a',64)","repeat('d',64)"),
+                        ('synthetic-correlation','other-correlation'),('scope-1','scope-2')]:
+            duplicate=duplicate.replace(old,new)
+        prepare="""
+UPDATE ingestion.capture_receipts SET revision=1,claim_fence=1,claim_owner='00000000-0000-4000-8000-000000000015',
+ lease_until='2026-11-08 00:01:00+00',updated_at='2026-11-08 00:00:03+00'
+ WHERE id='00000000-0000-4000-8000-000000000020';
+UPDATE ingestion.capture_receipts SET phase='PREPARED',revision=2,claim_owner=NULL,lease_until=NULL,
+ observation_id='00000000-0000-4000-8000-000000000016',prepared_at='2026-11-08 00:00:04+00',updated_at='2026-11-08 00:00:04+00'
+ WHERE id='00000000-0000-4000-8000-000000000020';
+"""
+        self.accepted(fixture+duplicate+prepare)
+        for old,new in [('000000000011','000000000099'),("'1','2','3','4','5','6'","'1','2','9','4','5','6'")]:
+            with self.subTest(context=old): self.rejected(fixture+duplicate.replace(old,new)+prepare)
+
+    def test_capture_output_fences_retry_and_confirmed_purge(self):
+        fixture=self.capture_fixture()+self.output_claim()
+        self.rejected(fixture+"UPDATE ingestion.publication_outputs SET phase='CONFIRMED',confirmed_at='2026-11-08 00:02:00+00',claim_owner=NULL,lease_until=NULL,revision=2,updated_at='2026-11-08 00:02:00+00'")
+        self.rejected(fixture+"UPDATE ingestion.publication_outputs SET revision=2,claim_fence=2,attempt_count=2,last_attempt_at='2026-11-08 00:00:04+00',updated_at='2026-11-08 00:00:04+00'")
+        self.accepted(fixture+"UPDATE ingestion.publication_outputs SET phase='PENDING',claim_owner=NULL,lease_until=NULL,revision=2,next_attempt_at='2026-11-08 00:00:05+00',updated_at='2026-11-08 00:00:04+00'")
+        confirmed=fixture+"UPDATE ingestion.publication_outputs SET phase='CONFIRMED',claim_owner=NULL,lease_until=NULL,revision=2,confirmed_at='2026-11-08 00:00:04+00',updated_at='2026-11-08 00:00:04+00';"
+        self.accepted(confirmed+"UPDATE ingestion.capture_receipts SET phase='PUBLISHED',revision=3,published_at='2026-11-08 00:00:04+00',updated_at='2026-11-08 00:00:04+00'")
+        self.rejected(confirmed+"UPDATE ingestion.publication_outputs SET payload=decode('ff','hex'),revision=3")
+        self.rejected(confirmed+"UPDATE ingestion.publication_outputs SET payload=NULL,payload_removed_at='2026-11-08 01:00:00+00',updated_at='2026-11-08 01:00:00+00',revision=3")
+        purged=confirmed+"UPDATE ingestion.publication_outputs SET payload=NULL,payload_removed_at='2026-11-09 01:00:00+00',updated_at='2026-11-09 01:00:00+00',revision=3;"
+        self.accepted(purged)
+        self.rejected(purged+"UPDATE ingestion.publication_outputs SET payload=decode('7b7d','hex'),payload_removed_at=NULL,revision=4")
 
     def test_valid_origin_and_verification(self):
         self.accepted(f"INSERT INTO ops.pipeline_executions SELECT '{TWO}', pipeline_id, 'other-run', run_attempt, branch, commit_sha, external_status, external_conclusion, failed, started_at, completed_at, correlation_id, created_at FROM ops.pipeline_executions; INSERT INTO ops.incident_runs SELECT '{TWO}', incident_id, '{TWO}', 'VERIFICATION', correlation_id, created_at FROM ops.incident_runs")

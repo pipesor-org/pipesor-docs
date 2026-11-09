@@ -22,7 +22,7 @@
 <!-- ingestion_normalization_service&#45;&gt;postgresql_operational_store -->
 <g id="rel_ingestion_postgresql_connector_metadata" class="edge">
 <title>ingestion_normalization_service&#45;&gt;postgresql_operational_store</title>
-<g id="a_rel_ingestion_postgresql_connector_metadata"><a xlink:title="04: Persists connector linkage, generations and credential&#45;operation metadata; no tokens (PostgreSQL)">
+<g id="a_rel_ingestion_postgresql_connector_metadata"><a xlink:title="04: Persists connector metadata and durable capture/publication ledger with temporary protected output bytes; no credential values (PostgreSQL)">
 <path fill="none" stroke="#52647a" stroke-width="1.4" d="M450,-708C450,-585.33 450,-462.67 450,-340"/>
 <polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="452.45,-341.12 450,-334.12 447.55,-341.12 452.45,-341.12"/>
 </a>
@@ -404,8 +404,8 @@
 <text xml:space="preserve" text-anchor="start" x="1582.25" y="-793.88" font-family="DejaVu Sans" font-size="15.00"> Normalized evidence</text>
 <text xml:space="preserve" text-anchor="start" x="1599.12" y="-781.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">Azure Service Bus</text>
 <text xml:space="preserve" text-anchor="start" x="1561.25" y="-760.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">04</text>
-<text xml:space="preserve" text-anchor="start" x="1582.25" y="-760.88" font-family="DejaVu Sans" font-size="15.00"> Connector metadata only</text>
-<text xml:space="preserve" text-anchor="start" x="1635.12" y="-748.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL</text>
+<text xml:space="preserve" text-anchor="start" x="1582.25" y="-760.88" font-family="DejaVu Sans" font-size="15.00"> Metadata / protected buffer</text>
+<text xml:space="preserve" text-anchor="start" x="1643.38" y="-748.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL</text>
 <text xml:space="preserve" text-anchor="start" x="1561.25" y="-727.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">05</text>
 <text xml:space="preserve" text-anchor="start" x="1582.25" y="-727.88" font-family="DejaVu Sans" font-size="15.00"> Persists pipeline context</text>
 <text xml:space="preserve" text-anchor="start" x="1631.38" y="-715.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL</text>

@@ -28,7 +28,7 @@ node_summaries:
   web_dashboard: "Querying and human review"
 
 relationship_labels:
-  rel_ingestion_postgresql_connector_metadata: "Connector metadata only"
+  rel_ingestion_postgresql_connector_metadata: "Metadata / protected buffer"
   rel_pipeline_ingestion_github_access: "Verifies GitHub user access"
   rel_github_actions_ingestion_event: "Workflow events"
   rel_service_bus_pipeline_service: "Execution context"

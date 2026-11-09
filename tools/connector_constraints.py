@@ -79,7 +79,7 @@ REQUIRED_UNIQUES = {'github_connections': [['tenant_id', 'entra_object_id'], ['i
 
 def validate_connector(domain):
     errors = []
-    tables = {e['table']: e for e in domain['entities'] if e['schema'] == 'ingestion'}
+    tables = {e['table']: e for e in domain['entities'] if e['schema'] == 'ingestion' and e['table'] in TABLES}
     if set(tables) != set(TABLES):
         errors.append('ingestion requires exactly four DD-020 metadata tables')
     for name, table in tables.items():

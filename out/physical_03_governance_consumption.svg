@@ -175,15 +175,15 @@
 
 <g id="edge8" class="edge">
 <title>stub_ingestion_normalization_service-&gt;element_postgresql_operational_store</title>
-<g id="a_edge8"><a xlink:title="Persists connector linkage, generations and credential-operation metadata; no tokens (PostgreSQL)">
+<g id="a_edge8"><a xlink:title="Persists connector metadata and durable capture/publication ledger with temporary protected output bytes; no credential values (PostgreSQL)">
 <path fill="none" stroke="#334155" d="M988.31,-601.77C1073.03,-606.83 1214.44,-602.25 1305.6,-530.19 1348.72,-496.11 1371.78,-438.1 1383.98,-390.35" />
 <polygon fill="#334155" stroke="#334155" points="1387.32,-391.4 1386.28,-380.86 1380.52,-389.76 1387.32,-391.4" />
 </a>
 </g>
-<text xml:space="preserve" text-anchor="middle" x="1181.48" y="-673.03" font-family="Sans-Serif" font-size="13.00" fill="#2d3436">Persists connector linkage,</text>
-<text xml:space="preserve" text-anchor="middle" x="1181.48" y="-656.53" font-family="Sans-Serif" font-size="13.00" fill="#2d3436">generations and</text>
-<text xml:space="preserve" text-anchor="middle" x="1181.48" y="-640.03" font-family="Sans-Serif" font-size="13.00" fill="#2d3436">credential-operation metadata; no</text>
-<text xml:space="preserve" text-anchor="middle" x="1181.48" y="-623.53" font-family="Sans-Serif" font-size="13.00" fill="#2d3436">tokens</text>
+<text xml:space="preserve" text-anchor="middle" x="1181.48" y="-673.03" font-family="Sans-Serif" font-size="13.00" fill="#2d3436">Persists connector metadata and</text>
+<text xml:space="preserve" text-anchor="middle" x="1181.48" y="-656.53" font-family="Sans-Serif" font-size="13.00" fill="#2d3436">durable capture/publication ledger</text>
+<text xml:space="preserve" text-anchor="middle" x="1181.48" y="-640.03" font-family="Sans-Serif" font-size="13.00" fill="#2d3436">with temporary protected output</text>
+<text xml:space="preserve" text-anchor="middle" x="1181.48" y="-623.53" font-family="Sans-Serif" font-size="13.00" fill="#2d3436">bytes; no credential values</text>
 <text xml:space="preserve" text-anchor="middle" x="1181.48" y="-607.03" font-family="Sans-Serif" font-size="13.00" fill="#2d3436">(PostgreSQL)</text>
 </g>
 

@@ -478,6 +478,184 @@ Table ingestion.github_credential_operations {
   Note: 'Metadata técnica del conector GitHub: github_credential_operations Owner: ingestion_normalization_service. approved_domain / confirmed. Partial unique github_operations_one_refresh_uq (generation_id) WHERE kind = \'REFRESH\' AND phase <> \'COMPLETED\'; extras.sql. Composite FK github_operations_generation_fk; DEFERRABLE INITIALLY DEFERRED in extras.sql. Constraints complementarias en extras.sql: connector_lifecycle.'
 }
 
+Table ingestion.capture_receipts {
+  id uuid [pk, not null, note: 'id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  capture_domain text [not null, note: 'capture domain Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  tenant_id uuid [not null, note: 'tenant id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  source text [not null, note: 'source Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  body_digest text [not null, note: 'body digest Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  app_id text [not null, note: 'app id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  account_id text [not null, note: 'account id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  installation_id text [not null, note: 'installation id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  repository_id text [not null, note: 'repository id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  workflow_id text [not null, note: 'workflow id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  run_id text [not null, note: 'run id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  run_attempt integer [not null, note: 'run attempt Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  scope_revision text [not null, note: 'scope revision Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  correlation_id text [not null, note: 'correlation id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  snapshot_message_id uuid [not null, unique, note: 'snapshot message id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  evidence_message_id uuid [not null, unique, note: 'evidence message id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  phase text [not null, note: 'phase Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  revision bigint [not null, note: 'revision Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  claim_fence bigint [not null, note: 'claim fence Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  claim_owner uuid [null, note: 'claim owner Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  lease_until timestamptz [null, note: 'lease until Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  observation_id uuid [null, note: 'observation id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  blocked_reason text [null, note: 'blocked reason Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  created_at timestamptz [not null, note: 'created at Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  updated_at timestamptz [not null, note: 'updated at Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  prepared_at timestamptz [null, note: 'prepared at Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  published_at timestamptz [null, note: 'published at Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  replay_until timestamptz [not null, note: 'replay until Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  indexes {
+    (capture_domain, source, body_digest) [unique, name: 'capture_receipts_body_uq']
+    (capture_domain, source, id) [unique, name: 'capture_receipts_membership_uq']
+  }
+  checks {
+    `btrim(capture_domain) <> ''` [name: 'capture_receipts_capture_domain_ck']
+    `btrim(source) <> ''` [name: 'capture_receipts_source_ck']
+    `btrim(body_digest) <> ''` [name: 'capture_receipts_body_digest_ck']
+    `body_digest ~ '^[0-9a-f]{64}$'` [name: 'capture_receipts_body_digest_format_ck']
+    `btrim(app_id) <> ''` [name: 'capture_receipts_app_id_ck']
+    `app_id ~ '^[1-9][0-9]*$'` [name: 'capture_receipts_app_id_format_ck']
+    `btrim(account_id) <> ''` [name: 'capture_receipts_account_id_ck']
+    `account_id ~ '^[1-9][0-9]*$'` [name: 'capture_receipts_account_id_format_ck']
+    `btrim(installation_id) <> ''` [name: 'capture_receipts_installation_id_ck']
+    `installation_id ~ '^[1-9][0-9]*$'` [name: 'capture_receipts_installation_id_format_ck']
+    `btrim(repository_id) <> ''` [name: 'capture_receipts_repository_id_ck']
+    `repository_id ~ '^[1-9][0-9]*$'` [name: 'capture_receipts_repository_id_format_ck']
+    `btrim(workflow_id) <> ''` [name: 'capture_receipts_workflow_id_ck']
+    `workflow_id ~ '^[1-9][0-9]*$'` [name: 'capture_receipts_workflow_id_format_ck']
+    `btrim(run_id) <> ''` [name: 'capture_receipts_run_id_ck']
+    `run_id ~ '^[1-9][0-9]*$'` [name: 'capture_receipts_run_id_format_ck']
+    `run_attempt > 0` [name: 'capture_receipts_attempt_ck']
+    `btrim(scope_revision) <> ''` [name: 'capture_receipts_scope_revision_ck']
+    `btrim(correlation_id) <> ''` [name: 'capture_receipts_correlation_id_ck']
+    `btrim(phase) <> ''` [name: 'capture_receipts_phase_nonempty_ck']
+    `revision >= 0` [name: 'capture_receipts_revision_ck']
+    `claim_fence >= 0` [name: 'capture_receipts_claim_fence_ck']
+    `updated_at >= created_at` [name: 'capture_receipts_timestamps_ck']
+    `(claim_owner IS NULL) = (lease_until IS NULL)` [name: 'capture_receipts_claim_ck']
+    `(phase = 'BLOCKED') = (blocked_reason IS NOT NULL) AND (blocked_reason IS NULL OR btrim(blocked_reason) <> '')` [name: 'capture_receipts_blocked_ck']
+    `phase IN ('ACCEPTED','PREPARED','PUBLISHED','BLOCKED')` [name: 'capture_receipts_phase_ck']
+    `snapshot_message_id <> evidence_message_id` [name: 'capture_receipts_message_ids_ck']
+    `(phase NOT IN ('PREPARED','PUBLISHED') OR (observation_id IS NOT NULL AND prepared_at IS NOT NULL AND replay_until IS NOT NULL)) AND (phase <> 'ACCEPTED' OR (observation_id IS NULL AND prepared_at IS NULL AND published_at IS NULL))` [name: 'capture_receipts_preparation_ck']
+    `(phase = 'PUBLISHED') = (published_at IS NOT NULL)` [name: 'capture_receipts_publication_ck']
+    `(prepared_at IS NULL OR prepared_at >= created_at) AND (published_at IS NULL OR published_at >= prepared_at) AND replay_until > created_at` [name: 'capture_receipts_lifecycle_times_ck']
+    `claim_owner IS NULL OR phase = 'ACCEPTED'` [name: 'capture_receipts_claim_phase_ck']
+  }
+  Note: 'Captura/publicación durable de Ingestion: capture_receipts Owner: ingestion_normalization_service. approved_domain / confirmed. Composite FK capture_receipts_observation_fk; DEFERRABLE INITIALLY DEFERRED in extras.sql. Constraints complementarias en extras.sql: capture_lifecycle.'
+}
+
+Table ingestion.capture_delivery_aliases {
+  id uuid [pk, not null, note: 'id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  capture_domain text [not null, note: 'capture domain Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  source text [not null, note: 'source Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  delivery_id text [not null, note: 'delivery id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  receipt_id uuid [not null, note: 'receipt id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  created_at timestamptz [not null, note: 'created at Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  indexes {
+    (capture_domain, source, delivery_id) [unique, name: 'capture_aliases_delivery_uq']
+  }
+  checks {
+    `btrim(capture_domain) <> ''` [name: 'capture_delivery_aliases_capture_domain_ck']
+    `btrim(source) <> ''` [name: 'capture_delivery_aliases_source_ck']
+    `btrim(delivery_id) <> ''` [name: 'capture_delivery_aliases_delivery_id_ck']
+  }
+  Note: 'Captura/publicación durable de Ingestion: capture_delivery_aliases Owner: ingestion_normalization_service. approved_domain / confirmed. Composite FK capture_aliases_receipt_fk; DEFERRABLE INITIALLY DEFERRED in extras.sql. Constraints complementarias en extras.sql: capture_lifecycle.'
+}
+
+Table ingestion.capture_observations {
+  id uuid [pk, not null, note: 'id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  capture_domain text [not null, note: 'capture domain Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  source text [not null, note: 'source Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  observation_key text [not null, note: 'observation key Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  protected_content_digest text [not null, note: 'protected content digest Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  origin_receipt_id uuid [not null, note: 'origin receipt id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  repository_id text [not null, note: 'repository id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  workflow_id text [not null, note: 'workflow id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  run_id text [not null, note: 'run id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  run_attempt integer [not null, note: 'run attempt Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  observed_at timestamptz [not null, note: 'observed at Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  observed_at_submicro integer [not null, note: 'observed at submicro Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  source_updated_at timestamptz [not null, note: 'source updated at Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  source_updated_at_submicro integer [not null, note: 'source updated at submicro Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  normalizer_version text [not null, note: 'normalizer version Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  protection_policy_version text [not null, note: 'protection policy version Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  correlation_id text [not null, note: 'correlation id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  required_output_count integer [not null, note: 'required output count Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  created_at timestamptz [not null, note: 'created at Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  indexes {
+    (capture_domain, source, observation_key) [unique, name: 'capture_observations_key_uq']
+    (capture_domain, source, id) [unique, name: 'capture_observations_membership_uq']
+  }
+  checks {
+    `btrim(capture_domain) <> ''` [name: 'capture_observations_capture_domain_ck']
+    `btrim(source) <> ''` [name: 'capture_observations_source_ck']
+    `observation_key ~ '^[0-9a-f]{64}$'` [name: 'capture_observations_observation_key_ck']
+    `btrim(protected_content_digest) <> ''` [name: 'capture_observations_protected_content_digest_ck']
+    `protected_content_digest ~ '^[0-9a-f]{64}$'` [name: 'capture_observations_protected_content_digest_format_ck']
+    `btrim(repository_id) <> ''` [name: 'capture_observations_repository_id_ck']
+    `repository_id ~ '^[1-9][0-9]*$'` [name: 'capture_observations_repository_id_format_ck']
+    `btrim(workflow_id) <> ''` [name: 'capture_observations_workflow_id_ck']
+    `workflow_id ~ '^[1-9][0-9]*$'` [name: 'capture_observations_workflow_id_format_ck']
+    `btrim(run_id) <> ''` [name: 'capture_observations_run_id_ck']
+    `run_id ~ '^[1-9][0-9]*$'` [name: 'capture_observations_run_id_format_ck']
+    `run_attempt > 0` [name: 'capture_observations_attempt_ck']
+    `btrim(normalizer_version) <> ''` [name: 'capture_observations_normalizer_version_ck']
+    `btrim(protection_policy_version) <> ''` [name: 'capture_observations_protection_policy_version_ck']
+    `btrim(correlation_id) <> ''` [name: 'capture_observations_correlation_id_ck']
+    `required_output_count IN (1,2)` [name: 'capture_observations_plan_ck']
+    `observed_at_submicro BETWEEN 0 AND 999` [name: 'capture_observations_observed_at_submicro_ck']
+    `source_updated_at_submicro BETWEEN 0 AND 999` [name: 'capture_observations_source_updated_at_submicro_ck']
+  }
+  Note: 'Captura/publicación durable de Ingestion: capture_observations Owner: ingestion_normalization_service. approved_domain / confirmed. Composite FK capture_observations_origin_fk; DEFERRABLE INITIALLY DEFERRED in extras.sql. Constraints complementarias en extras.sql: capture_lifecycle.'
+}
+
+Table ingestion.publication_outputs {
+  id uuid [pk, not null, note: 'id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  observation_id uuid [not null, note: 'observation id Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  event_type text [not null, note: 'event type Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  schema_major integer [not null, note: 'schema major Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  fragment_locator text [null, note: 'fragment locator Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  payload bytea [null, note: 'payload Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  payload_digest text [not null, note: 'payload digest Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  phase text [not null, note: 'phase Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  revision bigint [not null, note: 'revision Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  claim_fence bigint [not null, note: 'claim fence Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  attempt_count bigint [not null, note: 'attempt count Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  claim_owner uuid [null, note: 'claim owner Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  lease_until timestamptz [null, note: 'lease until Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  next_attempt_at timestamptz [null, note: 'next attempt at Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  last_attempt_at timestamptz [null, note: 'last attempt at Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  confirmed_at timestamptz [null, note: 'confirmed at Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  payload_removed_at timestamptz [null, note: 'payload removed at Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  payload_recover_until timestamptz [null, note: 'payload recover until Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  blocked_reason text [null, note: 'blocked reason Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  created_at timestamptz [not null, note: 'created at Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  updated_at timestamptz [not null, note: 'updated at Fuente: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello']
+  checks {
+    `btrim(event_type) <> ''` [name: 'publication_outputs_event_type_ck']
+    `btrim(payload_digest) <> ''` [name: 'publication_outputs_payload_digest_ck']
+    `payload_digest ~ '^[0-9a-f]{64}$'` [name: 'publication_outputs_payload_digest_format_ck']
+    `btrim(phase) <> ''` [name: 'publication_outputs_phase_nonempty_ck']
+    `revision >= 0` [name: 'publication_outputs_revision_ck']
+    `claim_fence >= 0` [name: 'publication_outputs_claim_fence_ck']
+    `attempt_count >= 0` [name: 'publication_outputs_attempt_count_ck']
+    `updated_at >= created_at` [name: 'publication_outputs_timestamps_ck']
+    `(claim_owner IS NULL) = (lease_until IS NULL)` [name: 'publication_outputs_claim_ck']
+    `(phase = 'BLOCKED') = (blocked_reason IS NOT NULL) AND (blocked_reason IS NULL OR btrim(blocked_reason) <> '')` [name: 'publication_outputs_blocked_ck']
+    `(event_type = 'execution.snapshot' AND schema_major = 1 AND fragment_locator IS NULL) OR (event_type = 'protected_workflow_evidence' AND schema_major = 2 AND fragment_locator IS NOT NULL AND btrim(fragment_locator) <> '')` [name: 'publication_outputs_contract_ck']
+    `phase IN ('PENDING','CLAIMED','CONFIRMED','BLOCKED')` [name: 'publication_outputs_phase_ck']
+    `(phase = 'CLAIMED') = (claim_owner IS NOT NULL)` [name: 'publication_outputs_claim_phase_ck']
+    `(phase = 'CONFIRMED') = (confirmed_at IS NOT NULL)` [name: 'publication_outputs_confirmed_ck']
+    `(payload IS NOT NULL AND payload_removed_at IS NULL) OR (payload IS NULL AND phase = 'CONFIRMED' AND payload_removed_at IS NOT NULL AND payload_recover_until IS NOT NULL AND payload_removed_at >= payload_recover_until)` [name: 'publication_outputs_payload_ck']
+    `(confirmed_at IS NULL OR confirmed_at >= created_at) AND (payload_removed_at IS NULL OR payload_removed_at >= confirmed_at) AND (payload_recover_until IS NULL OR payload_recover_until > created_at)` [name: 'publication_outputs_lifecycle_times_ck']
+    `phase <> 'CLAIMED' OR (last_attempt_at IS NOT NULL AND lease_until > last_attempt_at AND attempt_count > 0)` [name: 'publication_outputs_claim_time_ck']
+  }
+  Note: 'Captura/publicación durable de Ingestion: publication_outputs Owner: ingestion_normalization_service. approved_domain / confirmed. Partial unique publication_outputs_snapshot_uq (observation_id) WHERE event_type = \'execution.snapshot\'; extras.sql. Partial unique publication_outputs_fragment_uq (observation_id, fragment_locator) WHERE event_type = \'protected_workflow_evidence\'; extras.sql. Composite FK publication_outputs_observation_fk; DEFERRABLE INITIALLY DEFERRED in extras.sql. Constraints complementarias en extras.sql: capture_lifecycle.'
+}
+
 Ref github_generation_connection: ingestion.github_connection_generations.connection_id > ingestion.github_connections.id
 Ref pipelines_repository_id: ops.pipelines.repository_id > ops.repositories.id
 Ref pipeline_executions_pipeline_id: ops.pipeline_executions.pipeline_id > ops.pipelines.id
@@ -496,6 +674,10 @@ Ref github_attempts_identity_fk: ingestion.github_authorization_attempts.(connec
 Ref github_attempts_expected_generation_fk: ingestion.github_authorization_attempts.(connection_id, expected_generation_id) > ingestion.github_connection_generations.(connection_id, id)
 Ref github_attempts_target_generation_fk: ingestion.github_authorization_attempts.(connection_id, target_generation_id) > ingestion.github_connection_generations.(connection_id, id)
 Ref github_operations_generation_fk: ingestion.github_credential_operations.(connection_id, generation_id) > ingestion.github_connection_generations.(connection_id, id)
+Ref capture_receipts_observation_fk: ingestion.capture_receipts.(capture_domain, source, observation_id) > ingestion.capture_observations.(capture_domain, source, id)
+Ref capture_aliases_receipt_fk: ingestion.capture_delivery_aliases.(capture_domain, source, receipt_id) > ingestion.capture_receipts.(capture_domain, source, id)
+Ref capture_observations_origin_fk: ingestion.capture_observations.(capture_domain, source, origin_receipt_id) > ingestion.capture_receipts.(capture_domain, source, id)
+Ref publication_outputs_observation_fk: ingestion.publication_outputs.(observation_id) > ingestion.capture_observations.(id)
 
 TableGroup ops {
   ops.repositories
@@ -534,4 +716,8 @@ TableGroup ingestion {
   ingestion.github_connection_generations
   ingestion.github_authorization_attempts
   ingestion.github_credential_operations
+  ingestion.capture_receipts
+  ingestion.capture_delivery_aliases
+  ingestion.capture_observations
+  ingestion.publication_outputs
 }
