@@ -41,6 +41,10 @@ Trabajar en incrementos pequeños: definir comportamiento y criterios de aceptac
 
 Mantener comandos verificados en el README de cada servicio. Fijar dependencias compatibles al introducir el build. Entregar por cambios revisables conforme a la política de contribución; sin despliegues o recursos cloud implícitos.
 
+La [guía CI/CD](cicd.md) concentra los principios reutilizables y el estado del
+piloto, incluyendo diferencias entre Java, Python y artefactos estáticos. No
+sustituye los comandos de cada README ni aprueba contratos de despliegue.
+
 ## Adopción de esta iteración
 
 Alcance documental: convenciones comunes y Java/Spring, referencias desde los siete servicios y concreción de Pipeline Service. Criterios: enlaces resolubles en los checkouts, coherencia con ownership y decisiones pendientes, diff sin errores de whitespace. No incluye código, migraciones, cambios del modelo persistente ni generación de diagramas. La validación realizada se reporta en la entrega; no equivale a pruebas de aplicación.
