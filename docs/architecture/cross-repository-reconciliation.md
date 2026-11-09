@@ -11,6 +11,16 @@ La [decisión ADR-019](decisions/ADR-019-align-mvp-with-iac.md) registra la conf
 
 Las tablas siguientes conservan el corte histórico previo a esa alineación. Sus expresiones «modelo conserva APIM/Blob» y «reflejo canónico pendiente» describen ese corte, no el modelo activo posterior a ADR-019. El Blob de state y las autorizaciones específicas de operaciones Azure permanecen separados.
 
+## Actualización acotada: piloto CI/CD — 08/11/2026
+
+El corte siguiente conserva sus revisiones históricas. Pipeline ya dispone de
+aplicación local en su main consultado `0e7eed9420e7e54d7b336c22b0452c8b6fb722ba`;
+la entrega CI/CD en revisión añade workflows, imagen y recuperación inactiva.
+La [guía actual del piloto](../development/cicd.md) distingue código preparado,
+pruebas locales y ejecución remota pendiente, y remite al README del servicio.
+No extrapola la evolución de Pipeline al estado de los otros servicios ni cierra
+XR-004/PD-035. No se reescriben las tablas del corte previo.
+
 ## Baseline verificable
 
 El checkout de docs comenzó limpio en `main@c0871ac9a62bad62b8c679255fe0a4b9c6574d2e`.

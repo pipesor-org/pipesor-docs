@@ -1,6 +1,6 @@
 # Convenciones Java y Spring
 
-Acuerdo inicial del 2026-11-06, refinado por indicación del usuario tras la revisión de Clean Architecture de Pipeline Service en la misma fecha. Este refinamiento permanece local hasta su revisión e integración. Sigue vigente el historial integrado del acuerdo inicial. Aplicar junto con las [convenciones backend](backend-conventions.md). Alcance: ingestion_normalization_service, pipeline_service, log_event_service, evidence_correlation_engine y recommendation_service. Maven, Java/Spring Boot según ADR-018 y la base de desarrollo del servicio. Versiones exactas se comprobarán y fijarán al implementar.
+Acuerdo inicial del 2026-11-06, refinado por indicación del usuario tras la revisión de Clean Architecture de Pipeline Service en la misma fecha. El acuerdo y su refinamiento están integrados en main; revisiones consultadas: `d44b45b` y `18dacfb`, respectivamente. Aplicar junto con las [convenciones backend](backend-conventions.md). Alcance: ingestion_normalization_service, pipeline_service, log_event_service, evidence_correlation_engine y recommendation_service. Maven, Java/Spring Boot según ADR-018 y la base de desarrollo del servicio. Versiones exactas se comprobarán y fijarán al implementar.
 
 ## Estructura por funcionalidad
 
