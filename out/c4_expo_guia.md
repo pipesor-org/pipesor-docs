@@ -36,7 +36,7 @@ Las fuentes externas entregan evidencia a ingesta, que la protege antes del topi
 | 01 | GitHub Actions → Ingestion and Normalization Service | Emits authorized workflow events | HTTPS/Webhook | event |
 | 02 | Azure Service Bus → Pipeline Service | Delivers execution events to register pipeline context | Azure Service Bus | async |
 | 03 | Azure Service Bus → Log/Event Service | Delivers normalized evidence for registration and querying | Azure Service Bus | async |
-| 04 | Ingestion and Normalization Service → PostgreSQL | Persists connector linkage, generations and credential-operation metadata; no tokens | PostgreSQL | sync |
+| 04 | Ingestion and Normalization Service → PostgreSQL | Persists connector metadata and durable capture/publication ledger with temporary protected output bytes; no credential values | PostgreSQL | sync |
 | 05 | Pipeline Service → PostgreSQL | Persists pipelines, stages, states and execution metadata | PostgreSQL | sync |
 | 06 | Log/Event Service → PostgreSQL | Persists and queries normalized evidence metadata and references | PostgreSQL | sync |
 | 07 | Diagnostic & Recommendation Service → PostgreSQL | Persists diagnosis, recommendations and evidence links | PostgreSQL | sync |

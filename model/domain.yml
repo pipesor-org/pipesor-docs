@@ -1,5 +1,5 @@
 # SSOT del dominio persistente. DBML/SQL/ER/diccionario se generan; no editar derivados.
-model_version: 1.2.0
+model_version: 1.3.0
 source_authority:
   scope: SRC_CHARTER
   architecture:
@@ -36,8 +36,7 @@ schemas:
 - id: ingestion
   owner_containers:
   - ingestion_normalization_service
-  description_es: Metadata del conector GitHub aprobada localmente en DD-020; sin
-    material secreto.
+  description_es: Metadata de conector GitHub (DD-020), ledger de captura/publicación y buffer temporal de bytes protegidos (DD-021); sin credenciales ni entradas crudas.
 entities:
 - id: repositories
   table: repositories
@@ -2369,6 +2368,899 @@ entities:
     where: kind = 'REFRESH' AND phase <> 'COMPLETED'
   domain_constraints:
   - connector_lifecycle
+  traceability_required: false
+  retention_policy: null
+- id: capture_receipts
+  table: capture_receipts
+  schema: ingestion
+  owner_container: ingestion_normalization_service
+  description_es: 'Captura/publicación durable de Ingestion: capture_receipts'
+  scope_basis: approved_domain
+  status: confirmed
+  source:
+  - DD-021
+  - 'capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello'
+  attributes:
+  - name: id
+    type: uuid
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: id
+  - name: capture_domain
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: capture domain
+  - name: tenant_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: tenant id
+  - name: source
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: source
+  - name: body_digest
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: body digest
+  - name: app_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: app id
+  - name: account_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: account id
+  - name: installation_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: installation id
+  - name: repository_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: repository id
+  - name: workflow_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: workflow id
+  - name: run_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: run id
+  - name: run_attempt
+    type: integer
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: run attempt
+  - name: scope_revision
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: scope revision
+  - name: correlation_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: correlation id
+  - name: snapshot_message_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: true
+    er_visible: false
+    assumption: null
+    description_es: snapshot message id
+  - name: evidence_message_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: true
+    er_visible: false
+    assumption: null
+    description_es: evidence message id
+  - name: phase
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: phase
+  - name: revision
+    type: bigint
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: revision
+  - name: claim_fence
+    type: bigint
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: claim fence
+  - name: claim_owner
+    type: uuid
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: claim owner
+  - name: lease_until
+    type: timestamptz
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: lease until
+  - name: observation_id
+    type: uuid
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: observation id
+  - name: blocked_reason
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: blocked reason
+  - name: created_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: created at
+  - name: updated_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: updated at
+  - name: prepared_at
+    type: timestamptz
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: prepared at
+  - name: published_at
+    type: timestamptz
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: published at
+  - name: replay_until
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: replay until
+  unique_constraints:
+  - name: capture_receipts_body_uq
+    columns:
+    - capture_domain
+    - source
+    - body_digest
+  - name: capture_receipts_membership_uq
+    columns:
+    - capture_domain
+    - source
+    - id
+  checks:
+  - name: capture_receipts_capture_domain_ck
+    expression: btrim(capture_domain) <> ''
+  - name: capture_receipts_source_ck
+    expression: btrim(source) <> ''
+  - name: capture_receipts_body_digest_ck
+    expression: btrim(body_digest) <> ''
+  - name: capture_receipts_body_digest_format_ck
+    expression: body_digest ~ '^[0-9a-f]{64}$'
+  - name: capture_receipts_app_id_ck
+    expression: btrim(app_id) <> ''
+  - name: capture_receipts_app_id_format_ck
+    expression: app_id ~ '^[1-9][0-9]*$'
+  - name: capture_receipts_account_id_ck
+    expression: btrim(account_id) <> ''
+  - name: capture_receipts_account_id_format_ck
+    expression: account_id ~ '^[1-9][0-9]*$'
+  - name: capture_receipts_installation_id_ck
+    expression: btrim(installation_id) <> ''
+  - name: capture_receipts_installation_id_format_ck
+    expression: installation_id ~ '^[1-9][0-9]*$'
+  - name: capture_receipts_repository_id_ck
+    expression: btrim(repository_id) <> ''
+  - name: capture_receipts_repository_id_format_ck
+    expression: repository_id ~ '^[1-9][0-9]*$'
+  - name: capture_receipts_workflow_id_ck
+    expression: btrim(workflow_id) <> ''
+  - name: capture_receipts_workflow_id_format_ck
+    expression: workflow_id ~ '^[1-9][0-9]*$'
+  - name: capture_receipts_run_id_ck
+    expression: btrim(run_id) <> ''
+  - name: capture_receipts_run_id_format_ck
+    expression: run_id ~ '^[1-9][0-9]*$'
+  - name: capture_receipts_attempt_ck
+    expression: run_attempt > 0
+  - name: capture_receipts_scope_revision_ck
+    expression: btrim(scope_revision) <> ''
+  - name: capture_receipts_correlation_id_ck
+    expression: btrim(correlation_id) <> ''
+  - name: capture_receipts_phase_nonempty_ck
+    expression: btrim(phase) <> ''
+  - name: capture_receipts_revision_ck
+    expression: revision >= 0
+  - name: capture_receipts_claim_fence_ck
+    expression: claim_fence >= 0
+  - name: capture_receipts_timestamps_ck
+    expression: updated_at >= created_at
+  - name: capture_receipts_claim_ck
+    expression: (claim_owner IS NULL) = (lease_until IS NULL)
+  - name: capture_receipts_blocked_ck
+    expression: (phase = 'BLOCKED') = (blocked_reason IS NOT NULL) AND (blocked_reason IS NULL OR btrim(blocked_reason) <>
+      '')
+  - name: capture_receipts_phase_ck
+    expression: phase IN ('ACCEPTED','PREPARED','PUBLISHED','BLOCKED')
+  - name: capture_receipts_message_ids_ck
+    expression: snapshot_message_id <> evidence_message_id
+  - name: capture_receipts_preparation_ck
+    expression: (phase NOT IN ('PREPARED','PUBLISHED') OR (observation_id IS NOT NULL AND prepared_at IS NOT NULL AND replay_until
+      IS NOT NULL)) AND (phase <> 'ACCEPTED' OR (observation_id IS NULL AND prepared_at IS NULL AND published_at IS NULL))
+  - name: capture_receipts_publication_ck
+    expression: (phase = 'PUBLISHED') = (published_at IS NOT NULL)
+  - name: capture_receipts_lifecycle_times_ck
+    expression: (prepared_at IS NULL OR prepared_at >= created_at) AND (published_at IS NULL OR published_at >= prepared_at) AND replay_until > created_at
+  - name: capture_receipts_claim_phase_ck
+    expression: claim_owner IS NULL OR phase = 'ACCEPTED'
+  foreign_keys:
+  - name: capture_receipts_observation_fk
+    columns:
+    - capture_domain
+    - source
+    - observation_id
+    references:
+      table: ingestion.capture_observations
+      columns:
+      - capture_domain
+      - source
+      - id
+    deferrable: true
+    initially_deferred: true
+  partial_unique_constraints: []
+  domain_constraints:
+  - capture_lifecycle
+  traceability_required: false
+  retention_policy: null
+- id: capture_delivery_aliases
+  table: capture_delivery_aliases
+  schema: ingestion
+  owner_container: ingestion_normalization_service
+  description_es: 'Captura/publicación durable de Ingestion: capture_delivery_aliases'
+  scope_basis: approved_domain
+  status: confirmed
+  source:
+  - DD-021
+  - 'capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello'
+  attributes:
+  - name: id
+    type: uuid
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: id
+  - name: capture_domain
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: capture domain
+  - name: source
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: source
+  - name: delivery_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: delivery id
+  - name: receipt_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: receipt id
+  - name: created_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: created at
+  unique_constraints:
+  - name: capture_aliases_delivery_uq
+    columns:
+    - capture_domain
+    - source
+    - delivery_id
+  checks:
+  - name: capture_delivery_aliases_capture_domain_ck
+    expression: btrim(capture_domain) <> ''
+  - name: capture_delivery_aliases_source_ck
+    expression: btrim(source) <> ''
+  - name: capture_delivery_aliases_delivery_id_ck
+    expression: btrim(delivery_id) <> ''
+  foreign_keys:
+  - name: capture_aliases_receipt_fk
+    columns:
+    - capture_domain
+    - source
+    - receipt_id
+    references:
+      table: ingestion.capture_receipts
+      columns:
+      - capture_domain
+      - source
+      - id
+    deferrable: true
+    initially_deferred: true
+  partial_unique_constraints: []
+  domain_constraints:
+  - capture_lifecycle
+  traceability_required: false
+  retention_policy: null
+- id: capture_observations
+  table: capture_observations
+  schema: ingestion
+  owner_container: ingestion_normalization_service
+  description_es: 'Captura/publicación durable de Ingestion: capture_observations'
+  scope_basis: approved_domain
+  status: confirmed
+  source:
+  - DD-021
+  - 'capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello'
+  attributes:
+  - name: id
+    type: uuid
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: id
+  - name: capture_domain
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: capture domain
+  - name: source
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: source
+  - name: observation_key
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: observation key
+  - name: protected_content_digest
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: protected content digest
+  - name: origin_receipt_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: origin receipt id
+  - name: repository_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: repository id
+  - name: workflow_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: workflow id
+  - name: run_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: run id
+  - name: run_attempt
+    type: integer
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: run attempt
+  - name: observed_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: observed at
+  - name: observed_at_submicro
+    type: integer
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: observed at submicro
+  - name: source_updated_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: source updated at
+  - name: source_updated_at_submicro
+    type: integer
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: source updated at submicro
+  - name: normalizer_version
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: normalizer version
+  - name: protection_policy_version
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: protection policy version
+  - name: correlation_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: correlation id
+  - name: required_output_count
+    type: integer
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: required output count
+  - name: created_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: created at
+  unique_constraints:
+  - name: capture_observations_key_uq
+    columns:
+    - capture_domain
+    - source
+    - observation_key
+  - name: capture_observations_membership_uq
+    columns:
+    - capture_domain
+    - source
+    - id
+  checks:
+  - name: capture_observations_capture_domain_ck
+    expression: btrim(capture_domain) <> ''
+  - name: capture_observations_source_ck
+    expression: btrim(source) <> ''
+  - name: capture_observations_observation_key_ck
+    expression: observation_key ~ '^[0-9a-f]{64}$'
+  - name: capture_observations_protected_content_digest_ck
+    expression: btrim(protected_content_digest) <> ''
+  - name: capture_observations_protected_content_digest_format_ck
+    expression: protected_content_digest ~ '^[0-9a-f]{64}$'
+  - name: capture_observations_repository_id_ck
+    expression: btrim(repository_id) <> ''
+  - name: capture_observations_repository_id_format_ck
+    expression: repository_id ~ '^[1-9][0-9]*$'
+  - name: capture_observations_workflow_id_ck
+    expression: btrim(workflow_id) <> ''
+  - name: capture_observations_workflow_id_format_ck
+    expression: workflow_id ~ '^[1-9][0-9]*$'
+  - name: capture_observations_run_id_ck
+    expression: btrim(run_id) <> ''
+  - name: capture_observations_run_id_format_ck
+    expression: run_id ~ '^[1-9][0-9]*$'
+  - name: capture_observations_attempt_ck
+    expression: run_attempt > 0
+  - name: capture_observations_normalizer_version_ck
+    expression: btrim(normalizer_version) <> ''
+  - name: capture_observations_protection_policy_version_ck
+    expression: btrim(protection_policy_version) <> ''
+  - name: capture_observations_correlation_id_ck
+    expression: btrim(correlation_id) <> ''
+  - name: capture_observations_plan_ck
+    expression: required_output_count IN (1,2)
+  - name: capture_observations_observed_at_submicro_ck
+    expression: observed_at_submicro BETWEEN 0 AND 999
+  - name: capture_observations_source_updated_at_submicro_ck
+    expression: source_updated_at_submicro BETWEEN 0 AND 999
+  foreign_keys:
+  - name: capture_observations_origin_fk
+    columns:
+    - capture_domain
+    - source
+    - origin_receipt_id
+    references:
+      table: ingestion.capture_receipts
+      columns:
+      - capture_domain
+      - source
+      - id
+    deferrable: true
+    initially_deferred: true
+  partial_unique_constraints: []
+  domain_constraints:
+  - capture_lifecycle
+  traceability_required: false
+  retention_policy: null
+- id: publication_outputs
+  table: publication_outputs
+  schema: ingestion
+  owner_container: ingestion_normalization_service
+  description_es: 'Captura/publicación durable de Ingestion: publication_outputs'
+  scope_basis: approved_domain
+  status: confirmed
+  source:
+  - DD-021
+  - 'capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello'
+  attributes:
+  - name: id
+    type: uuid
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: id
+  - name: observation_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: observation id
+  - name: event_type
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: event type
+  - name: schema_major
+    type: integer
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: schema major
+  - name: fragment_locator
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: fragment locator
+  - name: payload
+    type: bytea
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: payload
+  - name: payload_digest
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: payload digest
+  - name: phase
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: phase
+  - name: revision
+    type: bigint
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: revision
+  - name: claim_fence
+    type: bigint
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: claim fence
+  - name: attempt_count
+    type: bigint
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: attempt count
+  - name: claim_owner
+    type: uuid
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: claim owner
+  - name: lease_until
+    type: timestamptz
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: lease until
+  - name: next_attempt_at
+    type: timestamptz
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: next attempt at
+  - name: last_attempt_at
+    type: timestamptz
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: last attempt at
+  - name: confirmed_at
+    type: timestamptz
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: confirmed at
+  - name: payload_removed_at
+    type: timestamptz
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: payload removed at
+  - name: payload_recover_until
+    type: timestamptz
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: payload recover until
+  - name: blocked_reason
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: blocked reason
+  - name: created_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: created at
+  - name: updated_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: updated at
+  unique_constraints: []
+  checks:
+  - name: publication_outputs_event_type_ck
+    expression: btrim(event_type) <> ''
+  - name: publication_outputs_payload_digest_ck
+    expression: btrim(payload_digest) <> ''
+  - name: publication_outputs_payload_digest_format_ck
+    expression: payload_digest ~ '^[0-9a-f]{64}$'
+  - name: publication_outputs_phase_nonempty_ck
+    expression: btrim(phase) <> ''
+  - name: publication_outputs_revision_ck
+    expression: revision >= 0
+  - name: publication_outputs_claim_fence_ck
+    expression: claim_fence >= 0
+  - name: publication_outputs_attempt_count_ck
+    expression: attempt_count >= 0
+  - name: publication_outputs_timestamps_ck
+    expression: updated_at >= created_at
+  - name: publication_outputs_claim_ck
+    expression: (claim_owner IS NULL) = (lease_until IS NULL)
+  - name: publication_outputs_blocked_ck
+    expression: (phase = 'BLOCKED') = (blocked_reason IS NOT NULL) AND (blocked_reason IS NULL OR btrim(blocked_reason) <>
+      '')
+  - name: publication_outputs_contract_ck
+    expression: (event_type = 'execution.snapshot' AND schema_major = 1 AND fragment_locator IS NULL) OR (event_type = 'protected_workflow_evidence'
+      AND schema_major = 2 AND fragment_locator IS NOT NULL AND btrim(fragment_locator) <> '')
+  - name: publication_outputs_phase_ck
+    expression: phase IN ('PENDING','CLAIMED','CONFIRMED','BLOCKED')
+  - name: publication_outputs_claim_phase_ck
+    expression: (phase = 'CLAIMED') = (claim_owner IS NOT NULL)
+  - name: publication_outputs_confirmed_ck
+    expression: (phase = 'CONFIRMED') = (confirmed_at IS NOT NULL)
+  - name: publication_outputs_payload_ck
+    expression: (payload IS NOT NULL AND payload_removed_at IS NULL) OR (payload IS NULL AND phase = 'CONFIRMED' AND payload_removed_at
+      IS NOT NULL AND payload_recover_until IS NOT NULL AND payload_removed_at >= payload_recover_until)
+  - name: publication_outputs_lifecycle_times_ck
+    expression: (confirmed_at IS NULL OR confirmed_at >= created_at) AND (payload_removed_at IS NULL OR payload_removed_at >= confirmed_at) AND (payload_recover_until IS NULL OR payload_recover_until > created_at)
+  - name: publication_outputs_claim_time_ck
+    expression: phase <> 'CLAIMED' OR (last_attempt_at IS NOT NULL AND lease_until > last_attempt_at AND attempt_count > 0)
+  foreign_keys:
+  - name: publication_outputs_observation_fk
+    columns:
+    - observation_id
+    references:
+      table: ingestion.capture_observations
+      columns:
+      - id
+    deferrable: true
+    initially_deferred: true
+  partial_unique_constraints:
+  - name: publication_outputs_snapshot_uq
+    columns:
+    - observation_id
+    where: event_type = 'execution.snapshot'
+  - name: publication_outputs_fragment_uq
+    columns:
+    - observation_id
+    - fragment_locator
+    where: event_type = 'protected_workflow_evidence'
+  domain_constraints:
+  - capture_lifecycle
   traceability_required: false
   retention_policy: null
 relationships:

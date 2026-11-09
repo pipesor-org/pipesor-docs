@@ -1,7 +1,7 @@
 <!-- GENERATED — DO NOT EDIT. SSOT: model/domain.yml -->
 # Diccionario de datos
 
-Modelo: `1.2.0`. Una instancia PostgreSQL; 21 tablas.
+Modelo: `1.3.0`. Una instancia PostgreSQL; 25 tablas.
 
 Los tipos enum se materializan en el schema propietario de cada tabla.
 FK significa constraint físico intra-schema; logical_ref significa ID sin FK física.
@@ -421,7 +421,7 @@ Fuentes: SRC_ADR_011, architecture.yml#audit_trail, architecture.yml#CTRL-002, D
 
 ## Schema `ingestion`
 
-Metadata del conector GitHub aprobada localmente en DD-020; sin material secreto.
+Metadata de conector GitHub (DD-020), ledger de captura/publicación y buffer temporal de bytes protegidos (DD-021); sin credenciales ni entradas crudas.
 
 Owners permitidos: ingestion_normalization_service.
 
@@ -561,6 +561,158 @@ Constraints complementarias: connector_lifecycle.
 | completed_at | timestamptz | No | — | — | Sí | No | — | completed at | SRC_ADR_020; DD-020; github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada | — |
 | created_at | timestamptz | No | — | — | No | No | — | created at | SRC_ADR_020; DD-020; github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada | — |
 | updated_at | timestamptz | No | — | — | No | No | — | updated at | SRC_ADR_020; DD-020; github-connector-draft-0.2 — aprobación local 2026-11-07: Propuesta aprobada | — |
+
+### `ingestion.capture_receipts`
+
+Captura/publicación durable de Ingestion: capture_receipts
+
+Owner: `ingestion_normalization_service`. scope_basis: `approved_domain`. status: `confirmed`.
+
+Fuentes: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello.
+
+Claves únicas compuestas: `(capture_domain, source, body_digest)`; `(capture_domain, source, id)`.
+
+FK compuesta `capture_receipts_observation_fk`: (capture_domain, source, observation_id) → ingestion.capture_observations (capture_domain, source, id); diferida al commit en extras.sql.
+
+Checks: `btrim(capture_domain) <> ''`; `btrim(source) <> ''`; `btrim(body_digest) <> ''`; `body_digest ~ '^[0-9a-f]{64}$'`; `btrim(app_id) <> ''`; `app_id ~ '^[1-9][0-9]*$'`; `btrim(account_id) <> ''`; `account_id ~ '^[1-9][0-9]*$'`; `btrim(installation_id) <> ''`; `installation_id ~ '^[1-9][0-9]*$'`; `btrim(repository_id) <> ''`; `repository_id ~ '^[1-9][0-9]*$'`; `btrim(workflow_id) <> ''`; `workflow_id ~ '^[1-9][0-9]*$'`; `btrim(run_id) <> ''`; `run_id ~ '^[1-9][0-9]*$'`; `run_attempt > 0`; `btrim(scope_revision) <> ''`; `btrim(correlation_id) <> ''`; `btrim(phase) <> ''`; `revision >= 0`; `claim_fence >= 0`; `updated_at >= created_at`; `(claim_owner IS NULL) = (lease_until IS NULL)`; `(phase = 'BLOCKED') = (blocked_reason IS NOT NULL) AND (blocked_reason IS NULL OR btrim(blocked_reason) <> '')`; `phase IN ('ACCEPTED','PREPARED','PUBLISHED','BLOCKED')`; `snapshot_message_id <> evidence_message_id`; `(phase NOT IN ('PREPARED','PUBLISHED') OR (observation_id IS NOT NULL AND prepared_at IS NOT NULL AND replay_until IS NOT NULL)) AND (phase <> 'ACCEPTED' OR (observation_id IS NULL AND prepared_at IS NULL AND published_at IS NULL))`; `(phase = 'PUBLISHED') = (published_at IS NOT NULL)`; `(prepared_at IS NULL OR prepared_at >= created_at) AND (published_at IS NULL OR published_at >= prepared_at) AND replay_until > created_at`; `claim_owner IS NULL OR phase = 'ACCEPTED'`.
+
+Constraints complementarias: capture_lifecycle.
+
+| Columna | Tipo | PK | FK | logical_ref | Nullable | Unique | Enum | Descripción | Fuente | Assumption |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| id | uuid | Sí | — | — | No | Compuesto: (capture_domain, source, id) | — | id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| capture_domain | text | No | — | — | No | Compuesto: (capture_domain, source, body_digest); (capture_domain, source, id) | — | capture domain | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| tenant_id | uuid | No | — | — | No | No | — | tenant id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| source | text | No | — | — | No | Compuesto: (capture_domain, source, body_digest); (capture_domain, source, id) | — | source | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| body_digest | text | No | — | — | No | Compuesto: (capture_domain, source, body_digest) | — | body digest | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| app_id | text | No | — | — | No | No | — | app id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| account_id | text | No | — | — | No | No | — | account id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| installation_id | text | No | — | — | No | No | — | installation id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| repository_id | text | No | — | — | No | No | — | repository id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| workflow_id | text | No | — | — | No | No | — | workflow id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| run_id | text | No | — | — | No | No | — | run id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| run_attempt | integer | No | — | — | No | No | — | run attempt | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| scope_revision | text | No | — | — | No | No | — | scope revision | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| correlation_id | text | No | — | — | No | No | — | correlation id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| snapshot_message_id | uuid | No | — | — | No | Sí | — | snapshot message id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| evidence_message_id | uuid | No | — | — | No | Sí | — | evidence message id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| phase | text | No | — | — | No | No | — | phase | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| revision | bigint | No | — | — | No | No | — | revision | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| claim_fence | bigint | No | — | — | No | No | — | claim fence | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| claim_owner | uuid | No | — | — | Sí | No | — | claim owner | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| lease_until | timestamptz | No | — | — | Sí | No | — | lease until | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| observation_id | uuid | No | — | — | Sí | No | — | observation id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| blocked_reason | text | No | — | — | Sí | No | — | blocked reason | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| created_at | timestamptz | No | — | — | No | No | — | created at | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| updated_at | timestamptz | No | — | — | No | No | — | updated at | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| prepared_at | timestamptz | No | — | — | Sí | No | — | prepared at | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| published_at | timestamptz | No | — | — | Sí | No | — | published at | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| replay_until | timestamptz | No | — | — | No | No | — | replay until | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+
+### `ingestion.capture_delivery_aliases`
+
+Captura/publicación durable de Ingestion: capture_delivery_aliases
+
+Owner: `ingestion_normalization_service`. scope_basis: `approved_domain`. status: `confirmed`.
+
+Fuentes: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello.
+
+Claves únicas compuestas: `(capture_domain, source, delivery_id)`.
+
+FK compuesta `capture_aliases_receipt_fk`: (capture_domain, source, receipt_id) → ingestion.capture_receipts (capture_domain, source, id); diferida al commit en extras.sql.
+
+Checks: `btrim(capture_domain) <> ''`; `btrim(source) <> ''`; `btrim(delivery_id) <> ''`.
+
+Constraints complementarias: capture_lifecycle.
+
+| Columna | Tipo | PK | FK | logical_ref | Nullable | Unique | Enum | Descripción | Fuente | Assumption |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| id | uuid | Sí | — | — | No | No | — | id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| capture_domain | text | No | — | — | No | Compuesto: (capture_domain, source, delivery_id) | — | capture domain | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| source | text | No | — | — | No | Compuesto: (capture_domain, source, delivery_id) | — | source | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| delivery_id | text | No | — | — | No | Compuesto: (capture_domain, source, delivery_id) | — | delivery id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| receipt_id | uuid | No | — | — | No | No | — | receipt id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| created_at | timestamptz | No | — | — | No | No | — | created at | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+
+### `ingestion.capture_observations`
+
+Captura/publicación durable de Ingestion: capture_observations
+
+Owner: `ingestion_normalization_service`. scope_basis: `approved_domain`. status: `confirmed`.
+
+Fuentes: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello.
+
+Claves únicas compuestas: `(capture_domain, source, observation_key)`; `(capture_domain, source, id)`.
+
+FK compuesta `capture_observations_origin_fk`: (capture_domain, source, origin_receipt_id) → ingestion.capture_receipts (capture_domain, source, id); diferida al commit en extras.sql.
+
+Checks: `btrim(capture_domain) <> ''`; `btrim(source) <> ''`; `observation_key ~ '^[0-9a-f]{64}$'`; `btrim(protected_content_digest) <> ''`; `protected_content_digest ~ '^[0-9a-f]{64}$'`; `btrim(repository_id) <> ''`; `repository_id ~ '^[1-9][0-9]*$'`; `btrim(workflow_id) <> ''`; `workflow_id ~ '^[1-9][0-9]*$'`; `btrim(run_id) <> ''`; `run_id ~ '^[1-9][0-9]*$'`; `run_attempt > 0`; `btrim(normalizer_version) <> ''`; `btrim(protection_policy_version) <> ''`; `btrim(correlation_id) <> ''`; `required_output_count IN (1,2)`; `observed_at_submicro BETWEEN 0 AND 999`; `source_updated_at_submicro BETWEEN 0 AND 999`.
+
+Constraints complementarias: capture_lifecycle.
+
+| Columna | Tipo | PK | FK | logical_ref | Nullable | Unique | Enum | Descripción | Fuente | Assumption |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| id | uuid | Sí | — | — | No | Compuesto: (capture_domain, source, id) | — | id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| capture_domain | text | No | — | — | No | Compuesto: (capture_domain, source, observation_key); (capture_domain, source, id) | — | capture domain | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| source | text | No | — | — | No | Compuesto: (capture_domain, source, observation_key); (capture_domain, source, id) | — | source | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| observation_key | text | No | — | — | No | Compuesto: (capture_domain, source, observation_key) | — | observation key | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| protected_content_digest | text | No | — | — | No | No | — | protected content digest | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| origin_receipt_id | uuid | No | — | — | No | No | — | origin receipt id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| repository_id | text | No | — | — | No | No | — | repository id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| workflow_id | text | No | — | — | No | No | — | workflow id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| run_id | text | No | — | — | No | No | — | run id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| run_attempt | integer | No | — | — | No | No | — | run attempt | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| observed_at | timestamptz | No | — | — | No | No | — | observed at | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| observed_at_submicro | integer | No | — | — | No | No | — | observed at submicro | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| source_updated_at | timestamptz | No | — | — | No | No | — | source updated at | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| source_updated_at_submicro | integer | No | — | — | No | No | — | source updated at submicro | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| normalizer_version | text | No | — | — | No | No | — | normalizer version | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| protection_policy_version | text | No | — | — | No | No | — | protection policy version | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| correlation_id | text | No | — | — | No | No | — | correlation id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| required_output_count | integer | No | — | — | No | No | — | required output count | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| created_at | timestamptz | No | — | — | No | No | — | created at | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+
+### `ingestion.publication_outputs`
+
+Captura/publicación durable de Ingestion: publication_outputs
+
+Owner: `ingestion_normalization_service`. scope_basis: `approved_domain`. status: `confirmed`.
+
+Fuentes: DD-021, capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello.
+
+FK compuesta `publication_outputs_observation_fk`: (observation_id) → ingestion.capture_observations (id); diferida al commit en extras.sql.
+
+Unicidad parcial `publication_outputs_snapshot_uq`: (observation_id) WHERE `event_type = 'execution.snapshot'`; extras.sql.
+
+Unicidad parcial `publication_outputs_fragment_uq`: (observation_id, fragment_locator) WHERE `event_type = 'protected_workflow_evidence'`; extras.sql.
+
+Checks: `btrim(event_type) <> ''`; `btrim(payload_digest) <> ''`; `payload_digest ~ '^[0-9a-f]{64}$'`; `btrim(phase) <> ''`; `revision >= 0`; `claim_fence >= 0`; `attempt_count >= 0`; `updated_at >= created_at`; `(claim_owner IS NULL) = (lease_until IS NULL)`; `(phase = 'BLOCKED') = (blocked_reason IS NOT NULL) AND (blocked_reason IS NULL OR btrim(blocked_reason) <> '')`; `(event_type = 'execution.snapshot' AND schema_major = 1 AND fragment_locator IS NULL) OR (event_type = 'protected_workflow_evidence' AND schema_major = 2 AND fragment_locator IS NOT NULL AND btrim(fragment_locator) <> '')`; `phase IN ('PENDING','CLAIMED','CONFIRMED','BLOCKED')`; `(phase = 'CLAIMED') = (claim_owner IS NOT NULL)`; `(phase = 'CONFIRMED') = (confirmed_at IS NOT NULL)`; `(payload IS NOT NULL AND payload_removed_at IS NULL) OR (payload IS NULL AND phase = 'CONFIRMED' AND payload_removed_at IS NOT NULL AND payload_recover_until IS NOT NULL AND payload_removed_at >= payload_recover_until)`; `(confirmed_at IS NULL OR confirmed_at >= created_at) AND (payload_removed_at IS NULL OR payload_removed_at >= confirmed_at) AND (payload_recover_until IS NULL OR payload_recover_until > created_at)`; `phase <> 'CLAIMED' OR (last_attempt_at IS NOT NULL AND lease_until > last_attempt_at AND attempt_count > 0)`.
+
+Constraints complementarias: capture_lifecycle.
+
+| Columna | Tipo | PK | FK | logical_ref | Nullable | Unique | Enum | Descripción | Fuente | Assumption |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| id | uuid | Sí | — | — | No | No | — | id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| observation_id | uuid | No | — | — | No | No | — | observation id | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| event_type | text | No | — | — | No | No | — | event type | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| schema_major | integer | No | — | — | No | No | — | schema major | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| fragment_locator | text | No | — | — | Sí | No | — | fragment locator | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| payload | bytea | No | — | — | Sí | No | — | payload | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| payload_digest | text | No | — | — | No | No | — | payload digest | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| phase | text | No | — | — | No | No | — | phase | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| revision | bigint | No | — | — | No | No | — | revision | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| claim_fence | bigint | No | — | — | No | No | — | claim fence | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| attempt_count | bigint | No | — | — | No | No | — | attempt count | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| claim_owner | uuid | No | — | — | Sí | No | — | claim owner | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| lease_until | timestamptz | No | — | — | Sí | No | — | lease until | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| next_attempt_at | timestamptz | No | — | — | Sí | No | — | next attempt at | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| last_attempt_at | timestamptz | No | — | — | Sí | No | — | last attempt at | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| confirmed_at | timestamptz | No | — | — | Sí | No | — | confirmed at | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| payload_removed_at | timestamptz | No | — | — | Sí | No | — | payload removed at | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| payload_recover_until | timestamptz | No | — | — | Sí | No | — | payload recover until | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| blocked_reason | text | No | — | — | Sí | No | — | blocked reason | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| created_at | timestamptz | No | — | — | No | No | — | created at | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
+| updated_at | timestamptz | No | — | — | No | No | — | updated at | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
 
 ## Enums
 
@@ -885,6 +1037,56 @@ Criterios de verificación (evidencia ejecutada reportada en cada entrega; casos
 No se añade allowlist table: fuente administrativa, owner y configuración versionada de admisión siguen pendientes. Tampoco se fijan permisos SQL/Key Vault, identidad runtime, runner de migraciones, plazos/leases, digest, retención/borrado/backups o responsables de custodia/criptografía. Navegador/callback y recuperación operativa tras restore requieren definición antes de sus adaptadores; modelo/DDL local concretan solo las invariantes de metadata aceptadas. No se incluyen grants ni la política de capacidad de Pipeline.
 
 [PD-027/034/035](../docs/architecture/pending-decisions.md) conservan los detalles operativos pendientes sin reabrir DD-020. La autoridad continua de PD-027 no está asignada por esta aprobación puntual. Jhon Galvez y Ramiro Guzman constan para PD-034/035, sin regla documentada de uno/ambos. El modelo y derivados permiten migraciones/verificación local de metadata en Ingestion; runner/identidades productivos, recursos, permisos, secretos y ejecución cloud no están autorizados aquí.
+
+<a id="capture-publication-draft-0.1"></a>
+<a id="DD-021"></a>
+
+### DD-021 — Captura/publicación durable — capture-publication-draft-0.1
+
+**Adopción local del 08/11/2026.** Después de aprobar los contratos de mensajes y revisar el plan concreto de cuatro tablas, evolución del modelo y persistencia JPA/PostgreSQL, el usuario indicó «Vamos a por ello». Esta dirección autoriza concretar `capture-publication-draft-0.1` en `domain.yml` 1.3.0 y sus derivados, migración y checks locales. No constituye integración en main, aprobación de CODEOWNERS, selección de presupuestos numéricos operativos, provisión de recursos, roles o permisos. Conserva snapshot Pipeline v1, evidencia v2, IDs lógicos y at-least-once. Base integrada: `e22627cfee10b0b02edab084b98eb18926c678b5` (PR #9, DD-020). Ownership exclusivo de Ingestion; no ampliar las cuatro tablas de credenciales ni escribir en `ops`, `evidence` o `audit`. El límite persistente/ER pasa de 21 a 25 tablas exclusivamente por estas cuatro adicionales aprobadas; no cambia presupuestos ni membresías de vistas.
+
+### Representación física adoptada localmente
+
+Se adoptan cuatro tablas en schema `ingestion`. Tres representan recepción, observación y salida; la cuarta conserva aliases de delivery para poder detectar tanto replay con header cambiado como reutilización conflictiva de cualquier delivery registrado. Prescindir de ese alias pierde una de esas garantías: no se sustituye por un array ilimitado ni dedup solo en memoria.
+
+| Tabla | Columnas |
+|---|---|
+| `capture_receipts` | `id uuid PK`; `capture_domain text NOT NULL`; `tenant_id uuid NOT NULL`; `source text NOT NULL`; `body_digest text NOT NULL`; `app_id`, `account_id`, `installation_id`, `repository_id`, `workflow_id`, `run_id` todos `text NOT NULL`; `run_attempt integer NOT NULL`; `scope_revision text NOT NULL`; `correlation_id text NOT NULL`; `snapshot_message_id`, `evidence_message_id` `uuid NOT NULL UNIQUE`; `phase text NOT NULL`; `revision bigint NOT NULL`; `claim_fence bigint NOT NULL`; `claim_owner uuid NULL`; `lease_until timestamptz NULL`; `observation_id uuid NULL`; `blocked_reason text NULL`; `created_at`, `updated_at` `timestamptz NOT NULL`; `prepared_at`, `published_at` `timestamptz NULL`; `replay_until timestamptz NOT NULL`. |
+| `capture_delivery_aliases` | `id uuid PK`; `capture_domain`, `source`, `delivery_id` `text NOT NULL`; `receipt_id uuid NOT NULL`; `created_at timestamptz NOT NULL`. Append-only; no `updated_at`. |
+| `capture_observations` | `id uuid PK`; `capture_domain`, `source`, `observation_key`, `protected_content_digest` `text NOT NULL`; `origin_receipt_id uuid NOT NULL`; `repository_id`, `workflow_id`, `run_id` `text NOT NULL`; `run_attempt integer NOT NULL`; `observed_at`, `source_updated_at` `timestamptz NOT NULL`; `observed_at_submicro`, `source_updated_at_submicro` `integer NOT NULL` (0..999); `normalizer_version`, `protection_policy_version`, `correlation_id` `text NOT NULL`; `required_output_count integer NOT NULL` (1 o 2); `created_at timestamptz NOT NULL`. Immutable after preparation; no `updated_at`. |
+| `publication_outputs` | `id uuid PK` (public message UUID); `observation_id uuid NOT NULL`; `event_type text NOT NULL`; `schema_major integer NOT NULL`; `fragment_locator text NULL`; `payload bytea NULL`; `payload_digest text NOT NULL`; `phase text NOT NULL`; `revision`, `claim_fence`, `attempt_count` `bigint NOT NULL`; `claim_owner uuid NULL`; `lease_until`, `next_attempt_at`, `last_attempt_at`, `confirmed_at`, `payload_removed_at`, `payload_recover_until` `timestamptz NULL`; `blocked_reason text NULL`; `created_at`, `updated_at` `timestamptz NOT NULL`. |
+
+`capture_domain` es una partición confiable de autorización máquina, nunca un header libre. Su supplier y codificación son inputs pendientes; no se infiere de un token humano ni de IDs webhook. Los IDs externos siguen decimales canónicos positivos textuales, intento entero positivo, tiempos UTC y UUIDs asignados por su owner. `correlation_id` mantiene el valor original seguro y no contiene identidad sensible. `delivery_id` es opaco: su formato no prueba firma ni frescura. Digests privados son SHA-256 lowercase de 64 hex; no se publican como IDs ni incorporan tokens. No guardar body webhook, firma, secret, access/refresh token, verifier, código OAuth ni raw log.
+
+El buffer `payload` contiene exclusivamente bytes JSON finales protegidos, nunca un payload arbitrario de GitHub. No reemplaza la evidencia persistente de Log/Event. Proponer `bytea` evita parsear/reemitir JSON al reintentar; se conserva exactamente lo enviado. Contexto/broker MessageId se derivan de los metadatos inmutables de la observación y del UUID/tipo/major; no se almacenan variantes mutables contradictorias. La validación del contrato y digest ocurre en la aplicación, sin inferir una nueva extensión SQL criptográfica. SQL/logs/bindings y auditoría deben excluir esos bytes.
+
+### Claves y constraints
+
+- Unicidad de recepción `(capture_domain, source, body_digest)`. El digest es del body autenticado exacto; la clave no incluye delivery ID, scope revision ni timestamps de retry. Mismo contenido con otro delivery recupera la misma recepción. El scope actual se revalida igualmente; dedup no concede autorización.
+- Unicidad de alias `(capture_domain, source, delivery_id)`. FK de pertenencia `(capture_domain, source, receipt_id)` a la recepción con UNIQUE correspondiente; un delivery previamente registrado no puede apuntar a otro digest/receipt. Registrar recepción y alias de aceptación en una transacción. Ni un alias duplicado ni un body duplicado vuelven a generar IDs de salida.
+- Unicidad `(capture_domain, source, observation_key)` para la observación. Recepción y observación declaran explícitamente UNIQUE `(capture_domain, source, id)` para las referencias compuestas. `origin_receipt_id` y `observation_id` usan FK compuestas de pertenencia al mismo dominio/fuente; las dos referencias circulares se validan diferidas dentro de la transacción de preparación. Recepciones equivalentes pueden referir una observación ya preparada solo si su contexto/fingerprint completo coincide.
+- `observation_key` y el digest protegido usan la codificación privada v1 del adaptador: JDK `DataOutputStream`, campos UTF-8 prefijados por longitud byte, null explícito, listas con cantidad y campos primitivos en orden estable; SHA-256 lowercase. Incluye dominio/fuente y contexto admitido (tenant/App/account/installation), repositorio/workflow/run/intento, hechos upstream, tiempos fuente como epoch-second+nano y contenido protegido; las etapas tienen orden canónico. La versión del formato canónico (v1) forma parte de la codificación. Excluye UUIDs reservados/generados, correlation, scope revision, reloj técnico y las versiones operativas del normalizador y política de protección; estas últimas se conservan como provenance inmutable. Desplegar una versión nueva con contenido protegido idéntico no crea otra identidad; cambiar el contenido protegido sí cambia su digest. Igual timestamp con distinto contenido no se colapsa; Pipeline conserva su regla de conflicto. El locator público validado es `v1:job:<decimalPositivo>:step:<enteroPositivo>:index:<enteroNoNegativo>`; los números son canónicos sin ceros iniciales salvo index cero. El job ID es identidad GitHub y el locator solo identifica el fragmento seleccionado: no prueba extracción real ni cobertura completa, ni permite adivinar PipelineStage desde nombres job/step.
+- Los UUIDv4 de snapshot y evidencia se reservan distintos al aceptar la recepción, antes de normalizar. Una observación usa los UUIDs reservados de su recepción origen; una recepción equivalente conserva sus reservas sin reemplazar los UUIDs/bytes originales. Si no hay evidencia, su UUID reservado queda sin uso. El MVP prepara exactamente un snapshot y cero o una evidencia protegida; `required_output_count IN (1,2)`. Múltiples fragmentos requieren evolución explícita del plan y la reserva de IDs.
+- Una salida snapshot por observación, índice único parcial `observation_id` para `execution.snapshot`; una salida por `(observation_id, fragment_locator)` para evidencia. Check de pares `execution.snapshot/1` y `protected_workflow_evidence/2`; locator null solo para snapshot y no vacío para evidencia. Ningún message UUID se reutiliza con otros bytes/contexto. Las filas y `required_output_count` se congelan antes del primer send; un guard diferido verifica exactamente un snapshot y el total acordado.
+- Ownership, IDs, digest/contexto original, versiones de protección y plan son inmutables. No FK cross-schema, navegación ORM ajena, DELETE CASCADE ni TRUNCATE que eluda el ledger. Revision/fence/contadores no negativos; claim_owner/lease aparecen juntos solo durante claim; tiempos técnicos coherentes. Fases/claims y limpieza de bytes requieren guardas SQL además del dominio, como en DD-020, no solo setters JPA.
+
+### Fases, transacciones y fallos
+
+Recepción: `ACCEPTED → PREPARED → PUBLISHED`, con `BLOCKED` y razón fija para recuperación explícita. Preparar exige claim exclusivo con owner/fence/lease persistidos; expirar el lease no autoriza un worker viejo a escribir. Revalidar scope antes de lectura y antes de publicación. No mantener una transacción SQL durante GitHub ni broker.
+
+Aceptar verifica firma/body y scope, persiste recepción+alias, y solo después puede devolver 2xx. El trabajo recuperable conserva run/intento y contexto para obtener una observación actual verificable. GitHub puede haber cambiado después del webhook: registrar la versión realmente leída, nunca presentarla como reconstrucción idéntica del pasado. Si no puede recuperarse una observación válida, mantener bloqueo/limitación visible, no éxito vacío.
+
+El MVP adopta **preparación completa antes del primer envío**: una transacción persiste observación, plan cerrado y todas sus salidas protegidas, y cambia la recepción a PREPARED bajo el fence. Una caída antes del commit no deja un plan parcialmente enviable. Fallos de extracción/clasificación/protección no se traducen en cero evidencia correcto. Esto puede retrasar el snapshot de un fallo mientras se recupera su evidencia; publicar snapshot independientemente con evidencia aún pendiente exigiría representar ese segundo plan explícitamente y no forma parte de esta alternativa mínima.
+
+Salida: `PENDING → CLAIMED → CONFIRMED`; un error transitorio o send de resultado incierto vuelve a ser elegible mediante lease/next_attempt_at y siempre conserva UUID, bytes, digest y propiedades. Una salida `BLOCKED` no se borra ni se sustituye por datos nuevos. Solo el claimant/fence vigente confirma resultado. El reenvío estable es correcto por at-least-once; no copiar la prohibición de retry del refresh OAuth a este flujo. Una salida confirmada no se reenvía porque otra falle. La transacción que registra la última confirmación puede marcar PUBLISHED la recepción una vez validado todo el plan.
+
+Confirmación significa aceptación broker, no commit de todos los consumidores ni exactly-once. Claims concurrentes, confirmación perdida, stale acknowledgement y rollback se prueban sobre PostgreSQL real. Procesar evidencia antes del commit del owner remoto sigue requiriendo la recuperación de referencias acordada por Log/Event/Correlation; este ledger no la resuelve con lecturas cross-owner.
+
+### Retención y condiciones previas
+
+`payload_recover_until` y `replay_until` se asignan solo desde una política de horizonte aprobada; `replay_until` es obligatorio, futuro e inmutable desde aceptar la recepción y la falta de un horizonte impide su aceptación durable; no se seleccionan días aquí. Falta de esa política impide activar captura, no autoriza retención infinita ni usar 365 días por analogía. Eliminar bytes permite `payload=NULL` y `payload_removed_at` únicamente cuando la salida está confirmada y venció su horizonte de recuperación; permanecen ID/digest/plan para el horizonte de replay. Pendientes o bloqueados no se purgan silenciosamente. El agotamiento de capacidad produce backpressure/readiness fallida y recuperación operativa. Fuera del horizonte retenido no se promete dedup de replays. Append-only protege el flujo ordinario, no aprueba retención infinita: esta decisión concreta la eliminación de bytes confirmados; la purga controlada de aliases/receipts/observaciones/metadatos y su orden bajo FK todavía necesitan una política aceptada antes de activar captura. No existe operación de purga de metadata aprobada ni implementada aquí.
+
+La representación y canonicalización/locator quedan concretados localmente en esta iteración. `observed_at` y `source_updated_at` guardan la proyección truncada hacia microsegundos; sus compañeros `*_submicro` conservan los nanosegundos restantes (0..999) para reconstruir el `Instant` exacto. Los bytes finales conservan los timestamps originales. La aplicación mantiene digest y claves con precisión completa; no deduplica con una fecha SQL truncada. Antes de activar el runtime hacen falta supplier de scope, corte de revocación, horizontes, capacidad y presupuestos de retry/lease, mapeo job/step→stage y protocolo operativo para bloqueos/material sensible. Las duraciones y horizontes son inputs explícitos de aplicación, sin valores operativos por defecto elegidos aquí. La política aprobada de Key Vault y las cuatro tablas de credenciales no se reabre. Aceptación de este esquema no crea recursos ni permisos; runner y configuración real continúan PD-035.
 
 ## Assumptions
 

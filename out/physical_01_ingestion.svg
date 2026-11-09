@@ -93,15 +93,15 @@
 
 <g id="edge7" class="edge">
 <title>element_ingestion_normalization_service-&gt;stub_postgresql_operational_store</title>
-<g id="a_edge7"><a xlink:title="Persists connector linkage, generations and credential-operation metadata; no tokens (PostgreSQL)">
+<g id="a_edge7"><a xlink:title="Persists connector metadata and durable capture/publication ledger with temporary protected output bytes; no credential values (PostgreSQL)">
 <path fill="none" stroke="#334155" d="M637.41,-404.57C653.19,-396.28 671.03,-388.02 688.25,-382.5 773.53,-355.15 873.72,-340.98 950.55,-333.67" />
 <polygon fill="#334155" stroke="#334155" points="950.57,-337.18 960.2,-332.78 949.93,-330.21 950.57,-337.18" />
 </a>
 </g>
-<text xml:space="preserve" text-anchor="middle" x="807.13" y="-452.65" font-family="Sans-Serif" font-size="13.00" fill="#2d3436">Persists connector linkage,</text>
-<text xml:space="preserve" text-anchor="middle" x="807.13" y="-436.15" font-family="Sans-Serif" font-size="13.00" fill="#2d3436">generations and</text>
-<text xml:space="preserve" text-anchor="middle" x="807.13" y="-419.65" font-family="Sans-Serif" font-size="13.00" fill="#2d3436">credential-operation metadata; no</text>
-<text xml:space="preserve" text-anchor="middle" x="807.13" y="-403.15" font-family="Sans-Serif" font-size="13.00" fill="#2d3436">tokens</text>
+<text xml:space="preserve" text-anchor="middle" x="807.13" y="-452.65" font-family="Sans-Serif" font-size="13.00" fill="#2d3436">Persists connector metadata and</text>
+<text xml:space="preserve" text-anchor="middle" x="807.13" y="-436.15" font-family="Sans-Serif" font-size="13.00" fill="#2d3436">durable capture/publication ledger</text>
+<text xml:space="preserve" text-anchor="middle" x="807.13" y="-419.65" font-family="Sans-Serif" font-size="13.00" fill="#2d3436">with temporary protected output</text>
+<text xml:space="preserve" text-anchor="middle" x="807.13" y="-403.15" font-family="Sans-Serif" font-size="13.00" fill="#2d3436">bytes; no credential values</text>
 <text xml:space="preserve" text-anchor="middle" x="807.13" y="-386.65" font-family="Sans-Serif" font-size="13.00" fill="#2d3436">(PostgreSQL)</text>
 </g>
 
