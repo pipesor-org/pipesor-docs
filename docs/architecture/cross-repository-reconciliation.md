@@ -17,7 +17,8 @@ El corte siguiente conserva sus revisiones históricas. Pipeline ya dispone de
 aplicación local en su main consultado `0e7eed9420e7e54d7b336c22b0452c8b6fb722ba`;
 la entrega CI/CD en revisión añade workflows, imagen y recuperación inactiva.
 La [guía actual del piloto](../development/cicd.md) distingue código preparado,
-pruebas locales y ejecución remota pendiente, y remite al README del servicio.
+pruebas locales, verificación hosted del PR y publicación/cloud pendientes, y
+remite al README del servicio.
 No extrapola la evolución de Pipeline al estado de los otros servicios ni cierra
 XR-004/PD-035. No se reescriben las tablas del corte previo.
 

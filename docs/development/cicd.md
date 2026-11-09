@@ -36,7 +36,7 @@ Revisión de implementación preparada para integración en el servicio:
 
 | Capacidad | Estado del piloto | Pendiente |
 |---|---|---|
-| PR/main CI | Workflow implementado: commitlint, pruebas Java/PostgreSQL, empaquetado, imagen no root y smoke local | Primera ejecución hosted de PR/main; checks no equivalen a merge protegido |
+| PR/main CI | Workflow implementado; PR verificado en GitHub con commitlint, pruebas Java/PostgreSQL, empaquetado, imagen no root, smoke y artifact de reportes | Verificación hosted de main después de merge; checks no equivalen a merge protegido |
 | Publicación GHCR | Job separado, solo push main; carga la misma imagen comprobada, sin reconstruir | Permisos/package access, transferencia real de artifacts y publicación por GitHub |
 | Release RC/stable | Implementada y **deshabilitada en código**; manifiesto de versión al mismo digest | Activación autorizada; productor preprod para stable |
 | Deploy y rollback dev | Adaptador ACA image-only, operación explícita rollback, **deshabilitados en código** | Readiness, ownership, runner, OIDC/RBAC, pull privado, pruebas reales |
@@ -49,6 +49,12 @@ activación. No hay recursos Azure creados por esta tarea. D03 no está aprobada
 el laboratorio V1–V5 y D03-EXP quedan suspendidos. ACA Jobs, el bootstrap de
 identidades y la gestión de credenciales GHCR no quedan validados por pruebas
 locales con respuestas simuladas.
+
+Evidencia posterior a la preparación local: [CI del PR #8](https://github.com/pipesor-org/pipesor-pipeline-service/actions/runs/42561403488),
+attempt 1, sobre `18f3a14b24e63aef947bc1d5eff67e93eb33d1fd`, terminó con éxito.
+El job verify ejecutó pruebas, construcción/smoke de imagen y subida del artifact
+`tests-42561403488-1`. El job publish se omitió por ser PR: no demuestra todavía
+transferencia/publicación de la imagen en main, GHCR, release ni Azure.
 
 ## Flujo implementado: verificación, artefacto y despliegue
 
@@ -73,7 +79,7 @@ los artifacts y la etiqueta incorporan el attempt. No modificar candidatos previ
 
 ```puml
 @startuml Pipesor_CI_Pilot
-title Pipesor - implemented local pilot (remote behavior unverified)
+title Pipesor - CI pilot (PR verified; main publication pending)
 autonumber
 hide footbox
 actor Developer as dev
