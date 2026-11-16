@@ -102,7 +102,7 @@ def validate_domain(domain, architecture):
             errors.append("embedding_dimension must remain null")
     topics = {q.get("topic") for q in domain["open_questions"]}
     required_topics = {"incident_severity_derivation", "confidence_semantics", "embedding_dimension",
-                       "rag_corpus_updates", "pipeline_rbac", "monitored_workflow_registration"}
+                       "pipeline_rbac", "monitored_workflow_registration"}
     if not required_topics <= topics:
         errors.append(f"Missing open questions: {sorted(required_topics - topics)}")
 
@@ -242,6 +242,7 @@ def validate_domain(domain, architecture):
         "diagnosis.diagnosis_evidence_links.evidence_id": ("logical_ref", "evidence.evidence_items.id"),
         "diagnosis.diagnosis_source_links.knowledge_chunk_id": ("logical_ref", "knowledge.knowledge_chunks.id"),
         "knowledge.knowledge_chunks.document_id": ("fk", "knowledge.knowledge_documents.id"),
+        "knowledge.knowledge_documents.pipeline_id": ("logical_ref", "ops.pipelines.id"),
         "diagnosis.human_reviews.diagnostic_id": ("fk", "diagnosis.diagnoses.id"),
     }
     for column, (kind, target) in expected_refs.items():
@@ -251,6 +252,21 @@ def validate_domain(domain, architecture):
         if not any(c.get("name") == "provenance" and not c.get("nullable")
                    for c in tables.get(f"knowledge.{table}", {}).get("attributes", [])):
             errors.append(f"knowledge.{table}: provenance is mandatory (INV-010)")
+    knowledge_documents = tables.get("knowledge.knowledge_documents", {})
+    knowledge_attributes = {item.get("name"): item for item in knowledge_documents.get("attributes", [])}
+    for name in (
+        "tenant_id", "github_installation_id", "github_repository_id", "scope_revision",
+        "source_id", "source_version", "content_hash", "authorization_reference", "active",
+    ):
+        if name not in knowledge_attributes or knowledge_attributes[name].get("nullable") is not False:
+            errors.append(f"knowledge.knowledge_documents.{name}: required non-null DD-022 field")
+    expected_unique = ["tenant_id", "github_repository_id", "source_id", "source_version"]
+    if not any(item.get("columns") == expected_unique for item in knowledge_documents.get("unique_constraints", [])):
+        errors.append("knowledge.knowledge_documents: missing DD-022 source/version uniqueness")
+    checks = {item.get("expression") for item in knowledge_documents.get("checks", [])}
+    for expression in ("content_hash ~ '^[0-9a-f]{64}$'", "btrim(authorization_reference) <> ''"):
+        if expression not in checks:
+            errors.append(f"knowledge.knowledge_documents: missing DD-022 check {expression}")
     expected_owners = {"ops": "pipeline_service", "diagnosis": "recommendation_service",
                        "knowledge": "rag_retrieval", "audit": "shared"}
     for schema, expected in expected_owners.items():

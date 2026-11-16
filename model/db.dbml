@@ -298,16 +298,31 @@ Table diagnosis.human_reviews {
 }
 
 Table knowledge.knowledge_documents {
-  id uuid [pk, not null, note: 'Identificador estable asignado por el servicio propietario. Assumption: A-001. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007']
-  corpus_kind knowledge.KnowledgeCorpusKind [not null, note: 'Clase de corpus autorizado. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007']
-  title text [not null, note: 'Título de la fuente autorizada. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007']
-  provenance text [not null, note: 'Referencia obligatoria de origen autorizado; nunca URL con tokens o secretos. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007']
-  reviewed_incident_id uuid [null, note: 'Incidente revisado cuando el corpus es reviewed_incidents; elegibilidad RAG requiere separación evaluación. Referencia lógica a ops.incidents.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007']
+  id uuid [pk, not null, note: 'Identificador estable asignado por el servicio propietario. Assumption: A-001. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  corpus_kind knowledge.KnowledgeCorpusKind [not null, note: 'Clase de corpus autorizado. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  title text [not null, note: 'Título de la fuente autorizada. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  provenance text [not null, note: 'Referencia obligatoria de origen autorizado; nunca URL con tokens o secretos. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  reviewed_incident_id uuid [null, note: 'Incidente revisado cuando el corpus es reviewed_incidents; elegibilidad RAG requiere separación evaluación. Referencia lógica a ops.incidents.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  tenant_id uuid [not null, note: 'Tenant autorizado del documento; no se deriva de similitud semÃ¡ntica. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  github_installation_id text [not null, note: 'InstalaciÃ³n GitHub verificada para el alcance del corpus. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  github_repository_id text [not null, note: 'Repositorio GitHub verificado para el alcance del corpus. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  pipeline_id uuid [null, note: 'Pipeline opcional del alcance; referencia lÃ³gica, sin FK cross-schema. Referencia lógica a ops.pipelines.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  scope_revision text [not null, note: 'RevisiÃ³n opaca del alcance autorizado entregado por Recommendation. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  source_id text [not null, note: 'Identidad estable de la fuente administrativa autorizada. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  source_version text [not null, note: 'VersiÃ³n opaca usada para importaciÃ³n idempotente. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  content_hash text [not null, note: 'SHA-256 hexadecimal del contenido canÃ³nico importado. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  authorization_reference text [not null, note: 'Evidencia no secreta de autorizaciÃ³n de la fuente. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  active boolean [not null, note: 'Solo la versiÃ³n activa participa en recuperaciÃ³n. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
   correlation_id text [not null, note: 'Identificador de correlación end-to-end; no contiene información sensible. Fuente: architecture.yml#CTRL-003']
   created_at timestamptz [not null, note: 'Instante de persistencia; permite aplicar retención cuando corresponde. Assumption: A-002. Fuente: SRC_ADR_013, DD-015']
+  indexes {
+    (tenant_id, github_repository_id, source_id, source_version) [unique, name: 'knowledge_documents_source_version_uq']
+  }
   checks {
     `btrim(provenance) <> ''` [name: 'knowledge_documents_check_1']
     `corpus_kind <> 'reviewed_incidents' OR reviewed_incident_id IS NOT NULL` [name: 'knowledge_documents_check_2']
+    `content_hash ~ '^[0-9a-f]{64}$'` [name: 'knowledge_documents_check_3']
+    `btrim(authorization_reference) <> ''` [name: 'knowledge_documents_check_4']
   }
   Note: 'Corpus autorizado; prohíbe casos de evaluación y soluciones de referencia conforme a INV-010. Owner: rag_retrieval. approved_domain / confirmed.'
 }
