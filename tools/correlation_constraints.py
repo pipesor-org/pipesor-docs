@@ -8,14 +8,18 @@ FIELDS = {
                           'created_at': 'timestamptz', 'updated_at': 'timestamptz'},
     'correlated_contexts': {'id': 'uuid', 'incident_id': 'uuid', 'execution_id': 'uuid',
                             'evidence_ids': 'uuid[]', 'summary': 'text', 'correlation_id': 'text',
-                            'created_at': 'timestamptz', 'group_id': 'uuid'},
+                            'created_at': 'timestamptz', 'group_id': 'uuid',
+                            'signal_stage': 'text', 'signal_summary': 'text', 'signal_content': 'text'},
     'correlation_receipts': {'scope_key': 'text', 'producer_key': 'text', 'message_id': 'uuid',
                              'evidence_id': 'uuid', 'correlation_id': 'text', 'context_id': 'uuid',
                              'input_fingerprint': 'text', 'created_at': 'timestamptz'},
 }
 REQUIRED_CHECKS = {
     'correlation_groups': ["btrim(scope_key) <> '' AND scope_key ~ '[^[:space:]]'", 'updated_at >= created_at'],
-    'correlated_contexts': ['array_ndims(evidence_ids) = 1 AND array_lower(evidence_ids, 1) = 1 AND cardinality(evidence_ids) > 0'],
+    'correlated_contexts': ['array_ndims(evidence_ids) = 1 AND array_lower(evidence_ids, 1) = 1 AND cardinality(evidence_ids) > 0',
+                            "signal_stage IN ('BUILD', 'TESTING', 'QUALITY_GATE', 'DEPLOYMENT', 'CONTAINER', 'INFRASTRUCTURE')",
+                            "btrim(signal_summary) <> '' AND signal_summary ~ '[^[:space:]]'",
+                            "btrim(signal_content) <> '' AND signal_content ~ '[^[:space:]]'"],
     'correlation_receipts': ["btrim(scope_key) <> '' AND scope_key ~ '[^[:space:]]'", "btrim(producer_key) <> '' AND producer_key ~ '[^[:space:]]'",
                              "btrim(correlation_id) <> '' AND correlation_id ~ '[^[:space:]]'", "input_fingerprint ~ '^v1:sha256:[0-9a-f]{64}$'"],
 }
@@ -116,6 +120,7 @@ DECLARE g evidence.correlation_groups; previous evidence.correlated_contexts;
 BEGIN
     IF NEW.id IS NULL OR NEW.group_id IS NULL OR NEW.incident_id IS NULL OR NEW.execution_id IS NULL
        OR NEW.evidence_ids IS NULL OR NEW.summary IS NULL OR NEW.correlation_id IS NULL OR NEW.created_at IS NULL
+       OR NEW.signal_stage IS NULL OR NEW.signal_summary IS NULL OR NEW.signal_content IS NULL
        THEN RETURN NEW; END IF;
     SELECT * INTO g FROM evidence.correlation_groups WHERE id = NEW.group_id FOR UPDATE;
     IF NOT FOUND THEN

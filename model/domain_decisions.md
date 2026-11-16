@@ -400,7 +400,7 @@ el precedente acotado DD-021; no cambia membresías ni presupuestos C4.
 | Tabla | Campos y claves adoptados |
 |---|---|
 | `evidence.correlation_groups` | `id uuid` PK asignada por owner; `scope_key text` no vacío; `execution_id`, `incident_id uuid` lógicos a `ops`; `confirmed_context_id uuid` nullable; `created_at`, `updated_at timestamptz`. UNIQUE `(scope_key, execution_id, incident_id)` y `(id, incident_id, execution_id)` para pertenencia. |
-| `evidence.correlated_contexts` | Conserva los siete campos DD-014; añade `group_id uuid NOT NULL`. UNIQUE `(group_id, id)` soporta el puntero del grupo; FK compuesta `(group_id, incident_id, execution_id)` exige la identidad del grupo. La revisión se deriva de `cardinality(evidence_ids)`, sin contador/revision table adicional. |
+| `evidence.correlated_contexts` | Conserva los siete campos DD-014 y `group_id uuid NOT NULL`; el suplemento del 16/11 añade `signal_stage`, `signal_summary`, `signal_content text NOT NULL`. UNIQUE `(group_id, id)` soporta el puntero del grupo; FK compuesta `(group_id, incident_id, execution_id)` exige la identidad del grupo. La revisión se deriva de `cardinality(evidence_ids)`, sin contador/revision table adicional. |
 | `evidence.correlation_receipts` | PK natural compuesta `(scope_key text, producer_key text, message_id uuid)`; `evidence_id uuid` lógico a `evidence_items`; `correlation_id text` original; `context_id uuid` FK al snapshot; `input_fingerprint text`; `created_at timestamptz`. Todos obligatorios. El exportador DBML instalado soporta PK compuesta; no se añade otro UUID de recepción. |
 
 Scope y productor son identidades máquina confiables provistas por la frontera
@@ -445,6 +445,58 @@ El índice técnico `(context_id, evidence_id)` de receipts soporta la comprobac
 de miembro al commit y la recuperación por contexto sin escanear todas las
 recepciones. No añade otra copia de contenido ni cambia la identidad scoped.
 
+### Suplemento aprobado — señal mínima por miembro, 16/11/2026
+
+El usuario aprobó explícitamente congelar la proyección mínima protegida recibida
+de NLP en la primera aceptación de cada miembro. `domain.yml` 1.5.0 incorpora
+solo tres columnas a `correlated_contexts`; las 27 tablas, claves, ownership y
+referencias permanecen. Esta aprobación local no acredita integración en main,
+exposición HTTP ni entrega a servicios vivos.
+
+| Columna | Representación y significado |
+|---|---|
+| `signal_stage` | `text NOT NULL`, `CHECK` limitado al vocabulario NLP existente: `BUILD`, `TESTING`, `QUALITY_GATE`, `DEPLOYMENT`, `CONTAINER`, `INFRASTRUCTURE`. No crea una taxonomía ni depende del enum de Log/Event. |
+| `signal_summary` | `text NOT NULL`, no vacío ni compuesto solo por whitespace; resumen protegido de la señal del miembro nuevo. |
+| `signal_content` | `text NOT NULL`, no vacío ni compuesto solo por whitespace; contenido mínimo protegido de esa señal. |
+
+Cada fila de revisión Ri conserva exclusivamente la señal propia del único
+miembro que incorporó. `summary` sigue siendo la síntesis del contexto
+operacional; no se redefine para guardar señales ni se reemplaza por
+`signal_summary`. No se duplican las señales anteriores en arrays acumulativos,
+receipts ni una tercera tabla técnica.
+
+El `evidence_id` de esa señal se obtiene como el único valor
+`DISTINCT correlation_receipts.evidence_id` cuyo `context_id` es Ri.id. Los guards
+de DD-023 ya exigen exactamente un miembro nuevo y receipts anclados a su
+contexto original, incluso cuando llegan aliases con otro productor/mensaje.
+`correlated_contexts.correlation_id` conserva la traza de incorporación de esa
+señal; no selecciona un productor/mensaje canónico ni prueba autenticidad. Las
+correlaciones individuales siguen en sus receipts.
+
+Para reconstruir una revisión R se leen los contextos de su mismo grupo con
+`cardinality(evidence_ids) <= cardinality(R.evidence_ids)` y sus receipts
+originales. Se exige una señal por miembro, identidad de grupo/ejecución/incidente
+consistente y membresía exacta respecto de R.evidence_ids; ni orden temporal ni
+similitud de contenido sustituyen esas comprobaciones. El alias de un miembro
+existente conserva su señal original: contradicción en etapa, resumen o contenido
+protegidos produce conflicto. `template` mutable queda fuera de la señal y de la
+comparación significativa.
+
+Esta proyección mínima es la excepción explícitamente aprobada a la prohibición
+de excerpt duplicado de la decisión inicial. No autoriza `rawLogs` completos,
+JSON arbitrario, request/caché íntegros ni hash adicional en NLP. No se incorporan
+timestamps fuente u otros campos sin promesa de salida aprobada; `created_at` y
+`input_fingerprint` no permiten reconstruir fechas fuente ni contenido perdido.
+Las precondiciones de autorización, scope, pertenencia y referencias upstream
+siguen vigentes; el suplemento no añade consultas a otros owners, permisos,
+clientes RAG/LLM ni orquestación diagnóstica.
+
+Snapshots y receipts existentes permanecen inmutables. La migración de servicio
+V3 deberá rechazar filas previas sin señales originales verificables; no fabrica
+blancos ni backfill desde fingerprints o evidencia actual. Las pruebas del DDL
+fuente se ejecutan sobre un esquema nuevo con texto protegido sintético y no
+demuestran una migración de datos existentes.
+
 ### Comparación, migración y límites
 
 `input_fingerprint` adopta la envoltura privada versionada
@@ -454,7 +506,8 @@ se concretan antes de habilitar el receptor. Excluye credenciales/trazas y
 `template` mutable; una repetición equivalente recupera el primer resultado
 aceptado, nunca lo reescribe. El fingerprint no es un hash wire de NLP ni prueba
 autenticidad o persistencia del owner. No almacenar request/raw body/log,
-excerpt duplicado, secreto o código de proveedor. Correlaciones individuales
+excerpt duplicado fuera de la proyección mínima aprobada en el suplemento,
+secreto o código de proveedor. Correlaciones individuales
 permanecen en sus receipts; la correlación del snapshot no las sustituye.
 
 No se fabrican grupo, scope, productor, mensaje ni receipts para filas V1.
