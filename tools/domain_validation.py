@@ -13,7 +13,7 @@ from correlation_constraints import validate_correlation
 
 IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 TYPES = {"uuid", "uuid[]", "text", "integer", "bigint", "boolean",
-         "timestamptz", "jsonb", "vector", "numeric", "bytea"}
+         "timestamptz", "jsonb", "vector(1536)", "numeric", "bytea"}
 EXCLUDED = {"users", "teams", "roles", "workflows", "failure_types",
             "root_causes", "reporting_service", "audit_service",
             "anomaly_detector", "anomaly_detection_engine", "logbert",
@@ -99,10 +99,8 @@ def validate_domain(domain, architecture):
     for question in domain["open_questions"]:
         if question.get("status") != "open_question":
             errors.append(f"{question.get('id')}: open_question must stay open; cannot be confirmed")
-        if question.get("topic") == "embedding_dimension" and question.get("embedding_dimension", "missing") is not None:
-            errors.append("embedding_dimension must remain null")
     topics = {q.get("topic") for q in domain["open_questions"]}
-    required_topics = {"incident_severity_derivation", "confidence_semantics", "embedding_dimension",
+    required_topics = {"incident_severity_derivation", "confidence_semantics",
                        "pipeline_rbac", "monitored_workflow_registration"}
     if not required_topics <= topics:
         errors.append(f"Missing open questions: {sorted(required_topics - topics)}")
@@ -166,7 +164,7 @@ def validate_domain(domain, architecture):
             if "root_cause" in str(c.get("name", "")).lower():
                 errors.append(f"{location}: root_cause is prohibited; use probable_cause")
             if c.get("type") not in TYPES:
-                errors.append(f"{location}: unsupported type {c.get('type')!r}; embedding must be vector without dimension")
+                errors.append(f"{location}: unsupported type {c.get('type')!r}")
             for flag in ("pk", "nullable", "unique", "er_visible"):
                 if type(c.get(flag)) is not bool:
                     errors.append(f"{location}: {flag} must be boolean")
@@ -174,8 +172,8 @@ def validate_domain(domain, architecture):
                 errors.append(f"{location}: PK cannot be nullable")
             if c.get("name") == "correlation_id" and c.get("nullable"):
                 errors.append(f"{location}: correlation_id must not be nullable")
-            if c.get("name") == "embedding" and c.get("type") != "vector":
-                errors.append(f"{location}: embedding must use vector without a fixed dimension")
+            if c.get("name") == "embedding" and c.get("type") != "vector(1536)":
+                errors.append(f"{location}: embedding must use approved vector(1536)")
             if c.get("enum") and c["enum"] not in enums:
                 errors.append(f"{location}: unknown enum {c['enum']}")
             if c.get("assumption") and c["assumption"] not in assumptions:

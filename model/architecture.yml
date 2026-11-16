@@ -1,7 +1,7 @@
 architecture:
   id: ey_aiops_ci_cd_diagnosis
   name: "AIOps Prototype for CI/CD Failure Diagnosis"
-  model_version: "0.7.0-github-connector-metadata"
+  model_version: "0.8.0-rag-runtime-contract"
   phase: "phase_4_c4_views"
   status: draft
   renderable: true
@@ -120,6 +120,10 @@ sources:
 
   - id: SRC_ADR_020
     file: docs/architecture/decisions/ADR-020-github-user-access-and-workflow-onboarding.md
+    role: approved_architectural_decision
+
+  - id: SRC_ADR_021
+    file: docs/architecture/decisions/ADR-021-rag-runtime-contract-v0.1.md
     role: approved_architectural_decision
 
 layers:
@@ -615,6 +619,11 @@ elements:
     semantic_representation:
       provider: Azure OpenAI Service
       capability: embeddings
+      selected_model: text-embedding-3-small
+      dimensions: 1536
+      api: Azure OpenAI API v1
+      authentication: system_assigned_managed_identity
+      required_role: Cognitive Services OpenAI User
       vector_store: pgvector_knowledge_store
     status: confirmed
     source:
@@ -623,6 +632,7 @@ elements:
     - SRC_DRIFT#Base-de-conocimiento-RAG
     - SRC_ADR_007
     - SRC_ADR_015
+    - SRC_ADR_021
     host:
       environment: microsoft_azure
       runtime: controlled_container_environment
@@ -910,6 +920,17 @@ relationships:
       - SRC_DRIFT#Recuperacion-vectorial
       - SRC_DRIFT#Base-de-conocimiento-RAG
 
+  - id: rel_rag_embeddings
+    from: rag_retrieval
+    to: pretrained_llm_diagnostic_service
+    label: "Generates compatible document and query embeddings"
+    protocol: Azure OpenAI API v1/HTTPS
+    style: sync
+    status: confirmed
+    source:
+      - SRC_ADR_007
+      - SRC_ADR_021
+
   - id: rel_github_github_actions
     from: github
     to: github_actions
@@ -961,6 +982,11 @@ relationships:
     label: "Requests authorized contextual knowledge for the incident"
     protocol: REST/HTTPS
     style: sync
+    authentication: Microsoft Entra ID
+    token_type: app_only
+    audience: exclusive_rag_audience
+    required_role: Rag.Query
+    authorized_actor: recommendation_service
     status: confirmed
     source:
     - SRC_ADR_015

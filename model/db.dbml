@@ -377,7 +377,9 @@ Table knowledge.knowledge_chunks {
   chunk_index integer [not null, note: 'Posición del chunk dentro del documento. Assumption: A-009. Fuente: SRC_ADR_007, architecture.yml#INV-010, DD-009']
   content text [not null, note: 'Fragmento autorizado y saneado; nunca casos/soluciones de evaluación. Fuente: SRC_ADR_007, architecture.yml#INV-010, DD-009']
   provenance text [not null, note: 'Procedencia obligatoria del fragmento dentro de su documento. Fuente: SRC_ADR_007, architecture.yml#INV-010, DD-009']
-  embedding vector [null, note: 'Embedding pgvector; dimensión abierta, sin vector(n). Fuente: SRC_ADR_007, architecture.yml#INV-010, DD-009']
+  embedding vector(1536) [null, note: 'Embedding pgvector de 1536 dimensiones para text-embedding-3-small. Fuente: SRC_ADR_007, architecture.yml#INV-010, DD-009']
+  embedding_model text [not null, note: 'Modelo que generó el vector; debe ser text-embedding-3-small en el contrato v0.1. Fuente: SRC_ADR_007, architecture.yml#INV-010, DD-009']
+  embedding_model_version text [not null, note: 'Versión opaca del modelo/deployment usada para impedir mezcla de vectores incompatibles. Fuente: SRC_ADR_007, architecture.yml#INV-010, DD-009']
   correlation_id text [not null, note: 'Identificador de correlación end-to-end; no contiene información sensible. Fuente: architecture.yml#CTRL-003']
   created_at timestamptz [not null, note: 'Instante de persistencia; permite aplicar retención cuando corresponde. Assumption: A-002. Fuente: SRC_ADR_013, DD-015']
   indexes {
@@ -387,7 +389,7 @@ Table knowledge.knowledge_chunks {
     `chunk_index >= 0` [name: 'knowledge_chunks_check_1']
     `btrim(provenance) <> ''` [name: 'knowledge_chunks_check_2']
   }
-  Note: 'Chunks recuperables de documentos autorizados; conserva provenance y pgvector sin dimensión fija. Owner: rag_retrieval. approved_domain / confirmed.'
+  Note: 'Chunks recuperables de documentos autorizados; conserva provenance y embeddings pgvector compatibles con el contrato aprobado. Owner: rag_retrieval. approved_domain / confirmed.'
 }
 
 Table audit.audit_events {

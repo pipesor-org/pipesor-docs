@@ -4,7 +4,7 @@ SSOT: `model/domain.yml`. `model/db.dbml` es una salida generada en esta iteraci
 
 Autoridad por materia: Project Charter para alcance; INV-*, ADR Accepted y architecture.yml para arquitectura vigente; tech_drift_resolutions y ADR tecnológicos para tecnología; arquitectura-informacion.md para derivaciones funcionales dentro de esos límites. No se usa una precedencia lineal ni se promueven propuestas IA a requisitos core. Los originales Charter/TI/drift no están presentes en este checkout (A-011); no se afirma haberlos leído ni se les atribuyen requisitos adicionales.
 
-Las decisiones físicas adicionales DD-013 a DD-017 y las assumptions se explicitan como implementaciones reversibles dentro del alcance aprobado. Las seis preguntas abiertas permanecen en domain.yml.
+Las decisiones físicas adicionales DD-013 a DD-017 y las assumptions se explicitan como implementaciones reversibles dentro del alcance aprobado. DQ-003 se cerró mediante el contrato RAG–Recommendation–IaC v0.1 aprobado el 16/11/2026; las demás preguntas abiertas permanecen en domain.yml.
 
 Generación: `make validate` y `make db`; `make all` conserva physical/logical/C4 y añade db. Dependencias presentes: PyYAML 6.0.3, D2 0.9.0, @dbml/cli 10.2.0 sobre Node 24.21.0. Reproducibilidad exige las mismas versiones. No se instala PostgreSQL ni pgvector. Sintaxis de referencia: [DBML](https://dbml.dbdiagram.io/docs/) y [D2 SQL tables](https://d2lang.com/tour/sql-tables/).
 
@@ -82,20 +82,20 @@ Nota de evolución: representación histórica de Blob sustituida parcialmente p
 - impacto: La base no garantiza existencia de IDs remotos; cada owner valida referencias por APIs/eventos de architecture.yml. No se diseñan nuevas relaciones de comunicación.
 - reversibilidad: Reversible: una futura decisión Accepted y migraciones podrían introducir FK cross-schema; nunca implícitamente.
 
-## DD-009 — Vector sin dimensión fija
+## DD-009 — Embeddings RAG dimensionados y versionados
 
 - id: DD-009
-- contexto: Azure OpenAI Embeddings está aprobado, pero el modelo concreto no se ha fijado.
-- decisión: knowledge_chunks.embedding usa vector sin dimensión. Se genera CREATE EXTENSION IF NOT EXISTS vector. embedding_dimension: null sigue en open_questions. chunk_index se supone base cero; embedding puede quedar null durante carga.
-- fuentes: Prompt aprobado §6.I; SRC_ADR_007; DQ-003.
-- impacto: No hay vector(1536), índice vectorial dependiente de dimensión ni mecanismo de actualización seleccionado.
-- reversibilidad: Una futura elección de embedding requiere decisión y migración de tipo/datos/índices.
+- contexto: El contrato RAG–Recommendation–IaC v0.1 aprobado el 16/11/2026 fija el modelo y la dimensión para documentos y consultas.
+- decisión: knowledge_chunks.embedding usa vector(1536) para text-embedding-3-small y conserva embedding_model/embedding_model_version. RAG rechaza dimensiones o versiones incompatibles y usa índice coseno HNSW. DQ-003 queda cerrada.
+- fuentes: Aprobación explícita del usuario del 16/11/2026; SRC_ADR_007; RAG_RECOMMENDATION_IAC_V0_1.
+- impacto: Los vectores anteriores deben reimportarse/re-embedderse; no se reinterpretan. Endpoint, deployment, región y cuota reales continúan como entradas de validación Azure.
+- reversibilidad: Cambiar modelo, dimensión o versión requiere migración explícita, re-embedding e índice compatible.
 
 ## DD-022 — Alcance e importaciÃ³n administrativa del corpus RAG
 
 - id: DD-022
 - contexto: El 16/11/2026 el usuario aprobÃ³ el contrato Recommendation → RAG v1 con identidades GitHub canÃ³nicas, alcance verificado por Recommendation y defensa adicional en RAG, ademÃ¡s de un importador administrativo idempotente sin API pÃºblica ni aprendizaje automÃ¡tico.
-- decisiÃ³n: knowledge_documents conserva tenant, instalaciÃ³n, repositorio, pipeline opcional y revisiÃ³n de scope. La carga exige source_id/source_version, hash canÃ³nico, provenance y referencia de autorizaciÃ³n; una versiÃ³n activa sustituye a la anterior. Los casos de evaluaciÃ³n se rechazan. Azure OpenAI permanece simulado hasta aprobar modelo, dimensiÃ³n, deployment, regiÃ³n y permisos.
+- decisiÃ³n: knowledge_documents conserva tenant, instalaciÃ³n, repositorio, pipeline opcional y revisiÃ³n de scope. La carga exige source_id/source_version, hash canÃ³nico, provenance y referencia de autorizaciÃ³n; una versiÃ³n activa sustituye a la anterior. Los casos de evaluaciÃ³n se rechazan. El contrato v0.1 fija text-embedding-3-small/1536, API v1 e identidad administrada; regiÃ³n, endpoint, deployment y cuota se validan en Azure antes de activaciÃ³n.
 - fuentes: AprobaciÃ³n explÃ­cita del usuario del 16/11/2026; architecture.yml#rel_recommendation_rag; INV-010; DD-007/DD-009.
 - impacto: Recommendation entrega scope previamente verificado y RAG vuelve a filtrar. No se crea relaciÃ³n nueva, crawler, API pÃºblica ni acceso a tablas ajenas.
 - reversibilidad: Nuevas fuentes o mecanismos requieren decisiÃ³n posterior; las versiones y hashes preservan procedencia para migraciÃ³n controlada.

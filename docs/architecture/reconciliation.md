@@ -42,7 +42,7 @@ En cada fila, el número remite a la sección del [drift][D] con ese número. La
 | 14 | Broker de eventos | Compatible / evidencia pendiente | A: azure_service_bus y CF-005. El drift respalda Azure Service Bus; acto original de aprobación no acreditado por separado. |
 | 15 | Mensajería asíncrona | Compatible / especificación adicional | A: azure_service_bus.topology y rel_service_bus_pipeline_service, rel_service_bus_log_event_service, rel_service_bus_nlp. D§15 respalda patrón, no acredita la aprobación exacta de un topic y tres suscripciones. |
 | 16 | Parsing de logs | Concretado | [ADR-007][A07], Decision, selecciona Drain3; [ADR-015][A15] lo conserva. A: nlp_log_processor.parser. No reabrir por las opciones del drift. |
-| 17 | Representación semántica | Concretado parcialmente | [ADR-007][A07] selecciona Azure OpenAI Embeddings sin modelo concreto. A: nlp_log_processor.embedding_model, rag_retrieval.semantic_representation; M: DQ-003 mantiene dimensión abierta. |
+| 17 | Representación semántica | Concretado parcialmente | [ADR-007][A07] selecciona Azure OpenAI Embeddings; ADR-021 fija text-embedding-3-small/1536 para RAG. NLP conserva modelo concreto pendiente. A: nlp_log_processor.embedding_model, rag_retrieval.semantic_representation. |
 | 18 | Detector y LogBERT | Histórico para el MVP | [ADR-010][A10], Decision, retira detector y LogBERT del MVP; no son selecciones pendientes del core actual. |
 | 19 | Detector OPEN_DECISION | Sustituido para el MVP | [ADR-010][A10] elimina nodo y OQ-001. A no mantiene el detector activo. |
 | 20 | Responsabilidad del detector | Histórico para el MVP | [ADR-010][A10] retira el componente. Separar detección de diagnóstico no autoriza restaurarlo. |
@@ -74,7 +74,7 @@ En cada fila, el número remite a la sección del [drift][D] con ese número. La
 | 46 | Evidencia antes de inferencia | Compatible | A: INV-001/002; [ADR-015][A15] concreta flujo de orquestación y llamadas. |
 | 47 | Contrato canónico con detector | Parcialmente sustituido | [ADR-010][A10] elimina tramo del detector; [ADR-015][A15]/[ADR-016][A16] concretan diagnóstico/revisión/consumo. Conservar flujo original como histórico, sin reutilizarlo aislado como vigente. |
 | 48 | Stack físico resumido | Compatible / resumen incompleto | [ADR-001][A01]/[ADR-002][A02]/[ADR-003][A03]/[ADR-004][A04]/[ADR-008][A08]/[ADR-015][A15]/[ADR-018][A18] añaden selecciones. El resumen no las invalida. |
-| 49 | Componentes sin fijar | Mixto | [ADR-001][A01]/[ADR-007][A07]/[ADR-002][A02] concretan orquestador/parser/observabilidad; [ADR-010][A10] retira detector; modelo de embeddings permanece pendiente. D§49 admite decisiones posteriores aprobadas. |
+| 49 | Componentes sin fijar | Mixto | [ADR-001][A01]/[ADR-007][A07]/[ADR-002][A02] concretan orquestador/parser/observabilidad; [ADR-010][A10] retira detector; ADR-021 fija embeddings para RAG, no para NLP. D§49 admite decisiones posteriores aprobadas. |
 | 50 | Source of Truth DaC | Discrepancia de gobernanza | Cabecera y §50 del drift reconocen decisiones posteriores; A: CF-001 describe override y pide modificar cabecera. Registrar ambos enunciados sin modificar fuentes ni resolver CF-001. |
 
 El «Baseline canónico para nuevos diagramas» y `open_decisions` del drift también conservan detector y decisiones luego tratadas en ADRs. Son parte íntegra del snapshot histórico. La sección «Decisiones tecnológicas cerradas» no acredita por sí sola el acto de aprobación. La ausencia de APIs directas de scanners no impide su evidencia indirecta, conforme a ADR-014.
