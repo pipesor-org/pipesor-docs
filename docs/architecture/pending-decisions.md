@@ -132,6 +132,56 @@ La disponibilidad e identidad entre consumidores se mantiene en **PD-031**; la r
 
 La lectura de estas entradas debe incluir el corte remoto `f02f7cf8b902be80a07e4653d8389fef50e815d0`: XR-001 registra native ingress sin APIM aceptado en IaC y aún no reflejado en el modelo; PD-034/036 describen el contrato canónico histórico, no una instrucción de desplegar APIM. XR-002 registra la exclusión de Blob de workload frente al modelo/DD-006; afecta PD-016/030/031. XR-003 aporta fundación Foundry sin resolver PD-005/006/023/026. XR-004/005 aportan preparación Terraform y decisiones dev-only que deben consumirse con PD-035; no acreditan contratos runtime ni despliegue. XR-007 complementa PD-033/031 sobre mensajería y llegada independiente. Estas relaciones no resuelven las discrepancias ni sustituyen ADRs automáticamente.
 
+## Acuerdos locales de Correlation — 11/11/2026
+
+En la continuación de implementación de Evidence Correlation Engine, el usuario
+adoptó explícitamente estos cortes de las decisiones pendientes; no cierran
+PD-010/031/034 ni acreditan implementación, interoperabilidad o integración en main.
+Se conservan DD-014, los IDs operacionales acordados y el ownership existente.
+
+- **Agrupación:** revisiones acumulativas e inmutables por scope de máquina
+  confiable, ejecución/intento exacto e incidente automático ORIGIN. Cada evidencia
+  verificada nueva amplía el conjunto; repetir un miembro no crea otra revisión.
+  No hay ventana temporal, cierre por silencio ni afirmación de cobertura completa.
+  No se seleccionó el corte de un snapshot independiente por evidencia.
+- **Reentrega NLP:** separar fuente protegida estable de enriquecimiento mutable
+  (incluida la plantilla Drain3), conservando el primer resultado aceptado por
+  mensaje. Cambiar la fuente bajo la misma identidad scoped sigue siendo conflicto.
+  NLP no adquiere almacenamiento propio. El usuario pidió evaluar solapamiento
+  antes de elegir un nuevo digest de bytes; ese formato/cálculo no está aprobado.
+- **Alcance de edición:** cambios locales en Correlation, NLP y este repositorio
+  para remediación de reentrega y documentación de contrato/modelo. No se autorizan
+  publicación, merge, despliegue, recursos, secretos o cambios a otros owners.
+
+El [contrato de Correlation](https://github.com/pipesor-org/pipesor-evidence-correlation-engine/blob/main/docs/deployment-contract.md)
+y su [plan de arquitectura](https://github.com/pipesor-org/pipesor-evidence-correlation-engine/blob/main/docs/architecture.md)
+son los documentos de trabajo propietarios; sus cambios de esta sesión siguen
+locales y no se presumen disponibles en esos enlaces hasta integración autorizada.
+Antes de implementar persistencia/entrega de grupos deben concretarse modelo
+físico group/head/receipts, trazabilidad por mensaje y semántica de orden/recepción
+de revisiones en Recommendation. El mecanismo de validación de referencias y
+propagación del scope máquina sigue pendiente; dos consultas a owners son una
+propuesta arquitectónica, no una relación aprobada por este acuerdo.
+
+### Adopción posterior del modelo durable — 11/11/2026
+
+Tras revisar existencia y redundancia de datos, el usuario indicó «apruebo la
+propuesta» y autorizó continuar hasta el siguiente punto de decisión. Este
+acuerdo amplía el corte local anterior: adopta [DD-023](../../model/domain_decisions.md#DD-023),
+las dos tablas técnicas de Correlation, snapshots existentes como revisiones,
+ordinal derivado de membresía, receipts por mensaje y un único puntero confirmado
+por grupo. También adopta preparar la siguiente revisión solo después de confirmar
+la recepción de la anterior. No requiere nueva tabla de revisiones/membresía,
+UUID de operación, hash/caché NLP ni cambios en tablas de otros owners.
+
+El modelo físico se concreta y comprueba localmente antes de V2; la migración
+rehúsa datos anteriores sin scope/procedencia demostrable en vez de fabricarlos.
+No se autoriza migración viva, publicación, merge, recursos, permisos o despliegue.
+El próximo punto de decisión es la representación diagnóstica segura mínima que
+Recommendation necesita y que debe poder recuperarse idéntica al reintentar; no
+reabre el modelo de grupo/receipts aprobado. Los PD mantienen su alcance global
+pendiente hasta contratos/evidencia de los owners y aprobación/integración aplicables.
+
 ## Cobertura y límites de cierre
 
 ### Seguimiento entre repositorios — 06/11/2026

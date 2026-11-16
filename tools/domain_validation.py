@@ -8,6 +8,7 @@ import yaml
 from domain_constraints import validate_constraints
 from connector_constraints import validate_connector
 from capture_constraints import validate_capture
+from correlation_constraints import validate_correlation
 
 
 IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -107,8 +108,8 @@ def validate_domain(domain, architecture):
         errors.append(f"Missing open questions: {sorted(required_topics - topics)}")
 
     entities = domain["entities"]
-    if len(entities) > 25:
-        errors.append(f"Domain has {len(entities)} tables; maximum is 25")
+    if len(entities) > 27:
+        errors.append(f"Domain has {len(entities)} tables; maximum is 27")
     tables, attributes, declared_refs = {}, {}, set()
     ids = set()
     for entity in entities:
@@ -282,6 +283,7 @@ def validate_domain(domain, architecture):
     errors.extend(validate_constraints(domain))
     errors.extend(validate_connector(domain))
     errors.extend(validate_capture(domain))
+    errors.extend(validate_correlation(domain))
     errors.extend(validate_composite_constraints(domain))
     return errors
 

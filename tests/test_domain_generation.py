@@ -33,9 +33,9 @@ class DomainGenerationTests(unittest.TestCase):
         errors = validate_domain(self.model, self.architecture)
         self.assertTrue(any(fragment in error for error in errors), errors)
 
-    def test_approved_model_has_twenty_five_valid_tables(self):
+    def test_approved_model_has_twenty_seven_valid_tables(self):
         self.assertEqual(validate_domain(self.model, self.architecture), [])
-        self.assertEqual(len(self.model["entities"]), 25)
+        self.assertEqual(len(self.model["entities"]), 27)
 
     def test_owners_cannot_write_another_schema(self):
         self.entity("incidents")["owner_container"] = "recommendation_service"
@@ -103,14 +103,14 @@ class DomainGenerationTests(unittest.TestCase):
 
     def test_er_limit_is_enforced(self):
         self.model["entities"].extend([deepcopy(self.model["entities"][0]) for _ in range(2)])
-        self.rejected("maximum is 25")
-        with self.assertRaisesRegex(ValueError, "exceeds 25"):
+        self.rejected("maximum is 27")
+        with self.assertRaisesRegex(ValueError, "exceeds 27"):
             generate_er(self.model)
 
     def test_dbml_refs_are_only_physical_intra_schema(self):
         dbml = generate_dbml(self.model)
         refs = re.findall(r"^Ref \w+: (\w+)\.\w+\.\w+ > (\w+)\.\w+\.\w+$", dbml, re.M)
-        self.assertEqual(len(refs), 13)
+        self.assertEqual(len(refs), 14)
         self.assertTrue(all(source == target for source, target in refs))
         self.assertIn("Referencia lógica a knowledge.knowledge_chunks.id", dbml)
         self.assertIn("embedding vector ", dbml)
