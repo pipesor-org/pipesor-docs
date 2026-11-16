@@ -131,3 +131,12 @@ El 08/11/2026 el usuario indicó «Vamos a por ello» tras el plan de captura/pu
 La aprobación explícita del 11/11/2026 adopta localmente [DD-023](model/domain_decisions.md#DD-023): `domain.yml` 1.4.0 añade dos tablas técnicas de Correlation (27 tablas en total), reutiliza `correlated_contexts` para snapshots acumulativos y conserva referencias lógicas a los otros owners. Receipts inmutables y confirmación compartida por grupo permiten comprobar integridad local sin nuevo hash/caché en NLP. La aplicación de V2 y sus pruebas pertenecen al servicio Correlation; la generación de este repositorio conserva sus comandos y no ejecuta migraciones de servicios. La representación diagnóstica a entregar sigue siendo la próxima decisión; no hay integración, despliegue o purge autorizado.
 
 Verificación local del 16/11/2026 para DD-023: `make all` completó la generación; `make test` pasó 116 pruebas y `make test-postgres` pasó 19 pruebas en PostgreSQL 16.15/pgvector 0.8.7 desechable. El servicio Correlation verifica su propia migración y adaptador aparte contra PostgreSQL 17.11. No se ejecutaron migraciones de entorno ni integración con servicios vivos.
+
+## Contrato RAG–Recommendation–IaC
+
+El [contrato v0.1](docs/architecture/contracts/rag-integration-v0.1.md), aprobado
+por el usuario el 16/11/2026, fija embeddings `text-embedding-3-small` de 1536
+dimensiones y la base de integración, seguridad y límites operativos para DEV.
+Incluye entregas por responsable y preguntas abiertas. Es una aprobación para
+desarrollo/preparación; la adopción en modelos, servicios e IaC y la validación
+del entorno siguen pendientes antes de usar Azure o corpus real.
