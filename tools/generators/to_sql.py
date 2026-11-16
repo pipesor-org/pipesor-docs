@@ -9,6 +9,7 @@ from domain_model import ROOT, find_tool, load_domain, main_guard, write_generat
 from to_dbml import generate_dbml
 from connector_constraints import generate_lifecycle_sql
 from capture_constraints import generate_capture_sql
+from correlation_constraints import generate_correlation_sql
 
 
 ORIGIN_CONSTRAINTS = """
@@ -110,11 +111,11 @@ FOR EACH STATEMENT EXECUTE FUNCTION diagnosis.reject_diagnoses_mutation();
 
 def generate_extras(model):
     constraints = {c for e in model["entities"] for c in e.get("domain_constraints", [])}
-    supported = {"at_most_one_origin", "exactly_one_failed_origin", "origin_pipeline_consistency", "append_only", "connector_lifecycle", "capture_lifecycle"}
+    supported = {"at_most_one_origin", "exactly_one_failed_origin", "origin_pipeline_consistency", "append_only", "connector_lifecycle", "capture_lifecycle", "correlation_lifecycle"}
     if constraints - supported:
         raise ValueError(f"Unsupported domain constraints: {sorted(constraints - supported)}")
     parts = ["-- GENERATED — DO NOT EDIT. SSOT: model/domain.yml; DD-002 / DD-003."]
-    origin = supported - {"append_only", "connector_lifecycle", "capture_lifecycle"}
+    origin = supported - {"append_only", "connector_lifecycle", "capture_lifecycle", "correlation_lifecycle"}
     if constraints & origin:
         if not origin <= constraints:
             raise ValueError("ORIGIN constraints must be declared together")
@@ -133,6 +134,8 @@ def generate_extras(model):
         parts.append(generate_lifecycle_sql())
     if "capture_lifecycle" in constraints:
         parts.append(generate_capture_sql())
+    if "correlation_lifecycle" in constraints:
+        parts.append(generate_correlation_sql())
     return "\n".join(parts)
 
 
@@ -147,6 +150,11 @@ def validate_export(sql, model):
     if tables != expected:
         raise ValueError('dbml2sql returned incomplete/unexpected CREATE TABLE output')
     for entity in model['entities']:
+        pk = [a['name'] for a in entity['attributes'] if a['pk']]
+        if len(pk) > 1:
+            columns = ', '.join(f'"{name}"' for name in pk)
+            if f'PRIMARY KEY ({columns})' not in sql:
+                raise ValueError(f'dbml2sql omitted composite primary key {entity["table"]}')
         for fk in entity.get('foreign_keys', []):
             if f'ADD CONSTRAINT "{fk["name"]}" FOREIGN KEY' not in sql:
                 raise ValueError(f'dbml2sql omitted composite FK {fk["name"]}')

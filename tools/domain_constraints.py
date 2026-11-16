@@ -6,6 +6,8 @@ Constraint names are presentation details; compare expressions and column sets.
 import re
 
 REQUIRED_UNIQUES = {
+    'correlation_groups': [('scope_key', 'execution_id', 'incident_id'), ('id', 'incident_id', 'execution_id')],
+    'correlated_contexts': [('group_id', 'id')],
     'pipelines': [('repository_id', 'github_workflow_id')],
     'pipeline_executions': [('pipeline_id', 'github_run_id', 'run_attempt')],
     'execution_stages': [('execution_id', 'stage')],
@@ -17,6 +19,10 @@ REQUIRED_UNIQUES = {
     'knowledge_chunks': [('document_id', 'chunk_index')],
 }
 REQUIRED_REFERENCES = {
+    'evidence.correlation_groups.execution_id': ('logical_ref', 'ops.pipeline_executions.id'),
+    'evidence.correlation_groups.incident_id': ('logical_ref', 'ops.incidents.id'),
+    'evidence.correlation_receipts.evidence_id': ('logical_ref', 'evidence.evidence_items.id'),
+    'evidence.correlation_receipts.context_id': ('fk', 'evidence.correlated_contexts.id'),
     'ops.pipelines.repository_id': ('fk', 'ops.repositories.id'),
     'ops.pipeline_executions.pipeline_id': ('fk', 'ops.pipelines.id'),
     'ops.execution_stages.execution_id': ('fk', 'ops.pipeline_executions.id'),

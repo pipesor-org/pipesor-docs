@@ -50,7 +50,7 @@ class PersistenceTests(unittest.TestCase):
         enums = {e['id']: e['values'][0] for e in model['enums']}
         inserts = []
         for entity in model['entities']:
-            if entity['schema'] == 'ingestion':
+            if entity['schema'] == 'ingestion' or entity['table'] in ('correlation_groups', 'correlated_contexts', 'correlation_receipts'):
                 continue  # DD-020 needs coherent lifecycle metadata, not generic scalar values.
             cols, values = [], []
             for c in entity['attributes']:
@@ -59,6 +59,8 @@ class PersistenceTests(unittest.TestCase):
                 cols.append(c['name'])
                 if c.get('enum'):
                     value = "'" + enums[c['enum']] + "'"
+                elif c['name'] == 'content_hash':
+                    value = "repeat('a',64)"
                 else:
                     value = {'uuid': f"'{ONE}'", 'uuid[]': f"ARRAY['{ONE}'::uuid]", 'text': "'synthetic'",
                              'integer': '1', 'bigint': '1', 'boolean': 'TRUE', 'timestamptz': 'now()',
@@ -66,10 +68,22 @@ class PersistenceTests(unittest.TestCase):
                 values.append(value)
             inserts.append(f"INSERT INTO {entity['schema']}.{entity['table']} ({','.join(cols)}) VALUES ({','.join(values)});")
         inserts.append(cls.connector_fixture())
+        inserts.append(cls.correlation_fixture())
         result = cls.sql('BEGIN;\n' + '\n'.join(inserts) + '\nCOMMIT;')
         if result.returncode:
             raise RuntimeError(result.stderr)
         print(cls.sql("SELECT version(); SELECT extversion FROM pg_extension WHERE extname='vector';").stdout)
+
+    @classmethod
+    def correlation_fixture(cls):
+        return f"""
+INSERT INTO evidence.correlation_groups(id,scope_key,execution_id,incident_id,created_at,updated_at)
+VALUES ('{ONE}','synthetic','{ONE}','{ONE}','2026-11-11 00:00:00+00','2026-11-11 00:00:00+00');
+INSERT INTO evidence.correlated_contexts(id,incident_id,execution_id,evidence_ids,summary,correlation_id,created_at,group_id)
+VALUES ('{ONE}','{ONE}','{ONE}',ARRAY['{ONE}'::uuid],'synthetic','synthetic','2026-11-11 00:00:00+00','{ONE}');
+INSERT INTO evidence.correlation_receipts(scope_key,producer_key,message_id,evidence_id,correlation_id,context_id,input_fingerprint,created_at)
+VALUES ('synthetic','synthetic','{ONE}','{ONE}','synthetic','{ONE}','v1:sha256:'||repeat('a',64),'2026-11-11 00:00:00+00');
+"""
 
     @classmethod
     def connector_fixture(cls):
@@ -225,6 +239,108 @@ UPDATE ingestion.capture_receipts SET phase='PREPARED',revision=2,claim_owner=NU
         purged=confirmed+"UPDATE ingestion.publication_outputs SET payload=NULL,payload_removed_at='2026-11-09 01:00:00+00',updated_at='2026-11-09 01:00:00+00',revision=3;"
         self.accepted(purged)
         self.rejected(purged+"UPDATE ingestion.publication_outputs SET payload=decode('7b7d','hex'),payload_removed_at=NULL,revision=4")
+
+    @staticmethod
+    def next_correlation_snapshot():
+        return f"""
+INSERT INTO evidence.correlated_contexts(id,incident_id,execution_id,evidence_ids,summary,correlation_id,created_at,group_id)
+VALUES ('{TWO}','{ONE}','{ONE}',ARRAY['{ONE}'::uuid,'{TWO}'::uuid],'synthetic next','synthetic next',now(),'{ONE}');
+INSERT INTO evidence.correlation_receipts(scope_key,producer_key,message_id,evidence_id,correlation_id,context_id,input_fingerprint,created_at)
+VALUES ('synthetic','synthetic','{TWO}','{TWO}','synthetic next','{TWO}','v1:sha256:'||repeat('b',64),now());
+"""
+
+    def test_correlation_required_columns_keep_native_not_null_rejection(self):
+        model = yaml.safe_load((ROOT / 'model/domain.yml').read_text())
+        for entity in model['entities']:
+            if entity['table'] not in ('correlation_groups', 'correlated_contexts', 'correlation_receipts'):
+                continue
+            columns = [a['name'] for a in entity['attributes']]
+            for attr in entity['attributes']:
+                if attr['nullable']:
+                    continue
+                with self.subTest(table=entity['table'], column=attr['name']):
+                    values = ['NULL' if c == attr['name'] else c for c in columns]
+                    self.rejected(f"INSERT INTO evidence.{entity['table']} ({','.join(columns)}) "
+                                  f"SELECT {','.join(values)} FROM evidence.{entity['table']}", '23502')
+
+    def test_correlation_chain_requires_confirmed_predecessor_and_atomic_receipt(self):
+        next_snapshot = self.next_correlation_snapshot()
+        confirm = f"UPDATE evidence.correlation_groups SET confirmed_context_id='{ONE}',updated_at=now();"
+        self.rejected(next_snapshot, constraint='correlated_contexts_chain_ck')
+        self.accepted(confirm + next_snapshot)
+        self.rejected(confirm + next_snapshot.split('INSERT INTO evidence.correlation_receipts')[0],
+                      constraint='correlated_contexts_receipt_ck')
+        self.rejected(confirm + next_snapshot.replace(f"ARRAY['{ONE}'::uuid,'{TWO}'::uuid]", f"ARRAY['{TWO}'::uuid]"),
+                      constraint='correlated_contexts_chain_ck')
+        self.rejected(confirm + next_snapshot.replace(f"ARRAY['{ONE}'::uuid,'{TWO}'::uuid]",
+                      f"ARRAY['{ONE}'::uuid,'{TWO}'::uuid,'00000000-0000-0000-0000-000000000003'::uuid]"),
+                      constraint='correlated_contexts_chain_ck')
+
+    def test_correlation_snapshot_sets_and_immutable_history(self):
+        confirm = f"UPDATE evidence.correlation_groups SET confirmed_context_id='{ONE}',updated_at=now();"
+        for values in ("ARRAY[]::uuid[]", f"ARRAY['{ONE}'::uuid,'{ONE}'::uuid]",
+                       f"ARRAY['{ONE}'::uuid,NULL]", f"ARRAY[['{ONE}'::uuid,'{TWO}'::uuid]]",
+                       f"'[0:1]={{{ONE},{TWO}}}'::uuid[]"):
+            with self.subTest(values=values):
+                statement = self.next_correlation_snapshot().replace(f"ARRAY['{ONE}'::uuid,'{TWO}'::uuid]", values)
+                self.rejected(confirm + statement, constraint='correlated_contexts_evidence_set_ck')
+        for table in ('correlated_contexts', 'correlation_receipts'):
+            for op in (f'UPDATE evidence.{table} SET created_at=now()', f'DELETE FROM evidence.{table}',
+                       f'TRUNCATE evidence.{table} CASCADE'):
+                with self.subTest(op=op): self.rejected(op, constraint='correlation_immutable_ck')
+        for op in ('DELETE FROM evidence.correlation_groups', 'TRUNCATE evidence.correlation_groups CASCADE'):
+            self.rejected(op, constraint='correlation_immutable_ck')
+
+    def test_correlation_receipts_preserve_source_scope_membership_and_original_context(self):
+        receipt = f"""INSERT INTO evidence.correlation_receipts
+(scope_key,producer_key,message_id,evidence_id,correlation_id,context_id,input_fingerprint,created_at)
+VALUES ('synthetic','another-producer','{TWO}','{ONE}','original-source','{ONE}',
+ 'v1:sha256:'||repeat('c',64),now());"""
+        self.accepted(receipt)  # another message/producer reuses the exact original member context
+        self.rejected(receipt.replace("'synthetic','another-producer'", "'other-scope','another-producer'"),
+                      constraint='correlation_receipts_membership_ck')
+        self.rejected(receipt.replace(f"'{TWO}','{ONE}','original-source'", f"'{TWO}','{TWO}','original-source'"),
+                      constraint='correlation_receipts_membership_ck')
+        self.rejected(receipt.replace("'v1:sha256:'||repeat('c',64)", "repeat('c',64)"),
+                      constraint='correlation_receipts_fingerprint_ck')
+        confirm = f"UPDATE evidence.correlation_groups SET confirmed_context_id='{ONE}',updated_at=now();"
+        later_receipt = receipt.replace(f"'{TWO}','{ONE}','original-source','{ONE}'",
+                                       f"'00000000-0000-0000-0000-000000000003','{ONE}','original-source','{TWO}'")
+        self.rejected(confirm + self.next_correlation_snapshot() + later_receipt,
+                      constraint='correlation_receipts_original_context_ck')
+        duplicate = receipt.replace("another-producer", "synthetic").replace(f"'{TWO}','{ONE}'", f"'{ONE}','{ONE}'")
+        self.rejected(duplicate, '23505')
+
+    def test_correlation_group_identity_and_confirmation_only_advance_adjacent(self):
+        confirm = f"UPDATE evidence.correlation_groups SET confirmed_context_id='{ONE}',updated_at=now();"
+        self.accepted(confirm)
+        self.accepted(confirm + confirm)  # repeated confirmation does not advance or change timestamp
+        self.rejected('UPDATE evidence.correlation_groups SET updated_at=now()', constraint='correlation_groups_updated_ck')
+        self.rejected(f"UPDATE evidence.correlation_groups SET scope_key='other',confirmed_context_id='{ONE}',updated_at=now()",
+                      constraint='correlation_groups_identity_ck')
+        for column in ('id', 'execution_id', 'incident_id'):
+            self.rejected(f"UPDATE evidence.correlation_groups SET {column}='{TWO}'",
+                          constraint='correlation_groups_identity_ck')
+        self.rejected("UPDATE evidence.correlation_groups SET created_at=created_at-interval '1 second'",
+                      constraint='correlation_groups_identity_ck')
+        columns = ['scope_key', 'producer_key', 'message_id', 'evidence_id', 'correlation_id',
+                   'context_id', 'input_fingerprint', 'created_at']
+        for column in ('scope_key', 'producer_key', 'correlation_id'):
+            for blank in ("' '", "E'\\t\\n'"):
+                values = [blank if c == column else c for c in columns]
+                self.rejected('INSERT INTO evidence.correlation_receipts SELECT ' + ','.join(values) +
+                              ' FROM evidence.correlation_receipts')
+        self.rejected(confirm + 'UPDATE evidence.correlation_groups SET confirmed_context_id=NULL,updated_at=now()',
+                      constraint='correlation_groups_confirmation_ck')
+        self.accepted(confirm + self.next_correlation_snapshot() +
+                      f"UPDATE evidence.correlation_groups SET confirmed_context_id='{TWO}',updated_at=now()")
+        self.rejected(confirm + self.next_correlation_snapshot() +
+                      f"UPDATE evidence.correlation_groups SET confirmed_context_id='{TWO}',updated_at=now();" + confirm,
+                      constraint='correlation_groups_confirmation_ck')
+        foreign_group = f"""INSERT INTO evidence.correlation_groups(id,scope_key,execution_id,incident_id,created_at,updated_at)
+VALUES ('{TWO}','other-scope','{ONE}','{ONE}',now(),now());"""
+        self.rejected(foreign_group + f"UPDATE evidence.correlation_groups SET confirmed_context_id='{ONE}' WHERE id='{TWO}'",
+                      constraint='correlation_groups_confirmation_ck')
 
     def test_valid_origin_and_verification(self):
         self.accepted(f"INSERT INTO ops.pipeline_executions SELECT '{TWO}', pipeline_id, 'other-run', run_attempt, branch, commit_sha, external_status, external_conclusion, failed, started_at, completed_at, correlation_id, created_at FROM ops.pipeline_executions; INSERT INTO ops.incident_runs SELECT '{TWO}', incident_id, '{TWO}', 'VERIFICATION', correlation_id, created_at FROM ops.incident_runs")

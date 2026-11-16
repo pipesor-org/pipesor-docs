@@ -376,3 +376,97 @@ Confirmación significa aceptación broker, no commit de todos los consumidores 
 `payload_recover_until` y `replay_until` se asignan solo desde una política de horizonte aprobada; `replay_until` es obligatorio, futuro e inmutable desde aceptar la recepción y la falta de un horizonte impide su aceptación durable; no se seleccionan días aquí. Falta de esa política impide activar captura, no autoriza retención infinita ni usar 365 días por analogía. Eliminar bytes permite `payload=NULL` y `payload_removed_at` únicamente cuando la salida está confirmada y venció su horizonte de recuperación; permanecen ID/digest/plan para el horizonte de replay. Pendientes o bloqueados no se purgan silenciosamente. El agotamiento de capacidad produce backpressure/readiness fallida y recuperación operativa. Fuera del horizonte retenido no se promete dedup de replays. Append-only protege el flujo ordinario, no aprueba retención infinita: esta decisión concreta la eliminación de bytes confirmados; la purga controlada de aliases/receipts/observaciones/metadatos y su orden bajo FK todavía necesitan una política aceptada antes de activar captura. No existe operación de purga de metadata aprobada ni implementada aquí.
 
 La representación y canonicalización/locator quedan concretados localmente en esta iteración. `observed_at` y `source_updated_at` guardan la proyección truncada hacia microsegundos; sus compañeros `*_submicro` conservan los nanosegundos restantes (0..999) para reconstruir el `Instant` exacto. Los bytes finales conservan los timestamps originales. La aplicación mantiene digest y claves con precisión completa; no deduplica con una fecha SQL truncada. Antes de activar el runtime hacen falta supplier de scope, corte de revocación, horizontes, capacidad y presupuestos de retry/lease, mapeo job/step→stage y protocolo operativo para bloqueos/material sensible. Las duraciones y horizontes son inputs explícitos de aplicación, sin valores operativos por defecto elegidos aquí. La política aprobada de Key Vault y las cuatro tablas de credenciales no se reabre. Aceptación de este esquema no crea recursos ni permisos; runner y configuración real continúan PD-035.
+
+<a id="DD-023"></a>
+
+## DD-023 — Grupos y recepciones durables de Correlation
+
+**Adopción local del 11/11/2026.** El usuario aprobó explícitamente concretar la
+[propuesta revisada de agrupación durable](https://github.com/pipesor-org/pipesor-evidence-correlation-engine/blob/main/docs/deployment-contract.md#durable-grouping-proposal-after-the-reuse-audit)
+en el modelo fuente y después en persistencia local. Base integrada consultada:
+`65792190d2ee32f0721d22848cd62cee1fd0d630`, más el overlay local de acuerdos
+pendientes inspeccionado separadamente. Esta decisión autoriza `domain.yml`
+1.4.0, dos tablas técnicas propiedad de `evidence_correlation_engine`, la
+asociación del snapshot existente y sus constraints/derivados. No prueba
+integración en main ni aprobación de CODEOWNERS o despliegue. El límite del
+modelo persistente/ER pasa de 25 a 27 solo por estas dos tablas aprobadas, como
+el precedente acotado DD-021; no cambia membresías ni presupuestos C4.
+
+
+**Reconciliación previa al PR — 16/11/2026.** Main avanzó a `14a71dc44855d60236bdfdeb2d953a2e3edc8de6`, que ya reserva DD-022 para corpus RAG. La decisión local de Correlation se renumera a DD-023 sin cambiar el acuerdo ni el modelo físico; se preservan los cambios de RAG integrados.
+
+### Representación mínima adoptada
+
+| Tabla | Campos y claves adoptados |
+|---|---|
+| `evidence.correlation_groups` | `id uuid` PK asignada por owner; `scope_key text` no vacío; `execution_id`, `incident_id uuid` lógicos a `ops`; `confirmed_context_id uuid` nullable; `created_at`, `updated_at timestamptz`. UNIQUE `(scope_key, execution_id, incident_id)` y `(id, incident_id, execution_id)` para pertenencia. |
+| `evidence.correlated_contexts` | Conserva los siete campos DD-014; añade `group_id uuid NOT NULL`. UNIQUE `(group_id, id)` soporta el puntero del grupo; FK compuesta `(group_id, incident_id, execution_id)` exige la identidad del grupo. La revisión se deriva de `cardinality(evidence_ids)`, sin contador/revision table adicional. |
+| `evidence.correlation_receipts` | PK natural compuesta `(scope_key text, producer_key text, message_id uuid)`; `evidence_id uuid` lógico a `evidence_items`; `correlation_id text` original; `context_id uuid` FK al snapshot; `input_fingerprint text`; `created_at timestamptz`. Todos obligatorios. El exportador DBML instalado soporta PK compuesta; no se añade otro UUID de recepción. |
+
+Scope y productor son identidades máquina confiables provistas por la frontera
+verificada, nunca autorización deducida de un header/UUID. El grupo particiona
+por ejecución exacta de run/intento e incidente ORIGIN. Las referencias
+`ops` y `evidence_items` siguen siendo lógicas: no hay FK, consultas SQL ni
+navegación ORM a otro owner, aunque comparta schema. La aplicación futura valida
+autorización y pertenencia/existencia con los contratos acordados.
+
+### Invariantes y transacciones
+
+- Cada snapshot es un conjunto UUID no vacío, unidimensional, de índice inicial
+  1, sin nulls ni duplicados. Su ordinal es cardinalidad positiva, única por
+  grupo mediante índice de expresión. La primera revisión tiene un miembro;
+  cada siguiente incorpora exactamente uno y conserva los anteriores.
+- La preparación bloquea la fila del grupo en una transacción breve. Solo
+  permite el siguiente snapshot cuando el último preparado ya es el confirmado.
+  La pertenencia compuesta conserva execution/incidente del grupo. Inmutabilidad
+  y cadena se comprueban en SQL además del dominio, también para escrituras
+  adapter, bulk insert y restauración controlada.
+- Un receipt liga scope y evidencia a la revisión donde ese miembro entró por
+  primera vez. Varios mensajes/productores pueden compartir ese contexto
+  original; no hay regla `evidence_id = message_id`. Cada snapshot exige al
+  commit un receipt para su miembro nuevo, insertados atómicamente. Una nueva
+  fuente para evidencia existente no genera revisión ni cambia la anterior.
+- `confirmed_context_id` empieza null y tiene FK compuesta `(id,
+  confirmed_context_id)` a `(group_id, id)` del snapshot. Solo avanza una
+  cardinalidad adyacente del mismo grupo; no regresa ni salta. Confirmación
+  significa recepción durable downstream, no diagnóstico terminado. El
+  snapshot `id` es también la identidad estable de operación downstream.
+- ID, scope, execution, incidente y creación del grupo son inmutables.
+  `updated_at` inicia igual a creación, nunca retrocede y solo cambia junto con
+  un cambio real del puntero. Snapshots y receipts rechazan UPDATE, DELETE y
+  TRUNCATE; grupos rechazan DELETE/TRUNCATE y cambios de clave. Las excepciones
+  custom usan códigos/mensajes fijos sin IDs, scope, texto o fingerprint.
+- Terminar el commit antes de HTTP. Confirmar en otra transacción breve después
+  de una recepción autoritativa. Los locks SQL no abarcan I/O ni prueban una
+  entrega; repetir el mismo snapshot exige el contrato downstream de contenido
+  e identidad. No se crean outbox/worker, retries automáticos ni una ruta de entrega adicional.
+
+El índice técnico `(context_id, evidence_id)` de receipts soporta la comprobación
+de miembro al commit y la recuperación por contexto sin escanear todas las
+recepciones. No añade otra copia de contenido ni cambia la identidad scoped.
+
+### Comparación, migración y límites
+
+`input_fingerprint` adopta la envoltura privada versionada
+`v1:sha256:<64 hex lowercase>` sobre input protegido significativo. La forma
+SQL no selecciona los bytes canónicos: orden, null/ausente, precisión y campos
+se concretan antes de habilitar el receptor. Excluye credenciales/trazas y
+`template` mutable; una repetición equivalente recupera el primer resultado
+aceptado, nunca lo reescribe. El fingerprint no es un hash wire de NLP ni prueba
+autenticidad o persistencia del owner. No almacenar request/raw body/log,
+excerpt duplicado, secreto o código de proveedor. Correlaciones individuales
+permanecen en sus receipts; la correlación del snapshot no las sustituye.
+
+No se fabrican grupo, scope, productor, mensaje ni receipts para filas V1.
+Una migración posterior inspeccionará datos existentes y rechazará el caso sin
+mapeo aprobado respaldado por evidencia; V1 no se modifica. Tampoco se elige
+backfill, TTL, horizonte de replay, cuotas, purge ni extensión automática de
+retención. La retención de evidencia DD-015 permanece; las dos tablas técnicas
+no heredan 365 días. Borrar metadata necesita política/operación controlada
+posterior que preserve referencias y no reinicie grupos/replays silenciosamente.
+
+La representación segura enviada, la recepción de Recommendation, los límites
+operativos, los contratos de referencias, las identidades y la recuperación
+externa siguen sus decisiones pendientes. Esta fuente y sus pruebas no aprueban
+un receptor REST ni afirman integración con NLP/Recommendation; no crean
+recursos, permisos o secretos y no autorizan publicación ni cloud.

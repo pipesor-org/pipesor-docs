@@ -67,6 +67,9 @@ class ConnectorGenerationTests(unittest.TestCase):
         lines=[]
         for e in self.model['entities']:
             lines.append(f'CREATE TABLE "{e["schema"]}"."{e["table"]}" (id uuid);')
+            pk = [a['name'] for a in e['attributes'] if a['pk']]
+            if len(pk) > 1:
+                lines.append('PRIMARY KEY (' + ', '.join(f'"{c}"' for c in pk) + ')')
             lines.extend(f'CONSTRAINT "{c["name"]}" CHECK (true)' for c in e.get('checks',[]))
             lines.extend(f'CREATE UNIQUE INDEX "{u["name"]}"' for u in e.get('unique_constraints',[]))
             lines.extend(f'ADD CONSTRAINT "{f["name"]}" FOREIGN KEY' for f in e.get('foreign_keys',[]))

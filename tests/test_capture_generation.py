@@ -23,7 +23,7 @@ class CaptureGenerationTests(unittest.TestCase):
 
     def test_only_four_capture_tables_are_added_under_ingestion_ownership(self):
         self.assertEqual(validate_domain(self.model, self.architecture), [])
-        self.assertEqual(len(self.model['entities']), 25)
+        self.assertEqual(len(self.model['entities']), 27)
         for table in TABLES:
             self.assertEqual(self.entity(table)['owner_container'], 'ingestion_normalization_service')
             self.assertIsNone(self.entity(table)['retention_policy'])

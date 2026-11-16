@@ -214,15 +214,59 @@ Table evidence.evidence_items {
   Note: 'Metadata y extracto normalizado en PostgreSQL; logs originales en GitHub Actions. Recuperación y conservación independientes siguen pendientes (ADR-019). Owner: log_event_service. approved_domain / confirmed.'
 }
 
+Table evidence.correlation_groups {
+  id uuid [pk, not null, note: 'Identificador estable asignado por Correlation. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-023']
+  scope_key text [not null, note: 'Partición máquina confiable opaca; no acredita autorización por su presencia. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-023']
+  execution_id uuid [not null, note: 'Ejecución exacta del run/intento; referencia validada por su owner. Referencia lógica a ops.pipeline_executions.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-023']
+  incident_id uuid [not null, note: 'Incidente ORIGIN validado para esta ejecución. Referencia lógica a ops.incidents.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-023']
+  confirmed_context_id uuid [null, note: 'Último snapshot con recepción downstream confirmada; no diagnosis completada. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-023']
+  created_at timestamptz [not null, note: 'Instante técnico de creación inmutable. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-023']
+  updated_at timestamptz [not null, note: 'Último cambio real del puntero confirmado; igual a created_at inicialmente. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-023']
+  indexes {
+    (scope_key, execution_id, incident_id) [unique, name: 'correlation_groups_partition_uq']
+    (id, incident_id, execution_id) [unique, name: 'correlation_groups_identity_uq']
+  }
+  checks {
+    `btrim(scope_key) <> '' AND scope_key ~ '[^[:space:]]'` [name: 'correlation_groups_scope_ck']
+    `updated_at >= created_at` [name: 'correlation_groups_times_ck']
+  }
+  Note: 'Identidad y progreso de recepción confirmada del grupo acumulativo; sin copia del snapshot. Owner: evidence_correlation_engine. approved_domain / confirmed. Composite FK correlation_groups_confirmed_context_fk; DEFERRABLE INITIALLY DEFERRED in extras.sql. Constraints complementarias en extras.sql: correlation_lifecycle.'
+}
+
 Table evidence.correlated_contexts {
-  id uuid [pk, not null, note: 'Identificador estable asignado por el servicio propietario. Assumption: A-001. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014']
-  incident_id uuid [not null, note: 'Incidente del contexto. Referencia lógica a ops.incidents.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014']
-  execution_id uuid [not null, note: 'Ejecución correlacionada; no fusionar ejecuciones no relacionadas. Referencia lógica a ops.pipeline_executions.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014']
-  evidence_ids uuid[] [not null, note: 'Colección de IDs lógicos de evidencia; otro servicio no modifica evidence_items. Referencia lógica a evidence.evidence_items.id; sin FK física ni navegación ORM cross-context. Assumption: A-006. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014']
-  summary text [not null, note: 'Síntesis saneada del contexto operacional. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014']
+  id uuid [pk, not null, note: 'Identificador estable asignado por el servicio propietario. Assumption: A-001. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014, DD-023']
+  incident_id uuid [not null, note: 'Incidente del contexto. Referencia lógica a ops.incidents.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014, DD-023']
+  execution_id uuid [not null, note: 'Ejecución correlacionada; no fusionar ejecuciones no relacionadas. Referencia lógica a ops.pipeline_executions.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014, DD-023']
+  evidence_ids uuid[] [not null, note: 'Colección de IDs lógicos de evidencia; otro servicio no modifica evidence_items. Referencia lógica a evidence.evidence_items.id; sin FK física ni navegación ORM cross-context. Assumption: A-006. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014, DD-023']
+  summary text [not null, note: 'Síntesis saneada del contexto operacional. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014, DD-023']
   correlation_id text [not null, note: 'Identificador de correlación end-to-end; no contiene información sensible. Fuente: architecture.yml#CTRL-003']
   created_at timestamptz [not null, note: 'Instante de persistencia; permite aplicar retención cuando corresponde. Assumption: A-002. Fuente: SRC_ADR_013, DD-015']
-  Note: 'Snapshot saneado del contexto correlacionado; conserva los IDs de evidencia utilizados. Owner: evidence_correlation_engine. approved_domain / confirmed.'
+  group_id uuid [not null, note: 'Grupo propietario; identidad operacional consistente con el snapshot. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014, DD-023']
+  indexes {
+    (group_id, id) [unique, name: 'correlated_contexts_group_id_uq']
+  }
+  checks {
+    `array_ndims(evidence_ids) = 1 AND array_lower(evidence_ids, 1) = 1 AND cardinality(evidence_ids) > 0` [name: 'correlated_contexts_evidence_shape_ck']
+  }
+  Note: 'Snapshot saneado del contexto correlacionado; conserva los IDs de evidencia utilizados. Owner: evidence_correlation_engine. approved_domain / confirmed. Composite FK correlated_contexts_group_identity_fk; DEFERRABLE INITIALLY DEFERRED in extras.sql. Constraints complementarias en extras.sql: correlation_lifecycle.'
+}
+
+Table evidence.correlation_receipts {
+  scope_key text [pk, not null, note: 'Partición máquina confiable; coincide con el grupo del contexto. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-023']
+  producer_key text [pk, not null, note: 'Identidad máquina autenticada y estable del productor. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-023']
+  message_id uuid [pk, not null, note: 'Identidad del mensaje del productor; no se presume igual a evidence_id. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-023']
+  evidence_id uuid [not null, note: 'Evidencia fuente individual referenciada por la revisión original. Referencia lógica a evidence.evidence_items.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-023']
+  correlation_id text [not null, note: 'Correlación original individual segura; no derivada del snapshot acumulado. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-023']
+  context_id uuid [not null, note: 'Snapshot de primera incorporación de esta evidencia al grupo. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-023']
+  input_fingerprint text [not null, note: 'Comparación privada versionada del input protegido significativo; no prueba autenticidad. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-023']
+  created_at timestamptz [not null, note: 'Instante técnico de recepción inmutable. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-023']
+  checks {
+    `btrim(scope_key) <> '' AND scope_key ~ '[^[:space:]]'` [name: 'correlation_receipts_scope_ck']
+    `btrim(producer_key) <> '' AND producer_key ~ '[^[:space:]]'` [name: 'correlation_receipts_producer_ck']
+    `btrim(correlation_id) <> '' AND correlation_id ~ '[^[:space:]]'` [name: 'correlation_receipts_correlation_ck']
+    `input_fingerprint ~ '^v1:sha256:[0-9a-f]{64}$'` [name: 'correlation_receipts_fingerprint_ck']
+  }
+  Note: 'Recepción inmutable de mensaje fuente y asociación original; no retiene request, logs ni excerpts. Owner: evidence_correlation_engine. approved_domain / confirmed. Constraints complementarias en extras.sql: correlation_lifecycle.'
 }
 
 Table diagnosis.diagnoses {
@@ -671,6 +715,7 @@ Table ingestion.publication_outputs {
   Note: 'Captura/publicación durable de Ingestion: publication_outputs Owner: ingestion_normalization_service. approved_domain / confirmed. Partial unique publication_outputs_snapshot_uq (observation_id) WHERE event_type = \'execution.snapshot\'; extras.sql. Partial unique publication_outputs_fragment_uq (observation_id, fragment_locator) WHERE event_type = \'protected_workflow_evidence\'; extras.sql. Composite FK publication_outputs_observation_fk; DEFERRABLE INITIALLY DEFERRED in extras.sql. Constraints complementarias en extras.sql: capture_lifecycle.'
 }
 
+Ref correlation_receipts_context_id: evidence.correlation_receipts.context_id > evidence.correlated_contexts.id
 Ref github_generation_connection: ingestion.github_connection_generations.connection_id > ingestion.github_connections.id
 Ref pipelines_repository_id: ops.pipelines.repository_id > ops.repositories.id
 Ref pipeline_executions_pipeline_id: ops.pipeline_executions.pipeline_id > ops.pipelines.id
@@ -684,6 +729,8 @@ Ref diagnosis_evidence_links_diagnosis_id: diagnosis.diagnosis_evidence_links.di
 Ref diagnosis_source_links_diagnosis_id: diagnosis.diagnosis_source_links.diagnosis_id > diagnosis.diagnoses.id
 Ref human_reviews_diagnostic_id: diagnosis.human_reviews.diagnostic_id > diagnosis.diagnoses.id
 Ref knowledge_chunks_document_id: knowledge.knowledge_chunks.document_id > knowledge.knowledge_documents.id
+Ref correlation_groups_confirmed_context_fk: evidence.correlation_groups.(id, confirmed_context_id) > evidence.correlated_contexts.(group_id, id)
+Ref correlated_contexts_group_identity_fk: evidence.correlated_contexts.(group_id, incident_id, execution_id) > evidence.correlation_groups.(id, incident_id, execution_id)
 Ref github_connections_active_generation_fk: ingestion.github_connections.(id, active_generation_id) > ingestion.github_connection_generations.(connection_id, id)
 Ref github_attempts_identity_fk: ingestion.github_authorization_attempts.(connection_id, tenant_id, entra_object_id) > ingestion.github_connections.(id, tenant_id, entra_object_id)
 Ref github_attempts_expected_generation_fk: ingestion.github_authorization_attempts.(connection_id, expected_generation_id) > ingestion.github_connection_generations.(connection_id, id)
@@ -706,7 +753,9 @@ TableGroup ops {
 
 TableGroup evidence {
   evidence.evidence_items
+  evidence.correlation_groups
   evidence.correlated_contexts
+  evidence.correlation_receipts
 }
 
 TableGroup diagnosis {
