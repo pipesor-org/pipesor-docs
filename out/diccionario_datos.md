@@ -382,7 +382,7 @@ Checks: `btrim(provenance) <> ''`; `corpus_kind <> 'reviewed_incidents' OR revie
 
 ### `knowledge.knowledge_chunks`
 
-Chunks recuperables de documentos autorizados; conserva provenance y pgvector sin dimensión fija.
+Chunks recuperables de documentos autorizados; conserva provenance y embeddings pgvector compatibles con el contrato aprobado.
 
 Owner: `rag_retrieval`. scope_basis: `approved_domain`. status: `confirmed`.
 
@@ -399,7 +399,9 @@ Checks: `chunk_index >= 0`; `btrim(provenance) <> ''`.
 | chunk_index | integer | No | — | — | No | Compuesto: (document_id, chunk_index) | — | Posición del chunk dentro del documento. | SRC_ADR_007; architecture.yml#INV-010; DD-009 | A-009 |
 | content | text | No | — | — | No | No | — | Fragmento autorizado y saneado; nunca casos/soluciones de evaluación. | SRC_ADR_007; architecture.yml#INV-010; DD-009 | — |
 | provenance | text | No | — | — | No | No | — | Procedencia obligatoria del fragmento dentro de su documento. | SRC_ADR_007; architecture.yml#INV-010; DD-009 | — |
-| embedding | vector | No | — | — | Sí | No | — | Embedding pgvector; dimensión abierta, sin vector(n). | SRC_ADR_007; architecture.yml#INV-010; DD-009 | — |
+| embedding | vector(1536) | No | — | — | Sí | No | — | Embedding pgvector de 1536 dimensiones para text-embedding-3-small. | SRC_ADR_007; architecture.yml#INV-010; DD-009 | — |
+| embedding_model | text | No | — | — | No | No | — | Modelo que generó el vector; debe ser text-embedding-3-small en el contrato v0.1. | SRC_ADR_007; architecture.yml#INV-010; DD-009 | — |
+| embedding_model_version | text | No | — | — | No | No | — | Versión opaca del modelo/deployment usada para impedir mezcla de vectores incompatibles. | SRC_ADR_007; architecture.yml#INV-010; DD-009 | — |
 | correlation_id | text | No | — | — | No | No | — | Identificador de correlación end-to-end; no contiene información sensible. | architecture.yml#CTRL-003 | — |
 | created_at | timestamptz | No | — | — | No | No | — | Instante de persistencia; permite aplicar retención cuando corresponde. | SRC_ADR_013; DD-015 | A-002 |
 
@@ -816,20 +818,20 @@ Nota de evolución: representación histórica de Blob sustituida parcialmente p
 - impacto: La base no garantiza existencia de IDs remotos; cada owner valida referencias por APIs/eventos de architecture.yml. No se diseñan nuevas relaciones de comunicación.
 - reversibilidad: Reversible: una futura decisión Accepted y migraciones podrían introducir FK cross-schema; nunca implícitamente.
 
-### DD-009 — Vector sin dimensión fija
+### DD-009 — Embeddings RAG dimensionados y versionados
 
 - id: DD-009
-- contexto: Azure OpenAI Embeddings está aprobado, pero el modelo concreto no se ha fijado.
-- decisión: knowledge_chunks.embedding usa vector sin dimensión. Se genera CREATE EXTENSION IF NOT EXISTS vector. embedding_dimension: null sigue en open_questions. chunk_index se supone base cero; embedding puede quedar null durante carga.
-- fuentes: Prompt aprobado §6.I; SRC_ADR_007; DQ-003.
-- impacto: No hay vector(1536), índice vectorial dependiente de dimensión ni mecanismo de actualización seleccionado.
-- reversibilidad: Una futura elección de embedding requiere decisión y migración de tipo/datos/índices.
+- contexto: El contrato RAG–Recommendation–IaC v0.1 aprobado el 16/11/2026 fija el modelo y la dimensión para documentos y consultas.
+- decisión: knowledge_chunks.embedding usa vector(1536) para text-embedding-3-small y conserva embedding_model/embedding_model_version. RAG rechaza dimensiones o versiones incompatibles y usa índice coseno HNSW. DQ-003 queda cerrada.
+- fuentes: Aprobación explícita del usuario del 16/11/2026; SRC_ADR_007; RAG_RECOMMENDATION_IAC_V0_1.
+- impacto: Los vectores anteriores deben reimportarse/re-embedderse; no se reinterpretan. Endpoint, deployment, región y cuota reales continúan como entradas de validación Azure.
+- reversibilidad: Cambiar modelo, dimensión o versión requiere migración explícita, re-embedding e índice compatible.
 
 ### DD-022 — Alcance e importaciÃ³n administrativa del corpus RAG
 
 - id: DD-022
 - contexto: El 16/11/2026 el usuario aprobÃ³ el contrato Recommendation → RAG v1 con identidades GitHub canÃ³nicas, alcance verificado por Recommendation y defensa adicional en RAG, ademÃ¡s de un importador administrativo idempotente sin API pÃºblica ni aprendizaje automÃ¡tico.
-- decisiÃ³n: knowledge_documents conserva tenant, instalaciÃ³n, repositorio, pipeline opcional y revisiÃ³n de scope. La carga exige source_id/source_version, hash canÃ³nico, provenance y referencia de autorizaciÃ³n; una versiÃ³n activa sustituye a la anterior. Los casos de evaluaciÃ³n se rechazan. Azure OpenAI permanece simulado hasta aprobar modelo, dimensiÃ³n, deployment, regiÃ³n y permisos.
+- decisiÃ³n: knowledge_documents conserva tenant, instalaciÃ³n, repositorio, pipeline opcional y revisiÃ³n de scope. La carga exige source_id/source_version, hash canÃ³nico, provenance y referencia de autorizaciÃ³n; una versiÃ³n activa sustituye a la anterior. Los casos de evaluaciÃ³n se rechazan. El contrato v0.1 fija text-embedding-3-small/1536, API v1 e identidad administrada; regiÃ³n, endpoint, deployment y cuota se validan en Azure antes de activaciÃ³n.
 - fuentes: AprobaciÃ³n explÃ­cita del usuario del 16/11/2026; architecture.yml#rel_recommendation_rag; INV-010; DD-007/DD-009.
 - impacto: Recommendation entrega scope previamente verificado y RAG vuelve a filtrar. No se crea relaciÃ³n nueva, crawler, API pÃºblica ni acceso a tablas ajenas.
 - reversibilidad: Nuevas fuentes o mecanismos requieren decisiÃ³n posterior; las versiones y hashes preservan procedencia para migraciÃ³n controlada.
@@ -1130,7 +1132,6 @@ La representación y canonicalización/locator quedan concretados localmente en 
 
 - **DQ-001 / incident_severity_derivation** (open_question): Regla concreta de derivación de severidad del incidente.
 - **DQ-002 / confidence_semantics** (open_question): Escala y semántica exacta de confidence.
-- **DQ-003 / embedding_dimension** (open_question): Dimensión del embedding; el modelo concreto sigue sin fijarse. `embedding_dimension: null`.
 - **DQ-005 / pipeline_rbac** (open_question): ADR-020 aprueba la política MVP de capacidades condicionadas al acceso GitHub. Pendientes representación física definitiva, recuperación de acceso y contratos de autorización; no reabrir la política ni promover grants inferred automáticamente.
 - **DQ-006 / monitored_workflow_registration** (open_question): ADR-020 aprueba el alta con administración GitHub verificada y creación/reutilización de Repository por Pipeline. Pendientes contrato REST versionado, custodia y esquema técnico del conector; la política funcional MVP ya está aprobada.
 

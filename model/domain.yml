@@ -1559,8 +1559,8 @@ entities:
   table: knowledge_chunks
   schema: knowledge
   owner_container: rag_retrieval
-  description_es: Chunks recuperables de documentos autorizados; conserva provenance y pgvector sin dimensión
-    fija.
+  description_es: Chunks recuperables de documentos autorizados; conserva provenance y embeddings pgvector
+    compatibles con el contrato aprobado.
   scope_basis: approved_domain
   status: confirmed
   source: &id015
@@ -1610,13 +1610,29 @@ entities:
     assumption: null
     description_es: Procedencia obligatoria del fragmento dentro de su documento.
   - name: embedding
-    type: vector
+    type: vector(1536)
     pk: false
     nullable: true
     unique: false
     er_visible: true
     assumption: null
-    description_es: Embedding pgvector; dimensión abierta, sin vector(n).
+    description_es: Embedding pgvector de 1536 dimensiones para text-embedding-3-small.
+  - name: embedding_model
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Modelo que generó el vector; debe ser text-embedding-3-small en el contrato v0.1.
+  - name: embedding_model_version
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Versión opaca del modelo/deployment usada para impedir mezcla de vectores incompatibles.
   - name: correlation_id
     type: text
     pk: false
@@ -3686,11 +3702,6 @@ open_questions:
   topic: confidence_semantics
   status: open_question
   description_es: Escala y semántica exacta de confidence.
-- id: DQ-003
-  topic: embedding_dimension
-  status: open_question
-  description_es: Dimensión del embedding; el modelo concreto sigue sin fijarse.
-  embedding_dimension: null
 - id: DQ-005
   topic: pipeline_rbac
   status: open_question

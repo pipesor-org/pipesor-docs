@@ -71,9 +71,9 @@ class DomainGenerationTests(unittest.TestCase):
         self.column("diagnoses", "probable_cause")["name"] = "root_cause"
         self.rejected("root_cause is prohibited")
 
-    def test_embedding_scale_remains_open(self):
-        self.column("knowledge_chunks", "embedding")["type"] = "vector(1536)"
-        self.rejected("without a fixed dimension")
+    def test_embedding_dimension_is_fixed_by_approved_contract(self):
+        self.column("knowledge_chunks", "embedding")["type"] = "vector"
+        self.rejected("approved vector(1536)")
 
     def test_confidence_scale_cannot_be_closed(self):
         self.entity("diagnoses")["checks"].append({"name": "bad_scale", "expression": "confidence >= 0 AND confidence <= 1"})
@@ -113,8 +113,9 @@ class DomainGenerationTests(unittest.TestCase):
         self.assertEqual(len(refs), 13)
         self.assertTrue(all(source == target for source, target in refs))
         self.assertIn("Referencia lógica a knowledge.knowledge_chunks.id", dbml)
-        self.assertIn("embedding vector ", dbml)
-        self.assertNotIn("vector(1536)", dbml)
+        self.assertIn("embedding vector(1536)", dbml)
+        self.assertIn("embedding_model text", dbml)
+        self.assertIn("embedding_model_version text", dbml)
 
     def test_extras_protect_origin_and_append_only_diagnoses(self):
         sql = generate_extras(self.model)
