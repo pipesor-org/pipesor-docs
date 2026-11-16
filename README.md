@@ -140,3 +140,30 @@ dimensiones y la base de integración, seguridad y límites operativos para DEV.
 Incluye entregas por responsable y preguntas abiertas. Es una aprobación para
 desarrollo/preparación; la adopción en modelos, servicios e IaC y la validación
 del entorno siguen pendientes antes de usar Azure o corpus real.
+
+### Señales mínimas congeladas — incremento local 16/11/2026
+
+Sobre main `174e7993984bed61e7d59b6139da204c1f6025aa` (DD-023 ya integrado),
+la aprobación explícita posterior adopta la señal protegida mínima por evidencia.
+El suplemento de [DD-023](model/domain_decisions.md#DD-023) y `domain.yml` 1.5.0
+agregan tres columnas al snapshot que introduce cada miembro, sin nuevas tablas.
+Los receipts identifican ese miembro; las señales de revisiones anteriores se
+reconstruyen comprobando membresía exacta. La implementación/migración V3 pertenece
+al servicio Correlation. No hay contrato HTTP, integración o despliegue implícitos.
+
+Verificación de este incremento: `make db` y `make sql` regeneraron sus derivados
+con el exportador ya instalado en `tools/node_modules/.bin` expuesto en PATH.
+Las comprobaciones acotadas siguientes pasaron (8 unitarias y 6 PostgreSQL
+16.15/pgvector 0.8.7, respectivamente):
+
+```sh
+.venv/bin/python -B -m unittest discover -s tests -p test_correlation_generation.py -v
+.venv/bin/python -B tools/test_postgres.py -k correlation
+```
+
+El resultado histórico anterior de 116/19 pruebas no describe el main actual:
+la suite global sobre la base integrada reproduce 3 fallos y 6 errores por
+etiquetas ausentes de `rel_rag_embeddings` en presentación, y la prueba global
+PostgreSQL de corrección/vector conserva una expectativa de 3 dimensiones frente
+a las 1536 aprobadas. Se mantienen separados de este incremento; no se debilitan
+restricciones de RAG ni se presenta la suite global como aprobada.

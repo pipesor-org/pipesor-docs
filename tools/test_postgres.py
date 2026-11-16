@@ -79,8 +79,9 @@ class PersistenceTests(unittest.TestCase):
         return f"""
 INSERT INTO evidence.correlation_groups(id,scope_key,execution_id,incident_id,created_at,updated_at)
 VALUES ('{ONE}','synthetic','{ONE}','{ONE}','2026-11-11 00:00:00+00','2026-11-11 00:00:00+00');
-INSERT INTO evidence.correlated_contexts(id,incident_id,execution_id,evidence_ids,summary,correlation_id,created_at,group_id)
-VALUES ('{ONE}','{ONE}','{ONE}',ARRAY['{ONE}'::uuid],'synthetic','synthetic','2026-11-11 00:00:00+00','{ONE}');
+INSERT INTO evidence.correlated_contexts(id,incident_id,execution_id,evidence_ids,summary,correlation_id,created_at,group_id,signal_stage,signal_summary,signal_content)
+VALUES ('{ONE}','{ONE}','{ONE}',ARRAY['{ONE}'::uuid],'synthetic','synthetic','2026-11-11 00:00:00+00','{ONE}',
+ 'BUILD','synthetic protected build summary','synthetic protected build content');
 INSERT INTO evidence.correlation_receipts(scope_key,producer_key,message_id,evidence_id,correlation_id,context_id,input_fingerprint,created_at)
 VALUES ('synthetic','synthetic','{ONE}','{ONE}','synthetic','{ONE}','v1:sha256:'||repeat('a',64),'2026-11-11 00:00:00+00');
 """
@@ -243,8 +244,9 @@ UPDATE ingestion.capture_receipts SET phase='PREPARED',revision=2,claim_owner=NU
     @staticmethod
     def next_correlation_snapshot():
         return f"""
-INSERT INTO evidence.correlated_contexts(id,incident_id,execution_id,evidence_ids,summary,correlation_id,created_at,group_id)
-VALUES ('{TWO}','{ONE}','{ONE}',ARRAY['{ONE}'::uuid,'{TWO}'::uuid],'synthetic next','synthetic next',now(),'{ONE}');
+INSERT INTO evidence.correlated_contexts(id,incident_id,execution_id,evidence_ids,summary,correlation_id,created_at,group_id,signal_stage,signal_summary,signal_content)
+VALUES ('{TWO}','{ONE}','{ONE}',ARRAY['{ONE}'::uuid,'{TWO}'::uuid],'synthetic next','synthetic next',now(),'{ONE}',
+ 'TESTING','synthetic protected test summary','synthetic protected test content');
 INSERT INTO evidence.correlation_receipts(scope_key,producer_key,message_id,evidence_id,correlation_id,context_id,input_fingerprint,created_at)
 VALUES ('synthetic','synthetic','{TWO}','{TWO}','synthetic next','{TWO}','v1:sha256:'||repeat('b',64),now());
 """
@@ -275,6 +277,27 @@ VALUES ('synthetic','synthetic','{TWO}','{TWO}','synthetic next','{TWO}','v1:sha
         self.rejected(confirm + next_snapshot.replace(f"ARRAY['{ONE}'::uuid,'{TWO}'::uuid]",
                       f"ARRAY['{ONE}'::uuid,'{TWO}'::uuid,'00000000-0000-0000-0000-000000000003'::uuid]"),
                       constraint='correlated_contexts_chain_ck')
+
+    def test_correlation_signal_is_required_nonblank_and_immutable(self):
+        confirm = f"UPDATE evidence.correlation_groups SET confirmed_context_id='{ONE}',updated_at=now();"
+        snapshot = self.next_correlation_snapshot()
+        for stage in ('BUILD', 'TESTING', 'QUALITY_GATE', 'DEPLOYMENT', 'CONTAINER', 'INFRASTRUCTURE'):
+            with self.subTest(stage=stage):
+                self.accepted(confirm + snapshot.replace("'TESTING'", f"'{stage}'"))
+        for stage in ("'COMPILE'", "'testing'", "''", "' '", "E'\\t\\n'"):
+            with self.subTest(stage=stage):
+                self.rejected(confirm + snapshot.replace("'TESTING'", stage),
+                              constraint='correlated_contexts_signal_stage_ck')
+        for field, original in (('signal_summary', "'synthetic protected test summary'"),
+                                ('signal_content', "'synthetic protected test content'")):
+            for blank in ("''", "' '", "E'\\t\\n'"):
+                with self.subTest(field=field, blank=blank):
+                    self.rejected(confirm + snapshot.replace(original, blank),
+                                  constraint=f'correlated_contexts_{field}_ck')
+        for field, value in (('signal_stage', 'TESTING'), ('signal_summary', 'changed summary'),
+                             ('signal_content', 'changed protected content')):
+            self.rejected(f"UPDATE evidence.correlated_contexts SET {field}='{value}'",
+                          constraint='correlation_immutable_ck')
 
     def test_correlation_snapshot_sets_and_immutable_history(self):
         confirm = f"UPDATE evidence.correlation_groups SET confirmed_context_id='{ONE}',updated_at=now();"

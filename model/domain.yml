@@ -1,5 +1,5 @@
 # SSOT del dominio persistente. DBML/SQL/ER/diccionario se generan; no editar derivados.
-model_version: 1.4.0
+model_version: 1.5.0
 source_authority:
   scope: SRC_CHARTER
   architecture:
@@ -1063,6 +1063,30 @@ entities:
     er_visible: true
     assumption: null
     description_es: Grupo propietario; identidad operacional consistente con el snapshot.
+  - name: signal_stage
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Etapa NLP de la señal del único miembro incorporado en esta revisión; inmutable.
+  - name: signal_summary
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Resumen protegido de la señal del miembro incorporado, congelado en su primera aceptación.
+  - name: signal_content
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Contenido mínimo protegido NLP del miembro incorporado; sin rawLogs, request ni payload completo.
   unique_constraints:
   - name: correlated_contexts_group_id_uq
     columns:
@@ -1072,6 +1096,12 @@ entities:
   - name: correlated_contexts_evidence_shape_ck
     expression: array_ndims(evidence_ids) = 1 AND array_lower(evidence_ids, 1) = 1 AND
       cardinality(evidence_ids) > 0
+  - name: correlated_contexts_signal_stage_ck
+    expression: signal_stage IN ('BUILD', 'TESTING', 'QUALITY_GATE', 'DEPLOYMENT', 'CONTAINER', 'INFRASTRUCTURE')
+  - name: correlated_contexts_signal_summary_ck
+    expression: btrim(signal_summary) <> '' AND signal_summary ~ '[^[:space:]]'
+  - name: correlated_contexts_signal_content_ck
+    expression: btrim(signal_content) <> '' AND signal_content ~ '[^[:space:]]'
   foreign_keys:
   - name: correlated_contexts_group_identity_fk
     columns:

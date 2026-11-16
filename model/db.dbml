@@ -242,11 +242,17 @@ Table evidence.correlated_contexts {
   correlation_id text [not null, note: 'Identificador de correlación end-to-end; no contiene información sensible. Fuente: architecture.yml#CTRL-003']
   created_at timestamptz [not null, note: 'Instante de persistencia; permite aplicar retención cuando corresponde. Assumption: A-002. Fuente: SRC_ADR_013, DD-015']
   group_id uuid [not null, note: 'Grupo propietario; identidad operacional consistente con el snapshot. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014, DD-023']
+  signal_stage text [not null, note: 'Etapa NLP de la señal del único miembro incorporado en esta revisión; inmutable. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014, DD-023']
+  signal_summary text [not null, note: 'Resumen protegido de la señal del miembro incorporado, congelado en su primera aceptación. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014, DD-023']
+  signal_content text [not null, note: 'Contenido mínimo protegido NLP del miembro incorporado; sin rawLogs, request ni payload completo. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014, DD-023']
   indexes {
     (group_id, id) [unique, name: 'correlated_contexts_group_id_uq']
   }
   checks {
     `array_ndims(evidence_ids) = 1 AND array_lower(evidence_ids, 1) = 1 AND cardinality(evidence_ids) > 0` [name: 'correlated_contexts_evidence_shape_ck']
+    `signal_stage IN ('BUILD', 'TESTING', 'QUALITY_GATE', 'DEPLOYMENT', 'CONTAINER', 'INFRASTRUCTURE')` [name: 'correlated_contexts_signal_stage_ck']
+    `btrim(signal_summary) <> '' AND signal_summary ~ '[^[:space:]]'` [name: 'correlated_contexts_signal_summary_ck']
+    `btrim(signal_content) <> '' AND signal_content ~ '[^[:space:]]'` [name: 'correlated_contexts_signal_content_ck']
   }
   Note: 'Snapshot saneado del contexto correlacionado; conserva los IDs de evidencia utilizados. Owner: evidence_correlation_engine. approved_domain / confirmed. Composite FK correlated_contexts_group_identity_fk; DEFERRABLE INITIALLY DEFERRED in extras.sql. Constraints complementarias en extras.sql: correlation_lifecycle.'
 }

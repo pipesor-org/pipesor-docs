@@ -28,7 +28,7 @@ class CorrelationGenerationTests(unittest.TestCase):
 
     def test_approved_metadata_is_exact_and_technical_retention_is_not_invented(self):
         self.assertEqual(validate_domain(self.model, self.architecture), [])
-        self.assertEqual(self.model['model_version'], '1.4.0')
+        self.assertEqual(self.model['model_version'], '1.5.0')
         self.assertEqual(len(self.model['entities']), 27)
         for name in TABLES:
             self.assertEqual(set(FIELDS[name]), {a['name'] for a in self.entity(name)['attributes']})
@@ -63,6 +63,28 @@ class CorrelationGenerationTests(unittest.TestCase):
                          ['scope_key', 'producer_key', 'message_id'])
         receipt['attributes'][0]['pk'] = False
         self.rejected('approved correlation primary key')
+
+    def test_signal_columns_and_each_required_check_cannot_be_weakened(self):
+        context = self.entity('correlated_contexts')
+        self.assertEqual(len(context['attributes']), 11)
+        for attr in context['attributes']:
+            if not attr['name'].startswith('signal_'):
+                continue
+            with self.subTest(field=attr['name']):
+                attr['type'] = 'jsonb'
+                self.rejected('approved type/nullability')
+                attr['type'] = 'text'
+        for check in list(context['checks']):
+            with self.subTest(check=check['name']):
+                context['checks'].remove(check)
+                self.rejected('approved correlation CHECK')
+                context['checks'].append(check)
+        dbml = generate_dbml(self.model)
+        for field in ('signal_stage', 'signal_summary', 'signal_content'):
+            self.assertIn(f'{field} text [not null', dbml)
+        self.assertIn("signal_stage IN ('BUILD', 'TESTING', 'QUALITY_GATE', 'DEPLOYMENT', 'CONTAINER', 'INFRASTRUCTURE')", dbml)
+        self.assertIn('NEW.signal_stage IS NULL OR NEW.signal_summary IS NULL OR NEW.signal_content IS NULL',
+                      generate_extras(self.model))
 
     def test_checks_membership_and_lifecycle_markers_cannot_be_removed(self):
         for name in TABLES:
