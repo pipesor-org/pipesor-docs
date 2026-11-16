@@ -1390,6 +1390,7 @@ entities:
   - architecture.yml#INV-010
   - SRC_ADR_007
   - DD-007
+  - DD-022
   attributes:
   - name: id
     type: uuid
@@ -1434,6 +1435,87 @@ entities:
     description_es: Incidente revisado cuando el corpus es reviewed_incidents; elegibilidad RAG requiere
       separación evaluación.
     logical_ref: ops.incidents.id
+  - name: tenant_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Tenant autorizado del documento; no se deriva de similitud semÃ¡ntica.
+  - name: github_installation_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: InstalaciÃ³n GitHub verificada para el alcance del corpus.
+  - name: github_repository_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Repositorio GitHub verificado para el alcance del corpus.
+  - name: pipeline_id
+    type: uuid
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Pipeline opcional del alcance; referencia lÃ³gica, sin FK cross-schema.
+    logical_ref: ops.pipelines.id
+  - name: scope_revision
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: RevisiÃ³n opaca del alcance autorizado entregado por Recommendation.
+  - name: source_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Identidad estable de la fuente administrativa autorizada.
+  - name: source_version
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: VersiÃ³n opaca usada para importaciÃ³n idempotente.
+  - name: content_hash
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: SHA-256 hexadecimal del contenido canÃ³nico importado.
+  - name: authorization_reference
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Evidencia no secreta de autorizaciÃ³n de la fuente.
+  - name: active
+    type: boolean
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Solo la versiÃ³n activa participa en recuperaciÃ³n.
   - name: correlation_id
     type: text
     pk: false
@@ -1457,11 +1539,22 @@ entities:
     - DD-015
   traceability_required: true
   retention_policy: null
+  unique_constraints:
+  - columns:
+    - tenant_id
+    - github_repository_id
+    - source_id
+    - source_version
+    name: knowledge_documents_source_version_uq
   checks:
   - name: knowledge_documents_check_1
     expression: btrim(provenance) <> ''
   - name: knowledge_documents_check_2
     expression: corpus_kind <> 'reviewed_incidents' OR reviewed_incident_id IS NOT NULL
+  - name: knowledge_documents_check_3
+    expression: content_hash ~ '^[0-9a-f]{64}$'
+  - name: knowledge_documents_check_4
+    expression: btrim(authorization_reference) <> ''
 - id: knowledge_chunks
   table: knowledge_chunks
   schema: knowledge
@@ -3390,6 +3483,12 @@ relationships:
   kind: logical_ref
   cardinality: many_to_one
   source: *id014
+- id: knowledge_documents_pipeline_id
+  from: knowledge.knowledge_documents.pipeline_id
+  to: ops.pipelines.id
+  kind: logical_ref
+  cardinality: many_to_one
+  source: *id014
 - id: knowledge_chunks_document_id
   from: knowledge.knowledge_chunks.document_id
   to: knowledge.knowledge_documents.id
@@ -3592,10 +3691,6 @@ open_questions:
   status: open_question
   description_es: Dimensión del embedding; el modelo concreto sigue sin fijarse.
   embedding_dimension: null
-- id: DQ-004
-  topic: rag_corpus_updates
-  status: open_question
-  description_es: Mecanismo definitivo de carga y actualización del corpus RAG.
 - id: DQ-005
   topic: pipeline_rbac
   status: open_question

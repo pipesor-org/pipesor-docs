@@ -91,6 +91,15 @@ Nota de evolución: representación histórica de Blob sustituida parcialmente p
 - impacto: No hay vector(1536), índice vectorial dependiente de dimensión ni mecanismo de actualización seleccionado.
 - reversibilidad: Una futura elección de embedding requiere decisión y migración de tipo/datos/índices.
 
+## DD-022 — Alcance e importaciÃ³n administrativa del corpus RAG
+
+- id: DD-022
+- contexto: El 16/11/2026 el usuario aprobÃ³ el contrato Recommendation → RAG v1 con identidades GitHub canÃ³nicas, alcance verificado por Recommendation y defensa adicional en RAG, ademÃ¡s de un importador administrativo idempotente sin API pÃºblica ni aprendizaje automÃ¡tico.
+- decisiÃ³n: knowledge_documents conserva tenant, instalaciÃ³n, repositorio, pipeline opcional y revisiÃ³n de scope. La carga exige source_id/source_version, hash canÃ³nico, provenance y referencia de autorizaciÃ³n; una versiÃ³n activa sustituye a la anterior. Los casos de evaluaciÃ³n se rechazan. Azure OpenAI permanece simulado hasta aprobar modelo, dimensiÃ³n, deployment, regiÃ³n y permisos.
+- fuentes: AprobaciÃ³n explÃ­cita del usuario del 16/11/2026; architecture.yml#rel_recommendation_rag; INV-010; DD-007/DD-009.
+- impacto: Recommendation entrega scope previamente verificado y RAG vuelve a filtrar. No se crea relaciÃ³n nueva, crawler, API pÃºblica ni acceso a tablas ajenas.
+- reversibilidad: Nuevas fuentes o mecanismos requieren decisiÃ³n posterior; las versiones y hashes preservan procedencia para migraciÃ³n controlada.
+
 ## DD-010 — Confidence sin escala cerrada
 
 - id: DD-010

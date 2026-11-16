@@ -354,17 +354,29 @@ Corpus autorizado; prohíbe casos de evaluación y soluciones de referencia conf
 
 Owner: `rag_retrieval`. scope_basis: `approved_domain`. status: `confirmed`.
 
-Fuentes: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007.
+Fuentes: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022.
 
-Checks: `btrim(provenance) <> ''`; `corpus_kind <> 'reviewed_incidents' OR reviewed_incident_id IS NOT NULL`.
+Claves únicas compuestas: `(tenant_id, github_repository_id, source_id, source_version)`.
+
+Checks: `btrim(provenance) <> ''`; `corpus_kind <> 'reviewed_incidents' OR reviewed_incident_id IS NOT NULL`; `content_hash ~ '^[0-9a-f]{64}$'`; `btrim(authorization_reference) <> ''`.
 
 | Columna | Tipo | PK | FK | logical_ref | Nullable | Unique | Enum | Descripción | Fuente | Assumption |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| id | uuid | Sí | — | — | No | No | — | Identificador estable asignado por el servicio propietario. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007 | A-001 |
-| corpus_kind | knowledge.KnowledgeCorpusKind | No | — | — | No | No | KnowledgeCorpusKind | Clase de corpus autorizado. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007 | — |
-| title | text | No | — | — | No | No | — | Título de la fuente autorizada. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007 | — |
-| provenance | text | No | — | — | No | No | — | Referencia obligatoria de origen autorizado; nunca URL con tokens o secretos. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007 | — |
-| reviewed_incident_id | uuid | No | — | ops.incidents.id | Sí | No | — | Incidente revisado cuando el corpus es reviewed_incidents; elegibilidad RAG requiere separación evaluación. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007 | — |
+| id | uuid | Sí | — | — | No | No | — | Identificador estable asignado por el servicio propietario. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | A-001 |
+| corpus_kind | knowledge.KnowledgeCorpusKind | No | — | — | No | No | KnowledgeCorpusKind | Clase de corpus autorizado. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| title | text | No | — | — | No | No | — | Título de la fuente autorizada. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| provenance | text | No | — | — | No | No | — | Referencia obligatoria de origen autorizado; nunca URL con tokens o secretos. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| reviewed_incident_id | uuid | No | — | ops.incidents.id | Sí | No | — | Incidente revisado cuando el corpus es reviewed_incidents; elegibilidad RAG requiere separación evaluación. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| tenant_id | uuid | No | — | — | No | Compuesto: (tenant_id, github_repository_id, source_id, source_version) | — | Tenant autorizado del documento; no se deriva de similitud semÃ¡ntica. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| github_installation_id | text | No | — | — | No | No | — | InstalaciÃ³n GitHub verificada para el alcance del corpus. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| github_repository_id | text | No | — | — | No | Compuesto: (tenant_id, github_repository_id, source_id, source_version) | — | Repositorio GitHub verificado para el alcance del corpus. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| pipeline_id | uuid | No | — | ops.pipelines.id | Sí | No | — | Pipeline opcional del alcance; referencia lÃ³gica, sin FK cross-schema. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| scope_revision | text | No | — | — | No | No | — | RevisiÃ³n opaca del alcance autorizado entregado por Recommendation. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| source_id | text | No | — | — | No | Compuesto: (tenant_id, github_repository_id, source_id, source_version) | — | Identidad estable de la fuente administrativa autorizada. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| source_version | text | No | — | — | No | Compuesto: (tenant_id, github_repository_id, source_id, source_version) | — | VersiÃ³n opaca usada para importaciÃ³n idempotente. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| content_hash | text | No | — | — | No | No | — | SHA-256 hexadecimal del contenido canÃ³nico importado. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| authorization_reference | text | No | — | — | No | No | — | Evidencia no secreta de autorizaciÃ³n de la fuente. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| active | boolean | No | — | — | No | No | — | Solo la versiÃ³n activa participa en recuperaciÃ³n. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
 | correlation_id | text | No | — | — | No | No | — | Identificador de correlación end-to-end; no contiene información sensible. | architecture.yml#CTRL-003 | — |
 | created_at | timestamptz | No | — | — | No | No | — | Instante de persistencia; permite aplicar retención cuando corresponde. | SRC_ADR_013; DD-015 | A-002 |
 
@@ -813,6 +825,15 @@ Nota de evolución: representación histórica de Blob sustituida parcialmente p
 - impacto: No hay vector(1536), índice vectorial dependiente de dimensión ni mecanismo de actualización seleccionado.
 - reversibilidad: Una futura elección de embedding requiere decisión y migración de tipo/datos/índices.
 
+### DD-022 — Alcance e importaciÃ³n administrativa del corpus RAG
+
+- id: DD-022
+- contexto: El 16/11/2026 el usuario aprobÃ³ el contrato Recommendation → RAG v1 con identidades GitHub canÃ³nicas, alcance verificado por Recommendation y defensa adicional en RAG, ademÃ¡s de un importador administrativo idempotente sin API pÃºblica ni aprendizaje automÃ¡tico.
+- decisiÃ³n: knowledge_documents conserva tenant, instalaciÃ³n, repositorio, pipeline opcional y revisiÃ³n de scope. La carga exige source_id/source_version, hash canÃ³nico, provenance y referencia de autorizaciÃ³n; una versiÃ³n activa sustituye a la anterior. Los casos de evaluaciÃ³n se rechazan. Azure OpenAI permanece simulado hasta aprobar modelo, dimensiÃ³n, deployment, regiÃ³n y permisos.
+- fuentes: AprobaciÃ³n explÃ­cita del usuario del 16/11/2026; architecture.yml#rel_recommendation_rag; INV-010; DD-007/DD-009.
+- impacto: Recommendation entrega scope previamente verificado y RAG vuelve a filtrar. No se crea relaciÃ³n nueva, crawler, API pÃºblica ni acceso a tablas ajenas.
+- reversibilidad: Nuevas fuentes o mecanismos requieren decisiÃ³n posterior; las versiones y hashes preservan procedencia para migraciÃ³n controlada.
+
 ### DD-010 — Confidence sin escala cerrada
 
 - id: DD-010
@@ -1045,6 +1066,8 @@ No se añade allowlist table: fuente administrativa, owner y configuración vers
 
 **Adopción local del 08/11/2026.** Después de aprobar los contratos de mensajes y revisar el plan concreto de cuatro tablas, evolución del modelo y persistencia JPA/PostgreSQL, el usuario indicó «Vamos a por ello». Esta dirección autoriza concretar `capture-publication-draft-0.1` en `domain.yml` 1.3.0 y sus derivados, migración y checks locales. No constituye integración en main, aprobación de CODEOWNERS, selección de presupuestos numéricos operativos, provisión de recursos, roles o permisos. Conserva snapshot Pipeline v1, evidencia v2, IDs lógicos y at-least-once. Base integrada: `e22627cfee10b0b02edab084b98eb18926c678b5` (PR #9, DD-020). Ownership exclusivo de Ingestion; no ampliar las cuatro tablas de credenciales ni escribir en `ops`, `evidence` o `audit`. El límite persistente/ER pasa de 21 a 25 tablas exclusivamente por estas cuatro adicionales aprobadas; no cambia presupuestos ni membresías de vistas.
 
+**Estado de publicación — 09/11/2026:** DD-020 está integrado mediante PR #9 en `e22627c`; sus estados anteriores se conservan como historial fechado. DD-021 y domain 1.3.0 están publicados para revisión en `feature/capture-publication-contract`, pendientes de integración en main. El contrato y la implementación de Ingestion están publicados para revisión en `feature/github-access-core` de su repositorio; tampoco se acredita integración ni despliegue.
+
 ### Representación física adoptada localmente
 
 Se adoptan cuatro tablas en schema `ingestion`. Tres representan recepción, observación y salida; la cuarta conserva aliases de delivery para poder detectar tanto replay con header cambiado como reutilización conflictiva de cualquier delivery registrado. Prescindir de ese alias pierde una de esas garantías: no se sustituye por un array ilimitado ni dedup solo en memoria.
@@ -1108,7 +1131,6 @@ La representación y canonicalización/locator quedan concretados localmente en 
 - **DQ-001 / incident_severity_derivation** (open_question): Regla concreta de derivación de severidad del incidente.
 - **DQ-002 / confidence_semantics** (open_question): Escala y semántica exacta de confidence.
 - **DQ-003 / embedding_dimension** (open_question): Dimensión del embedding; el modelo concreto sigue sin fijarse. `embedding_dimension: null`.
-- **DQ-004 / rag_corpus_updates** (open_question): Mecanismo definitivo de carga y actualización del corpus RAG.
 - **DQ-005 / pipeline_rbac** (open_question): ADR-020 aprueba la política MVP de capacidades condicionadas al acceso GitHub. Pendientes representación física definitiva, recuperación de acceso y contratos de autorización; no reabrir la política ni promover grants inferred automáticamente.
 - **DQ-006 / monitored_workflow_registration** (open_question): ADR-020 aprueba el alta con administración GitHub verificada y creación/reutilización de Repository por Pipeline. Pendientes contrato REST versionado, custodia y esquema técnico del conector; la política funcional MVP ya está aprobada.
 
