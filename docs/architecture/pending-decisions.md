@@ -28,6 +28,21 @@ Las filas históricas siguientes se leen con esta actualización. Conservar ia_o
 
 Actualización local del 07/11/2026: «Propuesta aprobada» acepta `github-connector-draft-0.2`. [DD-020](../../model/domain_decisions.md#DD-020) y `domain.yml` adoptan metadata PostgreSQL propia de Ingestion, modo Key Vault Secrets y principios OBO/validez de petición; el [contrato semántico de Ingestion](https://github.com/pipesor-org/pipesor-ingestion-normalization-service/blob/main/docs/deployment-contract.md#connector-contract-proposal-for-decision) conserva binding/API. No equivale a integración en main ni cierre operativo de PD-027/034/035. Permanecen pendientes scopes/audiences/budgets concretos, admisión, navegador/callback, custodia/retención/backups, restore operativo y runner/identidades de entrega. La aprobación puntual no asigna autoridad continua de PD-027 ni autoriza recursos/permisos.
 
+## Contrato RAG aprobado el 16/11/2026
+
+El usuario aprobó [RAG–Recommendation–IaC v0.1](contracts/rag-integration-v0.1.md):
+`text-embedding-3-small`, 1536 dimensiones, deployment DEV `pipesor-dev-embeddings`,
+API v1, identidad system-assigned de RAG, rol consumidor `Rag.Query`, separación de
+permisos SQL y presupuesto total de consulta de 15 segundos con hasta dos reintentos.
+PD-005 tiene selección aprobada para RAG; su adopción en modelos/migraciones y la
+compatibilidad real siguen pendientes. No extiende automáticamente el cambio a NLP.
+PD-006 conserva el mecanismo aprobado y PD-023 requiere corpus real acreditado.
+PD-034/035 tienen esta base contractual, con binding Entra/SQL, región, cuota, SDK,
+responsables y degradación de Recommendation todavía por completar. PD-026 no cambia.
+Las filas y fuentes anteriores conservan su corte histórico; los modelos canónicos
+y artefactos generados no se modifican en este PR documental. El contrato enumera
+las preguntas y entregas necesarias antes de activar Azure o datos reales.
+
 ## Uso y referencias
 
 No existía un registro agregado independiente. La [reconciliación][R] conserva la matriz histórica de 50 resoluciones y sus pendientes; el [índice de decisiones][I] conserva la evolución de los 18 ADRs; el [registro de fuentes][S] conserva procedencia, hashes y límites de aprobación. Este archivo centraliza el seguimiento sin copiar esos registros ni sustituir a los propietarios. Los IDs `PD-*` son localizadores documentales de este agregado, no nuevos IDs de modelos o ADRs.
