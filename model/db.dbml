@@ -275,6 +275,35 @@ Table evidence.correlation_receipts {
   Note: 'Recepción inmutable de mensaje fuente y asociación original; no retiene request, logs ni excerpts. Owner: evidence_correlation_engine. approved_domain / confirmed. Constraints complementarias en extras.sql: correlation_lifecycle.'
 }
 
+Table diagnosis.correlated_context_receipts {
+  operation_id uuid [pk, not null, note: 'Identidad estable de entrega; coincide con el contexto correlacionado. Fuente: architecture.yml#rel_correlation_recommendation, SRC_ADR_015, DD-024']
+  context_id uuid [not null, unique, note: 'Referencia lógica al snapshot propietario de Correlation. Referencia lógica a evidence.correlated_contexts.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#rel_correlation_recommendation, SRC_ADR_015, DD-024']
+  request_fingerprint text [not null, note: 'SHA-256 versionado de la representación contractual canónica aceptada. Fuente: architecture.yml#rel_correlation_recommendation, SRC_ADR_015, DD-024']
+  tenant_id uuid [not null, note: 'Tenant ya verificado en el alcance máquina. Fuente: architecture.yml#rel_correlation_recommendation, SRC_ADR_015, DD-024']
+  github_installation_id text [not null, note: 'Identidad GitHub canónica positiva del alcance autorizado. Fuente: architecture.yml#rel_correlation_recommendation, SRC_ADR_015, DD-024']
+  github_repository_id text [not null, note: 'Repositorio GitHub canónico positivo del alcance autorizado. Fuente: architecture.yml#rel_correlation_recommendation, SRC_ADR_015, DD-024']
+  pipeline_id uuid [null, note: 'Pipeline autorizado opcional por referencia lógica. Referencia lógica a ops.pipelines.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#rel_correlation_recommendation, SRC_ADR_015, DD-024']
+  scope_revision text [not null, note: 'Revisión opaca del alcance verificado por el productor. Fuente: architecture.yml#rel_correlation_recommendation, SRC_ADR_015, DD-024']
+  incident_id uuid [not null, note: 'Incidente por referencia lógica; no crea FK cross-context. Referencia lógica a ops.incidents.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#rel_correlation_recommendation, SRC_ADR_015, DD-024']
+  execution_id uuid [not null, note: 'Ejecución por referencia lógica; no crea FK cross-context. Referencia lógica a ops.pipeline_executions.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#rel_correlation_recommendation, SRC_ADR_015, DD-024']
+  evidence_ids uuid[] [not null, note: 'Referencias lógicas ordenadas a evidencia saneada. Referencia lógica a evidence.evidence_items.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#rel_correlation_recommendation, SRC_ADR_015, DD-024']
+  summary text [not null, note: 'Resumen operacional saneado recibido de Correlation. Fuente: architecture.yml#rel_correlation_recommendation, SRC_ADR_015, DD-024']
+  correlation_id text [not null, note: 'Identificador transversal original; no contiene secretos. Fuente: architecture.yml#rel_correlation_recommendation, SRC_ADR_015, DD-024']
+  context_created_at timestamptz [not null, note: 'Timestamp inmutable del snapshot de Correlation. Fuente: architecture.yml#rel_correlation_recommendation, SRC_ADR_015, DD-024']
+  created_at timestamptz [not null, note: 'Instante UTC de aceptación durable por Recommendation. Assumption: A-002. Fuente: architecture.yml#rel_correlation_recommendation, SRC_ADR_015, DD-024']
+  checks {
+    `operation_id = context_id` [name: 'correlated_context_receipts_identity_ck']
+    `request_fingerprint ~ '^v1:sha256:[0-9a-f]{64}$'` [name: 'correlated_context_receipts_fingerprint_ck']
+    `github_installation_id ~ '^[1-9][0-9]{0,31}$'` [name: 'correlated_context_receipts_installation_ck']
+    `github_repository_id ~ '^[1-9][0-9]{0,31}$'` [name: 'correlated_context_receipts_repository_ck']
+    `scope_revision ~ '^[A-Za-z0-9._:-]{1,128}$'` [name: 'correlated_context_receipts_scope_ck']
+    `cardinality(evidence_ids) > 0` [name: 'correlated_context_receipts_evidence_ck']
+    `btrim(summary) <> ''` [name: 'correlated_context_receipts_summary_ck']
+    `correlation_id ~ '^[A-Za-z0-9._:-]{1,128}$'` [name: 'correlated_context_receipts_correlation_ck']
+  }
+  Note: 'Recepción durable e idempotente del contexto correlacionado aceptado por Recommendation. Owner: recommendation_service. approved_domain / confirmed. Constraints complementarias en extras.sql: append_only.'
+}
+
 Table diagnosis.diagnoses {
   id uuid [pk, not null, note: 'Identificador estable asignado por el servicio propietario. Assumption: A-001. Fuente: architecture.yml#recommendation_service, architecture.yml#INV-005, SRC_ADR_013, DD-003']
   incident_id uuid [not null, note: 'Incidente por referencia lógica; sin asociación JPA cross-context. Referencia lógica a ops.incidents.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#recommendation_service, architecture.yml#INV-005, SRC_ADR_013, DD-003']
@@ -767,6 +796,7 @@ TableGroup evidence {
 }
 
 TableGroup diagnosis {
+  diagnosis.correlated_context_receipts
   diagnosis.diagnoses
   diagnosis.recommendations
   diagnosis.diagnosis_evidence_links

@@ -523,3 +523,12 @@ operativos, los contratos de referencias, las identidades y la recuperación
 externa siguen sus decisiones pendientes. Esta fuente y sus pruebas no aprueban
 un receptor REST ni afirman integración con NLP/Recommendation; no crean
 recursos, permisos o secretos y no autorizan publicación ni cloud.
+<a id="DD-024"></a>
+
+## DD-024 — Recepción durable de contexto en Recommendation
+
+- autoridad: aprobación explícita del usuario del 16/11/2026 del contrato Correlation → Recommendation v1 y aprobación posterior de su tabla técnica durable.
+- decisión: `diagnosis.correlated_context_receipts`, propiedad exclusiva de `recommendation_service`, conserva la representación saneada y autocontenida aceptada de Correlation. `operation_id` coincide con `context_id`; el fingerprint SHA-256 versionado determina replay idéntico frente a conflicto. El alcance verificado, identidades lógicas, evidencia, resumen y correlación se insertan atómicamente antes de responder `accepted`.
+- idempotencia: el mismo `operation_id` y `context_id` con fingerprint idéntico devuelve `duplicate` sin otra escritura. Reutilizar cualquiera de esas identidades con contenido diferente devuelve conflicto y no modifica la fila. No se usa memoria de proceso ni se crea un diagnóstico como recibo.
+- límites: la fila acredita recepción durable, no diagnóstico terminado, autorización histórica perpetua ni existencia de referencias ajenas. No introduce FK cross-context, acceso directo a tablas de otros owners, inferencia LLM, worker o despliegue. Conserva RET-001 por contener contexto/evidencia diagnóstica saneada; el mecanismo de purga sigue pendiente.
+- implementación: Recommendation mantiene la migración y transacción funcional. Correlation conserva su snapshot y reenvía la misma operación ante resultado desconocido. La identidad Entra, headers y validación REST pertenecen al contrato aprobado; valores reales y grants continúan separados.

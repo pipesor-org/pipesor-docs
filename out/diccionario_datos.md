@@ -1,7 +1,7 @@
 <!-- GENERATED — DO NOT EDIT. SSOT: model/domain.yml -->
 # Diccionario de datos
 
-Modelo: `1.5.0`. Una instancia PostgreSQL; 27 tablas.
+Modelo: `1.6.0`. Una instancia PostgreSQL; 28 tablas.
 
 Los tipos enum se materializan en el schema propietario de cada tabla.
 FK significa constraint físico intra-schema; logical_ref significa ID sin FK física.
@@ -289,6 +289,38 @@ Constraints complementarias: correlation_lifecycle.
 Diagnósticos, recomendaciones y revisión.
 
 Owners permitidos: recommendation_service.
+
+### `diagnosis.correlated_context_receipts`
+
+Recepción durable e idempotente del contexto correlacionado aceptado por Recommendation.
+
+Owner: `recommendation_service`. scope_basis: `approved_domain`. status: `confirmed`.
+
+Fuentes: architecture.yml#rel_correlation_recommendation, SRC_ADR_015, DD-024.
+
+Retención: 365 días (ADR-013), anclada en `created_at`; no hay purge jobs.
+
+Checks: `operation_id = context_id`; `request_fingerprint ~ '^v1:sha256:[0-9a-f]{64}$'`; `github_installation_id ~ '^[1-9][0-9]{0,31}$'`; `github_repository_id ~ '^[1-9][0-9]{0,31}$'`; `scope_revision ~ '^[A-Za-z0-9._:-]{1,128}$'`; `cardinality(evidence_ids) > 0`; `btrim(summary) <> ''`; `correlation_id ~ '^[A-Za-z0-9._:-]{1,128}$'`.
+
+Constraints complementarias: append_only.
+
+| Columna | Tipo | PK | FK | logical_ref | Nullable | Unique | Enum | Descripción | Fuente | Assumption |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| operation_id | uuid | Sí | — | — | No | No | — | Identidad estable de entrega; coincide con el contexto correlacionado. | architecture.yml#rel_correlation_recommendation; SRC_ADR_015; DD-024 | — |
+| context_id | uuid | No | — | evidence.correlated_contexts.id | No | Sí | — | Referencia lógica al snapshot propietario de Correlation. | architecture.yml#rel_correlation_recommendation; SRC_ADR_015; DD-024 | — |
+| request_fingerprint | text | No | — | — | No | No | — | SHA-256 versionado de la representación contractual canónica aceptada. | architecture.yml#rel_correlation_recommendation; SRC_ADR_015; DD-024 | — |
+| tenant_id | uuid | No | — | — | No | No | — | Tenant ya verificado en el alcance máquina. | architecture.yml#rel_correlation_recommendation; SRC_ADR_015; DD-024 | — |
+| github_installation_id | text | No | — | — | No | No | — | Identidad GitHub canónica positiva del alcance autorizado. | architecture.yml#rel_correlation_recommendation; SRC_ADR_015; DD-024 | — |
+| github_repository_id | text | No | — | — | No | No | — | Repositorio GitHub canónico positivo del alcance autorizado. | architecture.yml#rel_correlation_recommendation; SRC_ADR_015; DD-024 | — |
+| pipeline_id | uuid | No | — | ops.pipelines.id | Sí | No | — | Pipeline autorizado opcional por referencia lógica. | architecture.yml#rel_correlation_recommendation; SRC_ADR_015; DD-024 | — |
+| scope_revision | text | No | — | — | No | No | — | Revisión opaca del alcance verificado por el productor. | architecture.yml#rel_correlation_recommendation; SRC_ADR_015; DD-024 | — |
+| incident_id | uuid | No | — | ops.incidents.id | No | No | — | Incidente por referencia lógica; no crea FK cross-context. | architecture.yml#rel_correlation_recommendation; SRC_ADR_015; DD-024 | — |
+| execution_id | uuid | No | — | ops.pipeline_executions.id | No | No | — | Ejecución por referencia lógica; no crea FK cross-context. | architecture.yml#rel_correlation_recommendation; SRC_ADR_015; DD-024 | — |
+| evidence_ids | uuid[] | No | — | evidence.evidence_items.id | No | No | — | Referencias lógicas ordenadas a evidencia saneada. | architecture.yml#rel_correlation_recommendation; SRC_ADR_015; DD-024 | — |
+| summary | text | No | — | — | No | No | — | Resumen operacional saneado recibido de Correlation. | architecture.yml#rel_correlation_recommendation; SRC_ADR_015; DD-024 | — |
+| correlation_id | text | No | — | — | No | No | — | Identificador transversal original; no contiene secretos. | architecture.yml#rel_correlation_recommendation; SRC_ADR_015; DD-024 | — |
+| context_created_at | timestamptz | No | — | — | No | No | — | Timestamp inmutable del snapshot de Correlation. | architecture.yml#rel_correlation_recommendation; SRC_ADR_015; DD-024 | — |
+| created_at | timestamptz | No | — | — | No | No | — | Instante UTC de aceptación durable por Recommendation. | architecture.yml#rel_correlation_recommendation; SRC_ADR_015; DD-024 | A-002 |
 
 ### `diagnosis.diagnoses`
 
@@ -1320,6 +1352,15 @@ operativos, los contratos de referencias, las identidades y la recuperación
 externa siguen sus decisiones pendientes. Esta fuente y sus pruebas no aprueban
 un receptor REST ni afirman integración con NLP/Recommendation; no crean
 recursos, permisos o secretos y no autorizan publicación ni cloud.
+<a id="DD-024"></a>
+
+### DD-024 — Recepción durable de contexto en Recommendation
+
+- autoridad: aprobación explícita del usuario del 16/11/2026 del contrato Correlation → Recommendation v1 y aprobación posterior de su tabla técnica durable.
+- decisión: `diagnosis.correlated_context_receipts`, propiedad exclusiva de `recommendation_service`, conserva la representación saneada y autocontenida aceptada de Correlation. `operation_id` coincide con `context_id`; el fingerprint SHA-256 versionado determina replay idéntico frente a conflicto. El alcance verificado, identidades lógicas, evidencia, resumen y correlación se insertan atómicamente antes de responder `accepted`.
+- idempotencia: el mismo `operation_id` y `context_id` con fingerprint idéntico devuelve `duplicate` sin otra escritura. Reutilizar cualquiera de esas identidades con contenido diferente devuelve conflicto y no modifica la fila. No se usa memoria de proceso ni se crea un diagnóstico como recibo.
+- límites: la fila acredita recepción durable, no diagnóstico terminado, autorización histórica perpetua ni existencia de referencias ajenas. No introduce FK cross-context, acceso directo a tablas de otros owners, inferencia LLM, worker o despliegue. Conserva RET-001 por contener contexto/evidencia diagnóstica saneada; el mecanismo de purga sigue pendiente.
+- implementación: Recommendation mantiene la migración y transacción funcional. Correlation conserva su snapshot y reenvía la misma operación ante resultado desconocido. La identidad Entra, headers y validación REST pertenecen al contrato aprobado; valores reales y grants continúan separados.
 
 ## Assumptions
 

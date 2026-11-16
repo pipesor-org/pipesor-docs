@@ -17,8 +17,8 @@ def visible_columns(entity):
 
 def generate_er(model):
     # load_domain performs the shared checks before any generated file is written.
-    if len(model["entities"]) > 27:
-        raise ValueError("ER exceeds 27 tables")
+    if len(model["entities"]) > 28:
+        raise ValueError("ER exceeds 28 tables")
     keys = {f"{e['schema']}.{e['table']}" for e in model["entities"]}
     for e in model["entities"]:
         if not any(c["pk"] for c in e["attributes"]):

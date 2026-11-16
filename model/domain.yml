@@ -1,5 +1,5 @@
 # SSOT del dominio persistente. DBML/SQL/ER/diccionario se generan; no editar derivados.
-model_version: 1.5.0
+model_version: 1.6.0
 source_authority:
   scope: SRC_CHARTER
   architecture:
@@ -1214,6 +1214,164 @@ entities:
   - correlation_lifecycle
   traceability_required: true
   retention_policy: null
+- id: correlated_context_receipts
+  table: correlated_context_receipts
+  schema: diagnosis
+  owner_container: recommendation_service
+  description_es: Recepción durable e idempotente del contexto correlacionado aceptado por Recommendation.
+  scope_basis: approved_domain
+  status: confirmed
+  source:
+  - architecture.yml#rel_correlation_recommendation
+  - SRC_ADR_015
+  - DD-024
+  attributes:
+  - name: operation_id
+    type: uuid
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Identidad estable de entrega; coincide con el contexto correlacionado.
+  - name: context_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: true
+    er_visible: true
+    assumption: null
+    description_es: Referencia lógica al snapshot propietario de Correlation.
+    logical_ref: evidence.correlated_contexts.id
+  - name: request_fingerprint
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: SHA-256 versionado de la representación contractual canónica aceptada.
+  - name: tenant_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Tenant ya verificado en el alcance máquina.
+  - name: github_installation_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Identidad GitHub canónica positiva del alcance autorizado.
+  - name: github_repository_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Repositorio GitHub canónico positivo del alcance autorizado.
+  - name: pipeline_id
+    type: uuid
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Pipeline autorizado opcional por referencia lógica.
+    logical_ref: ops.pipelines.id
+  - name: scope_revision
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Revisión opaca del alcance verificado por el productor.
+  - name: incident_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Incidente por referencia lógica; no crea FK cross-context.
+    logical_ref: ops.incidents.id
+  - name: execution_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Ejecución por referencia lógica; no crea FK cross-context.
+    logical_ref: ops.pipeline_executions.id
+  - name: evidence_ids
+    type: uuid[]
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Referencias lógicas ordenadas a evidencia saneada.
+    logical_ref: evidence.evidence_items.id
+  - name: summary
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Resumen operacional saneado recibido de Correlation.
+  - name: correlation_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Identificador transversal original; no contiene secretos.
+  - name: context_created_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Timestamp inmutable del snapshot de Correlation.
+  - name: created_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: A-002
+    description_es: Instante UTC de aceptación durable por Recommendation.
+  traceability_required: true
+  retention_policy: RET-001
+  checks:
+  - name: correlated_context_receipts_identity_ck
+    expression: operation_id = context_id
+  - name: correlated_context_receipts_fingerprint_ck
+    expression: request_fingerprint ~ '^v1:sha256:[0-9a-f]{64}$'
+  - name: correlated_context_receipts_installation_ck
+    expression: github_installation_id ~ '^[1-9][0-9]{0,31}$'
+  - name: correlated_context_receipts_repository_ck
+    expression: github_repository_id ~ '^[1-9][0-9]{0,31}$'
+  - name: correlated_context_receipts_scope_ck
+    expression: scope_revision ~ '^[A-Za-z0-9._:-]{1,128}$'
+  - name: correlated_context_receipts_evidence_ck
+    expression: cardinality(evidence_ids) > 0
+  - name: correlated_context_receipts_summary_ck
+    expression: btrim(summary) <> ''
+  - name: correlated_context_receipts_correlation_ck
+    expression: correlation_id ~ '^[A-Za-z0-9._:-]{1,128}$'
+  domain_constraints:
+  - append_only
 - id: diagnoses
   table: diagnoses
   schema: diagnosis
@@ -3749,6 +3907,41 @@ relationships:
   kind: logical_ref
   cardinality: many_to_one
   source: *id009
+- id: correlated_context_receipts_context_id
+  from: diagnosis.correlated_context_receipts.context_id
+  to: evidence.correlated_contexts.id
+  kind: logical_ref
+  cardinality: many_to_one
+  source:
+  - DD-024
+- id: correlated_context_receipts_pipeline_id
+  from: diagnosis.correlated_context_receipts.pipeline_id
+  to: ops.pipelines.id
+  kind: logical_ref
+  cardinality: many_to_one
+  source:
+  - DD-024
+- id: correlated_context_receipts_incident_id
+  from: diagnosis.correlated_context_receipts.incident_id
+  to: ops.incidents.id
+  kind: logical_ref
+  cardinality: many_to_one
+  source:
+  - DD-024
+- id: correlated_context_receipts_execution_id
+  from: diagnosis.correlated_context_receipts.execution_id
+  to: ops.pipeline_executions.id
+  kind: logical_ref
+  cardinality: many_to_one
+  source:
+  - DD-024
+- id: correlated_context_receipts_evidence_ids
+  from: diagnosis.correlated_context_receipts.evidence_ids
+  to: evidence.evidence_items.id
+  kind: logical_ref
+  cardinality: many_to_many
+  source:
+  - DD-024
 - id: recommendations_diagnosis_id
   from: diagnosis.recommendations.diagnosis_id
   to: diagnosis.diagnoses.id

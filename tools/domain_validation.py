@@ -106,8 +106,8 @@ def validate_domain(domain, architecture):
         errors.append(f"Missing open questions: {sorted(required_topics - topics)}")
 
     entities = domain["entities"]
-    if len(entities) > 27:
-        errors.append(f"Domain has {len(entities)} tables; maximum is 27")
+    if len(entities) > 28:
+        errors.append(f"Domain has {len(entities)} tables; maximum is 28")
     tables, attributes, declared_refs = {}, {}, set()
     ids = set()
     for entity in entities:
