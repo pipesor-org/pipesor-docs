@@ -167,3 +167,11 @@ etiquetas ausentes de `rel_rag_embeddings` en presentación, y la prueba global
 PostgreSQL de corrección/vector conserva una expectativa de 3 dimensiones frente
 a las 1536 aprobadas. Se mantienen separados de este incremento; no se debilitan
 restricciones de RAG ni se presenta la suite global como aprobada.
+
+## Recepción durable de contexto diagnóstico
+
+La aprobación explícita del 16/11/2026 adopta [DD-024](model/domain_decisions.md#DD-024)
+y `domain.yml` 1.6.0. La tabla técnica `diagnosis.correlated_context_receipts`,
+propiedad de Recommendation, conserva la entrega autocontenida y saneada de
+Correlation y distingue replay idéntico de conflicto mediante identidad y fingerprint.
+Eleva el modelo a 28 tablas sin crear relaciones físicas entre bounded contexts.

@@ -33,9 +33,9 @@ class DomainGenerationTests(unittest.TestCase):
         errors = validate_domain(self.model, self.architecture)
         self.assertTrue(any(fragment in error for error in errors), errors)
 
-    def test_approved_model_has_twenty_seven_valid_tables(self):
+    def test_approved_model_has_twenty_eight_valid_tables(self):
         self.assertEqual(validate_domain(self.model, self.architecture), [])
-        self.assertEqual(len(self.model["entities"]), 27)
+        self.assertEqual(len(self.model["entities"]), 28)
 
     def test_owners_cannot_write_another_schema(self):
         self.entity("incidents")["owner_container"] = "recommendation_service"
@@ -103,9 +103,19 @@ class DomainGenerationTests(unittest.TestCase):
 
     def test_er_limit_is_enforced(self):
         self.model["entities"].extend([deepcopy(self.model["entities"][0]) for _ in range(2)])
-        self.rejected("maximum is 27")
-        with self.assertRaisesRegex(ValueError, "exceeds 27"):
+        self.rejected("maximum is 28")
+        with self.assertRaisesRegex(ValueError, "exceeds 28"):
             generate_er(self.model)
+
+    def test_recommendation_receipt_preserves_idempotency_and_scope(self):
+        receipt = self.entity("correlated_context_receipts")
+        self.assertEqual(receipt["owner_container"], "recommendation_service")
+        self.assertEqual(receipt["retention_policy"], "RET-001")
+        self.assertEqual(self.column("correlated_context_receipts", "context_id")["logical_ref"],
+                         "evidence.correlated_contexts.id")
+        checks = " ".join(item["expression"] for item in receipt["checks"])
+        self.assertIn("operation_id = context_id", checks)
+        self.assertIn("v1:sha256", checks)
 
     def test_dbml_refs_are_only_physical_intra_schema(self):
         dbml = generate_dbml(self.model)
