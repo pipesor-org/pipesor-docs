@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import json
 import time
 import unittest
 import uuid
@@ -50,7 +51,7 @@ class PersistenceTests(unittest.TestCase):
         enums = {e['id']: e['values'][0] for e in model['enums']}
         inserts = []
         for entity in model['entities']:
-            if entity['schema'] == 'ingestion' or entity['table'] in ('correlation_groups', 'correlated_contexts', 'correlation_receipts'):
+            if entity['schema'] == 'ingestion' or entity['table'] in ('correlation_groups', 'correlated_contexts', 'correlation_receipts', 'correlated_context_receipts'):
                 continue  # DD-020 needs coherent lifecycle metadata, not generic scalar values.
             cols, values = [], []
             for c in entity['attributes']:
@@ -69,6 +70,7 @@ class PersistenceTests(unittest.TestCase):
             inserts.append(f"INSERT INTO {entity['schema']}.{entity['table']} ({','.join(cols)}) VALUES ({','.join(values)});")
         inserts.append(cls.connector_fixture())
         inserts.append(cls.correlation_fixture())
+        inserts.append(cls.recommendation_receipt_fixture())
         result = cls.sql('BEGIN;\n' + '\n'.join(inserts) + '\nCOMMIT;')
         if result.returncode:
             raise RuntimeError(result.stderr)
@@ -79,12 +81,75 @@ class PersistenceTests(unittest.TestCase):
         return f"""
 INSERT INTO evidence.correlation_groups(id,scope_key,execution_id,incident_id,created_at,updated_at)
 VALUES ('{ONE}','synthetic','{ONE}','{ONE}','2026-11-11 00:00:00+00','2026-11-11 00:00:00+00');
-INSERT INTO evidence.correlated_contexts(id,incident_id,execution_id,evidence_ids,summary,correlation_id,created_at,group_id,signal_stage,signal_summary,signal_content)
+INSERT INTO evidence.correlated_contexts(id,incident_id,execution_id,evidence_ids,summary,correlation_id,created_at,group_id,signal_stage,signal_summary,signal_content,scope_tenant_id,scope_github_installation_id,scope_github_repository_id,scope_pipeline_id,scope_revision)
 VALUES ('{ONE}','{ONE}','{ONE}',ARRAY['{ONE}'::uuid],'synthetic','synthetic','2026-11-11 00:00:00+00','{ONE}',
- 'BUILD','synthetic protected build summary','synthetic protected build content');
+ 'BUILD','synthetic protected build summary','synthetic protected build content','{ONE}','123','456',NULL,'scope-12');
 INSERT INTO evidence.correlation_receipts(scope_key,producer_key,message_id,evidence_id,correlation_id,context_id,input_fingerprint,created_at)
 VALUES ('synthetic','synthetic','{ONE}','{ONE}','synthetic','{ONE}','v1:sha256:'||repeat('a',64),'2026-11-11 00:00:00+00');
 """
+
+    @classmethod
+    def recommendation_receipt_fixture(cls):
+        return f"""
+INSERT INTO diagnosis.correlated_context_receipts
+(operation_id,context_id,request_fingerprint,tenant_id,github_installation_id,github_repository_id,
+ scope_revision,incident_id,execution_id,evidence_ids,summary,correlation_id,context_created_at,signals,created_at)
+VALUES ('{ONE}','{ONE}','v1:sha256:'||repeat('a',64),'{ONE}','123','456','scope-12','{ONE}','{ONE}',
+ ARRAY['{ONE}'::uuid],'synthetic protected operational summary','synthetic-correlation',now(),
+ '[{{"evidence_id":"{ONE}","origin_context_id":"{ONE}","correlation_id":"synthetic-correlation","stage":"BUILD","summary":"protected summary","content":"protected content"}}]'::jsonb,now());
+"""
+
+    def test_recommendation_receipt_signals_are_typed_exact_and_immutable(self):
+        base = f"SELECT diagnosis.valid_correlated_signals(signals, evidence_ids) FROM diagnosis.correlated_context_receipts"
+        self.assertEqual(self.sql(base).returncode, 0)
+        fixture = self.recommendation_receipt_fixture().replace(f"'{ONE}','{ONE}','v1:sha256:'", f"'{TWO}','{TWO}','v1:sha256:'")
+        self.accepted(fixture)
+        for old,new in [('"BUILD"','"UNKNOWN"'), ('"protected summary"','"  "'), ('"protected content"','null'),
+                        ('"evidence_id":','"unknown_id":'), ('"stage":"BUILD"','"stage":"BUILD","raw_body":"not allowed"'),
+                        (f'"evidence_id":"{ONE}"',f'"evidence_id":"{TWO}"'),
+                        (f'"origin_context_id":"{ONE}"','"origin_context_id":"invalid-uuid"')]:
+            with self.subTest(change=new):
+                self.rejected(fixture.replace(old,new), constraint='correlated_context_receipts_signals_membership_ck')
+        for statement in ('UPDATE diagnosis.correlated_context_receipts SET summary=summary',
+                          'DELETE FROM diagnosis.correlated_context_receipts',
+                          'TRUNCATE diagnosis.correlated_context_receipts'):
+            self.rejected(statement)
+        for value in ("'{}'::jsonb", "'[]'::jsonb", "'[null]'::jsonb"):
+            self.rejected(fixture[:fixture.index(" '[{")] + f" {value},now());")
+
+        signal = dict(evidence_id=ONE, origin_context_id=ONE, correlation_id="synthetic-correlation",
+                      stage="BUILD", summary="protected summary", content="protected content")
+        pair = [signal, dict(signal, evidence_id=TWO)]
+        members = f"ARRAY['{ONE}'::uuid,'{TWO}'::uuid]"
+        for signals, evidence, expected in [
+                (pair, members, True), ([signal, signal], members, False),
+                (pair, f"ARRAY['{ONE}'::uuid,'{ONE}'::uuid]", False),
+                (pair, f"ARRAY['{ONE}'::uuid,NULL::uuid]", False),
+                (pair, f"ARRAY[['{ONE}'::uuid,'{TWO}'::uuid]]", False),
+                (pair, "NULL::uuid[]", False), (None, members, False)]:
+            with self.subTest(signals=signals, evidence=evidence):
+                value = "NULL::jsonb" if signals is None else "'" + json.dumps(signals) + "'::jsonb"
+                self.accepted(f"DO $$ BEGIN IF diagnosis.valid_correlated_signals({value},{evidence}) "
+                              f"IS DISTINCT FROM {str(expected).lower()} THEN RAISE EXCEPTION "
+                              "'Synthetic signal membership assertion failed'; END IF; END; $$;")
+
+    def test_correlation_scope_is_frozen_and_resource_bound_but_revision_can_advance(self):
+        confirm = f"UPDATE evidence.correlation_groups SET confirmed_context_id='{ONE}',updated_at=now();"
+        snapshot = self.next_correlation_snapshot()
+        self.accepted(confirm+snapshot)
+        self.accepted(confirm+snapshot.replace("'scope-13'", "'scope-12'"))
+        for old,new in [(f"'{ONE}','123','456',NULL,'scope-13'",f"'{TWO}','123','456',NULL,'scope-13'"),
+                        ("'123','456',NULL,'scope-13'","'124','456',NULL,'scope-13'"),
+                        ("'123','456',NULL,'scope-13'","'123','457',NULL,'scope-13'"),
+                        ("'123','456',NULL,'scope-13'",f"'123','456','{ONE}','scope-13'")]:
+            with self.subTest(value=new):
+                self.rejected(confirm+snapshot.replace(old,new), constraint='correlated_contexts_scope_binding_ck')
+        for field,value in [('scope_revision','changed'),('scope_github_repository_id','457')]:
+            self.rejected(f"UPDATE evidence.correlated_contexts SET {field}='{value}'", constraint='correlation_immutable_ck')
+        for value in ("'0'", "'01'", "'-1'", "'"+'9'*33+"'"):
+            self.rejected(confirm+snapshot.replace("'123'",value))
+        for value in ("''", "'bad scope'", "'"+'a'*129+"'"):
+            self.rejected(confirm+snapshot.replace("'scope-13'",value))
 
     @classmethod
     def connector_fixture(cls):
@@ -244,9 +309,9 @@ UPDATE ingestion.capture_receipts SET phase='PREPARED',revision=2,claim_owner=NU
     @staticmethod
     def next_correlation_snapshot():
         return f"""
-INSERT INTO evidence.correlated_contexts(id,incident_id,execution_id,evidence_ids,summary,correlation_id,created_at,group_id,signal_stage,signal_summary,signal_content)
+INSERT INTO evidence.correlated_contexts(id,incident_id,execution_id,evidence_ids,summary,correlation_id,created_at,group_id,signal_stage,signal_summary,signal_content,scope_tenant_id,scope_github_installation_id,scope_github_repository_id,scope_pipeline_id,scope_revision)
 VALUES ('{TWO}','{ONE}','{ONE}',ARRAY['{ONE}'::uuid,'{TWO}'::uuid],'synthetic next','synthetic next',now(),'{ONE}',
- 'TESTING','synthetic protected test summary','synthetic protected test content');
+ 'TESTING','synthetic protected test summary','synthetic protected test content','{ONE}','123','456',NULL,'scope-13');
 INSERT INTO evidence.correlation_receipts(scope_key,producer_key,message_id,evidence_id,correlation_id,context_id,input_fingerprint,created_at)
 VALUES ('synthetic','synthetic','{TWO}','{TWO}','synthetic next','{TWO}','v1:sha256:'||repeat('b',64),now());
 """

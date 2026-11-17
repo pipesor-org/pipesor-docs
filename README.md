@@ -175,3 +175,35 @@ y `domain.yml` 1.6.0. La tabla técnica `diagnosis.correlated_context_receipts`,
 propiedad de Recommendation, conserva la entrega autocontenida y saneada de
 Correlation y distingue replay idéntico de conflicto mediante identidad y fingerprint.
 Eleva el modelo a 28 tablas sin crear relaciones físicas entre bounded contexts.
+
+## Scope histórico y señales recuperables — incremento local 17/11/2026
+
+La aprobación explícita posterior adopta modelo 1.7.0 sobre main
+`60679a9a0bf45edd0ffb6b72a298433f7f4e1e7f`: cinco campos tipados de scope
+por snapshot de Correlation y un array JSON de señales tipadas en el receipt
+existente de Recommendation. El suplemento de [DD-023/DD-024](model/domain_decisions.md#DD-024)
+conserva las 28 tablas, ownership, operación=contexto e invariantes de reentrega.
+La fuente SQL valida shape y membresía exacta del array y hace append-only el
+receipt. No acredita autorización actual, existencia upstream ni orden de origen.
+
+`make db` pasó y regeneró DBML/SQL/ER/diccionario usando el exportador ya instalado
+expuesto en PATH. Los siguientes comandos pasaron en el checkout real:
+
+```sh
+.venv/bin/python -B -m unittest discover -s tests -p test_correlation_generation.py -v
+.venv/bin/python -B -m unittest discover -s tests -p test_domain_generation.py -v
+.venv/bin/python -B tools/test_postgres.py -k correlation
+.venv/bin/python -B tools/test_postgres.py -k recommendation
+```
+
+Resultados: 9 + 21 pruebas unitarias y 7 + 1 pruebas PostgreSQL
+16.15/pgvector 0.8.7, respectivamente. El test del receipt incluye sets de varios
+miembros, duplicados, nulos, arrays multidimensionales y rechazo de mutaciones.
+Correlation verificó su V4/store por separado con 46 pruebas en PostgreSQL 17.11;
+rechaza snapshots V3 sin scope original recuperable. La migración y el receptor
+de Recommendation pertenecen a su owner y no están implementados por este cambio.
+
+Son resultados locales y acotados. No se repitieron las suites globales con los
+fallos previos de presentación RAG y fixture vectorial descritos arriba; no se
+modificaron esos contratos ni se declara una suite global verde. No se ejerció
+integración real, permisos, saneamiento, migración de entorno o despliegue.

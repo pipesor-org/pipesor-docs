@@ -28,7 +28,7 @@ class CorrelationGenerationTests(unittest.TestCase):
 
     def test_approved_metadata_is_exact_and_technical_retention_is_not_invented(self):
         self.assertEqual(validate_domain(self.model, self.architecture), [])
-        self.assertEqual(self.model['model_version'], '1.6.0')
+        self.assertEqual(self.model['model_version'], '1.7.0')
         self.assertEqual(len(self.model['entities']), 28)
         for name in TABLES:
             self.assertEqual(set(FIELDS[name]), {a['name'] for a in self.entity(name)['attributes']})
@@ -66,7 +66,7 @@ class CorrelationGenerationTests(unittest.TestCase):
 
     def test_signal_columns_and_each_required_check_cannot_be_weakened(self):
         context = self.entity('correlated_contexts')
-        self.assertEqual(len(context['attributes']), 11)
+        self.assertEqual(len(context['attributes']), 16)
         for attr in context['attributes']:
             if not attr['name'].startswith('signal_'):
                 continue
@@ -85,6 +85,18 @@ class CorrelationGenerationTests(unittest.TestCase):
         self.assertIn("signal_stage IN ('BUILD', 'TESTING', 'QUALITY_GATE', 'DEPLOYMENT', 'CONTAINER', 'INFRASTRUCTURE')", dbml)
         self.assertIn('NEW.signal_stage IS NULL OR NEW.signal_summary IS NULL OR NEW.signal_content IS NULL',
                       generate_extras(self.model))
+
+    def test_scope_is_typed_nullable_pipeline_and_frozen_per_operation(self):
+        context = self.entity('correlated_contexts')
+        attrs = {a['name']: a for a in context['attributes']}
+        self.assertTrue(attrs['scope_pipeline_id']['nullable'])
+        self.assertEqual(attrs['scope_pipeline_id']['logical_ref'], 'ops.pipelines.id')
+        extras = generate_extras(self.model)
+        self.assertIn('NEW.scope_tenant_id IS NULL', extras)
+        self.assertIn('correlated_contexts_scope_binding_ck', extras)
+        binding = extras.split("Correlation snapshot scope does not match its group")[0].rsplit('IF ROW(',1)[1]
+        self.assertNotIn('scope_revision', binding)
+        self.assertEqual(attrs['scope_revision']['type'], 'text')
 
     def test_checks_membership_and_lifecycle_markers_cannot_be_removed(self):
         for name in TABLES:

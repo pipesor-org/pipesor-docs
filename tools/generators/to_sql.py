@@ -109,6 +109,56 @@ FOR EACH STATEMENT EXECUTE FUNCTION diagnosis.reject_diagnoses_mutation();
 """
 
 
+RECEIPT_SIGNALS = r'''
+-- DD-024: only the typed protected signal array belongs to the durable receipt.
+CREATE FUNCTION diagnosis.valid_correlated_signals(signals jsonb, evidence_ids uuid[]) RETURNS boolean
+LANGUAGE plpgsql IMMUTABLE SET search_path = pg_catalog AS $$
+DECLARE item jsonb; member uuid; seen uuid[] := ARRAY[]::uuid[];
+BEGIN
+    IF signals IS NULL OR evidence_ids IS NULL OR jsonb_typeof(signals) <> 'array' THEN
+        RETURN false;
+    END IF;
+    IF array_ndims(evidence_ids) IS DISTINCT FROM 1 OR array_lower(evidence_ids,1) IS DISTINCT FROM 1
+       OR cardinality(evidence_ids) = 0 OR jsonb_array_length(signals) <> cardinality(evidence_ids) THEN
+        RETURN false;
+    END IF;
+    FOR item IN SELECT value FROM jsonb_array_elements(signals) LOOP
+        IF jsonb_typeof(item) <> 'object' THEN RETURN false; END IF;
+        IF (SELECT count(*) FROM jsonb_object_keys(item)) <> 6
+           OR NOT item ?& ARRAY['evidence_id','origin_context_id','correlation_id','stage','summary','content']
+           OR EXISTS (SELECT 1 FROM jsonb_each(item) field WHERE jsonb_typeof(field.value) <> 'string') THEN
+            RETURN false;
+        END IF;
+        member := (item->>'evidence_id')::uuid;
+        PERFORM (item->>'origin_context_id')::uuid;
+        IF member = ANY(seen) OR NOT member = ANY(evidence_ids)
+           OR (item->>'correlation_id') !~ '^[A-Za-z0-9._:-]{1,128}$'
+           OR (item->>'stage') NOT IN ('BUILD','TESTING','QUALITY_GATE','DEPLOYMENT','CONTAINER','INFRASTRUCTURE')
+           OR (item->>'summary') !~ '[^[:space:]]' OR (item->>'content') !~ '[^[:space:]]' THEN
+            RETURN false;
+        END IF;
+        seen := array_append(seen, member);
+    END LOOP;
+    RETURN (SELECT count(DISTINCT id) FROM unnest(evidence_ids) id) = cardinality(evidence_ids)
+           AND NOT EXISTS (SELECT 1 FROM unnest(evidence_ids) id WHERE id IS NULL);
+EXCEPTION WHEN invalid_text_representation THEN
+    RETURN false;
+END; $$;
+ALTER TABLE diagnosis.correlated_context_receipts
+ADD CONSTRAINT correlated_context_receipts_signals_membership_ck
+CHECK (diagnosis.valid_correlated_signals(signals, evidence_ids));
+
+CREATE FUNCTION diagnosis.reject_correlated_receipt_mutation() RETURNS trigger
+LANGUAGE plpgsql SET search_path = pg_catalog AS $$ BEGIN
+    RAISE EXCEPTION 'Correlation context receipt is append-only'
+      USING ERRCODE = '23514';
+END; $$;
+CREATE TRIGGER correlated_context_receipts_append_only
+BEFORE UPDATE OR DELETE OR TRUNCATE ON diagnosis.correlated_context_receipts
+FOR EACH STATEMENT EXECUTE FUNCTION diagnosis.reject_correlated_receipt_mutation();
+'''
+
+
 def generate_extras(model):
     constraints = {c for e in model["entities"] for c in e.get("domain_constraints", [])}
     supported = {"at_most_one_origin", "exactly_one_failed_origin", "origin_pipeline_consistency", "append_only", "connector_lifecycle", "capture_lifecycle", "correlation_lifecycle"}
@@ -122,6 +172,8 @@ def generate_extras(model):
         parts.append(ORIGIN_CONSTRAINTS)
     if "append_only" in constraints:
         parts.append(APPEND_ONLY)
+    if any(e["schema"] == "diagnosis" and e["table"] == "correlated_context_receipts" for e in model["entities"]):
+        parts.append(RECEIPT_SIGNALS)
     for entity in model['entities']:
         table = f"{entity['schema']}.{entity['table']}"
         for index in entity.get('partial_unique_constraints', []):

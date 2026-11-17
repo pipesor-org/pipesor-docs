@@ -245,6 +245,11 @@ Table evidence.correlated_contexts {
   signal_stage text [not null, note: 'Etapa NLP de la señal del único miembro incorporado en esta revisión; inmutable. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014, DD-023']
   signal_summary text [not null, note: 'Resumen protegido de la señal del miembro incorporado, congelado en su primera aceptación. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014, DD-023']
   signal_content text [not null, note: 'Contenido mínimo protegido NLP del miembro incorporado; sin rawLogs, request ni payload completo. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014, DD-023']
+  scope_tenant_id uuid [not null, note: 'Tenant del alcance histórico verificado al preparar esta operación; no prueba autorización vigente. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014, DD-023']
+  scope_github_installation_id text [not null, note: 'Instalación GitHub canónica del alcance histórico de la operación. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014, DD-023']
+  scope_github_repository_id text [not null, note: 'Repositorio GitHub canónico del alcance histórico de la operación. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014, DD-023']
+  scope_pipeline_id uuid [null, note: 'Pipeline lógico del alcance histórico cuando corresponde; no regenerar ni inferir. Referencia lógica a ops.pipelines.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014, DD-023']
+  scope_revision text [not null, note: 'Revisión histórica inmutable del alcance; reautorización vigente separada. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014, DD-023']
   indexes {
     (group_id, id) [unique, name: 'correlated_contexts_group_id_uq']
   }
@@ -253,6 +258,9 @@ Table evidence.correlated_contexts {
     `signal_stage IN ('BUILD', 'TESTING', 'QUALITY_GATE', 'DEPLOYMENT', 'CONTAINER', 'INFRASTRUCTURE')` [name: 'correlated_contexts_signal_stage_ck']
     `btrim(signal_summary) <> '' AND signal_summary ~ '[^[:space:]]'` [name: 'correlated_contexts_signal_summary_ck']
     `btrim(signal_content) <> '' AND signal_content ~ '[^[:space:]]'` [name: 'correlated_contexts_signal_content_ck']
+    `scope_github_installation_id ~ '^[1-9][0-9]{0,31}$'` [name: 'correlated_contexts_scope_installation_ck']
+    `scope_github_repository_id ~ '^[1-9][0-9]{0,31}$'` [name: 'correlated_contexts_scope_repository_ck']
+    `scope_revision ~ '^[A-Za-z0-9._:-]{1,128}$'` [name: 'correlated_contexts_scope_revision_ck']
   }
   Note: 'Snapshot saneado del contexto correlacionado; conserva los IDs de evidencia utilizados. Owner: evidence_correlation_engine. approved_domain / confirmed. Composite FK correlated_contexts_group_identity_fk; DEFERRABLE INITIALLY DEFERRED in extras.sql. Constraints complementarias en extras.sql: correlation_lifecycle.'
 }
@@ -290,6 +298,7 @@ Table diagnosis.correlated_context_receipts {
   summary text [not null, note: 'Resumen operacional saneado recibido de Correlation. Fuente: architecture.yml#rel_correlation_recommendation, SRC_ADR_015, DD-024']
   correlation_id text [not null, note: 'Identificador transversal original; no contiene secretos. Fuente: architecture.yml#rel_correlation_recommendation, SRC_ADR_015, DD-024']
   context_created_at timestamptz [not null, note: 'Timestamp inmutable del snapshot de Correlation. Fuente: architecture.yml#rel_correlation_recommendation, SRC_ADR_015, DD-024']
+  signals jsonb [not null, note: 'Array ordenado de señales protegidas tipadas: evidence_id, origin_context_id, correlation_id, stage, summary y content. Sin request crudo ni claves adicionales. Fuente: architecture.yml#rel_correlation_recommendation, SRC_ADR_015, DD-024']
   created_at timestamptz [not null, note: 'Instante UTC de aceptación durable por Recommendation. Assumption: A-002. Fuente: architecture.yml#rel_correlation_recommendation, SRC_ADR_015, DD-024']
   checks {
     `operation_id = context_id` [name: 'correlated_context_receipts_identity_ck']
@@ -300,6 +309,7 @@ Table diagnosis.correlated_context_receipts {
     `cardinality(evidence_ids) > 0` [name: 'correlated_context_receipts_evidence_ck']
     `btrim(summary) <> ''` [name: 'correlated_context_receipts_summary_ck']
     `correlation_id ~ '^[A-Za-z0-9._:-]{1,128}$'` [name: 'correlated_context_receipts_correlation_ck']
+    `CASE WHEN jsonb_typeof(signals) = 'array' THEN jsonb_array_length(signals) > 0 AND jsonb_array_length(signals) = cardinality(evidence_ids) ELSE false END` [name: 'correlated_context_receipts_signals_shape_ck']
   }
   Note: 'Recepción durable e idempotente del contexto correlacionado aceptado por Recommendation. Owner: recommendation_service. approved_domain / confirmed. Constraints complementarias en extras.sql: append_only.'
 }
