@@ -9,7 +9,9 @@ FIELDS = {
     'correlated_contexts': {'id': 'uuid', 'incident_id': 'uuid', 'execution_id': 'uuid',
                             'evidence_ids': 'uuid[]', 'summary': 'text', 'correlation_id': 'text',
                             'created_at': 'timestamptz', 'group_id': 'uuid',
-                            'signal_stage': 'text', 'signal_summary': 'text', 'signal_content': 'text'},
+                            'signal_stage': 'text', 'signal_summary': 'text', 'signal_content': 'text',
+                            'scope_tenant_id': 'uuid', 'scope_github_installation_id': 'text',
+                            'scope_github_repository_id': 'text', 'scope_pipeline_id': 'uuid', 'scope_revision': 'text'},
     'correlation_receipts': {'scope_key': 'text', 'producer_key': 'text', 'message_id': 'uuid',
                              'evidence_id': 'uuid', 'correlation_id': 'text', 'context_id': 'uuid',
                              'input_fingerprint': 'text', 'created_at': 'timestamptz'},
@@ -19,7 +21,10 @@ REQUIRED_CHECKS = {
     'correlated_contexts': ['array_ndims(evidence_ids) = 1 AND array_lower(evidence_ids, 1) = 1 AND cardinality(evidence_ids) > 0',
                             "signal_stage IN ('BUILD', 'TESTING', 'QUALITY_GATE', 'DEPLOYMENT', 'CONTAINER', 'INFRASTRUCTURE')",
                             "btrim(signal_summary) <> '' AND signal_summary ~ '[^[:space:]]'",
-                            "btrim(signal_content) <> '' AND signal_content ~ '[^[:space:]]'"],
+                            "btrim(signal_content) <> '' AND signal_content ~ '[^[:space:]]'",
+                            "scope_github_installation_id ~ '^[1-9][0-9]{0,31}$'",
+                            "scope_github_repository_id ~ '^[1-9][0-9]{0,31}$'",
+                            "scope_revision ~ '^[A-Za-z0-9._:-]{1,128}$'"],
     'correlation_receipts': ["btrim(scope_key) <> '' AND scope_key ~ '[^[:space:]]'", "btrim(producer_key) <> '' AND producer_key ~ '[^[:space:]]'",
                              "btrim(correlation_id) <> '' AND correlation_id ~ '[^[:space:]]'", "input_fingerprint ~ '^v1:sha256:[0-9a-f]{64}$'"],
 }
@@ -45,7 +50,7 @@ def validate_correlation(domain):
             errors.append(f'{name}: expected only approved correlation metadata fields')
         for field, typ in FIELDS[name].items():
             attr = attrs.get(field, {})
-            if attr.get('type') != typ or attr.get('nullable') is not (field == 'confirmed_context_id'):
+            if attr.get('type') != typ or attr.get('nullable') is not (field in ('confirmed_context_id', 'scope_pipeline_id')):
                 errors.append(f'{name}.{field}: approved type/nullability must remain unchanged')
         pk = [a['name'] for a in entity.get('attributes', []) if a.get('pk')]
         if pk != (['scope_key', 'producer_key', 'message_id'] if name == 'correlation_receipts' else ['id']):
@@ -121,6 +126,8 @@ BEGIN
     IF NEW.id IS NULL OR NEW.group_id IS NULL OR NEW.incident_id IS NULL OR NEW.execution_id IS NULL
        OR NEW.evidence_ids IS NULL OR NEW.summary IS NULL OR NEW.correlation_id IS NULL OR NEW.created_at IS NULL
        OR NEW.signal_stage IS NULL OR NEW.signal_summary IS NULL OR NEW.signal_content IS NULL
+       OR NEW.scope_tenant_id IS NULL OR NEW.scope_github_installation_id IS NULL
+       OR NEW.scope_github_repository_id IS NULL OR NEW.scope_revision IS NULL
        THEN RETURN NEW; END IF;
     SELECT * INTO g FROM evidence.correlation_groups WHERE id = NEW.group_id FOR UPDATE;
     IF NOT FOUND THEN
@@ -140,6 +147,11 @@ BEGIN
     SELECT * INTO previous FROM evidence.correlated_contexts WHERE group_id = NEW.group_id
       ORDER BY cardinality(evidence_ids) DESC LIMIT 1;
     IF FOUND THEN
+        IF ROW(NEW.scope_tenant_id,NEW.scope_github_installation_id,NEW.scope_github_repository_id,NEW.scope_pipeline_id)
+           IS DISTINCT FROM ROW(previous.scope_tenant_id,previous.scope_github_installation_id,previous.scope_github_repository_id,previous.scope_pipeline_id) THEN
+            RAISE EXCEPTION 'Correlation snapshot scope does not match its group'
+              USING ERRCODE = '23514', CONSTRAINT = 'correlated_contexts_scope_binding_ck';
+        END IF;
         IF g.confirmed_context_id IS DISTINCT FROM previous.id
            OR cardinality(NEW.evidence_ids) <> cardinality(previous.evidence_ids) + 1
            OR NOT NEW.evidence_ids @> previous.evidence_ids THEN

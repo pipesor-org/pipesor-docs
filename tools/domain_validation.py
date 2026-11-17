@@ -281,6 +281,16 @@ def validate_domain(domain, architecture):
     errors.extend(validate_constraints(domain))
     errors.extend(validate_connector(domain))
     errors.extend(validate_capture(domain))
+    receipt = tables.get("diagnosis.correlated_context_receipts", {})
+    signal = next((a for a in receipt.get("attributes", []) if a.get("name") == "signals"), {})
+    if signal.get("type") != "jsonb" or signal.get("nullable") is not False:
+        errors.append("diagnosis.correlated_context_receipts.signals: required typed JSON array")
+    if "append_only" not in receipt.get("domain_constraints", []):
+        errors.append("diagnosis.correlated_context_receipts: missing approved append_only")
+    if not any(c.get("name") == "correlated_context_receipts_signals_shape_ck" and
+               c.get("expression") == "CASE WHEN jsonb_typeof(signals) = 'array' THEN jsonb_array_length(signals) > 0 AND jsonb_array_length(signals) = cardinality(evidence_ids) ELSE false END"
+               for c in receipt.get("checks", [])):
+        errors.append("diagnosis.correlated_context_receipts.signals: required array shape CHECK")
     errors.extend(validate_correlation(domain))
     errors.extend(validate_composite_constraints(domain))
     return errors

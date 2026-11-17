@@ -532,3 +532,47 @@ recursos, permisos o secretos y no autorizan publicación ni cloud.
 - idempotencia: el mismo `operation_id` y `context_id` con fingerprint idéntico devuelve `duplicate` sin otra escritura. Reutilizar cualquiera de esas identidades con contenido diferente devuelve conflicto y no modifica la fila. No se usa memoria de proceso ni se crea un diagnóstico como recibo.
 - límites: la fila acredita recepción durable, no diagnóstico terminado, autorización histórica perpetua ni existencia de referencias ajenas. No introduce FK cross-context, acceso directo a tablas de otros owners, inferencia LLM, worker o despliegue. Conserva RET-001 por contener contexto/evidencia diagnóstica saneada; el mecanismo de purga sigue pendiente.
 - implementación: Recommendation mantiene la migración y transacción funcional. Correlation conserva su snapshot y reenvía la misma operación ante resultado desconocido. La identidad Entra, headers y validación REST pertenecen al contrato aprobado; valores reales y grants continúan separados.
+
+
+### Suplemento aprobado de DD-023/DD-024 — scope histórico y señales recuperables, 17/11/2026
+
+El usuario aprobó explícitamente la ampliación del modelo para el siguiente
+incremento local de Correlation y Docs. Sobre el modelo integrado 1.6.0,
+`domain.yml` 1.7.0 añade cinco campos al snapshot propietario de Correlation:
+`scope_tenant_id uuid`, `scope_github_installation_id text`,
+`scope_github_repository_id text`, `scope_pipeline_id uuid` nullable y
+`scope_revision text`. Instalación/repositorio son decimales positivos canónicos
+de hasta 32 caracteres; revisión usa el vocabulario opaco seguro de DD-024.
+Pipeline sigue siendo referencia lógica, sin FK cross-context.
+
+El scope se congela atómicamente con el snapshot/receipt y se recupera por la
+misma operación. El guard rechaza cambios de tenant, instalación, repositorio o
+pipeline entre revisiones del mismo grupo; `scope_revision` puede cambiar sólo
+en un snapshot nuevo, sin reescribir los anteriores. Esto no modifica ni parsea
+`scope_key`, la identidad de grupo o la serialización aprobada. Replays/aliases
+no reemplazan el scope original y su comparación significativa se verifica en
+el store. La autoridad vigente se comprueba separadamente: ni el envelope ni un
+ID acreditan autorización, existencia upstream o permiso tras revocación.
+
+DD-024 conserva su receipt y añade `signals jsonb NOT NULL`: exclusivamente un
+array ordenado de objetos con `evidence_id`, `origin_context_id`, `correlation_id`,
+`stage`, `summary`, `content`. Todos son strings; IDs tienen forma UUID, etapa
+reutiliza el vocabulario NLP, textos protegidos no vacíos y correlación conserva
+la forma segura. El DDL comprueba shape, claves exactas, miembros sin duplicados
+y coincidencia exacta con `evidence_ids`; la lista de IDs también debe ser un set
+UUID unidimensional sin nulos. No prueba que `origin_context_id` exista ni que el
+orden represente incorporación: esa validación pertenece al contrato/receiver.
+No se permite request crudo, claves extra ni otra copia genérica del payload.
+
+El receipt es append-only; el generador aplica su marcador ya declarado mediante
+un trigger a esta tabla. La recepción debe persistir scope/contexto/señales antes
+de `accepted`; replay idéntico es `duplicate`, conflicto no tiene efectos y el
+recibo no acredita diagnóstico terminado. No se añade tabla ni integración RAG.
+El código y la migración de Recommendation quedan para su responsable; este
+incremento sólo evoluciona la fuente y sus fixtures, no ese servicio.
+
+Estas modificaciones son aprobación local de persistencia, no integración en
+main ni aprobación completa de wire/codec/límites. Correlation usará una nueva
+migración sin alterar V1–V3, con mapeo verificable de provenance previa o rechazo
+atómico, nunca backfill desde datos actuales/digests. No se inventan autoridad,
+permisos, llamadas owner, presupuestos, saneamiento, purga ni activación REST.

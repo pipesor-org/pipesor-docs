@@ -117,6 +117,16 @@ class DomainGenerationTests(unittest.TestCase):
         self.assertIn("operation_id = context_id", checks)
         self.assertIn("v1:sha256", checks)
 
+    def test_recommendation_signals_are_typed_required_and_guarded(self):
+        self.assertEqual(self.column("correlated_context_receipts", "signals")["type"], "jsonb")
+        self.assertFalse(self.column("correlated_context_receipts", "signals")["nullable"])
+        extras = generate_extras(self.model)
+        self.assertIn("diagnosis.valid_correlated_signals", extras)
+        self.assertIn("correlated_context_receipts_signals_membership_ck", extras)
+        self.assertIn("BEFORE UPDATE OR DELETE OR TRUNCATE ON diagnosis.correlated_context_receipts", extras)
+        self.column("correlated_context_receipts", "signals")["nullable"] = True
+        self.rejected("required typed JSON array")
+
     def test_dbml_refs_are_only_physical_intra_schema(self):
         dbml = generate_dbml(self.model)
         refs = re.findall(r"^Ref \w+: (\w+)\.\w+\.\w+ > (\w+)\.\w+\.\w+$", dbml, re.M)
