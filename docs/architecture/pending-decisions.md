@@ -147,6 +147,43 @@ La disponibilidad e identidad entre consumidores se mantiene en **PD-031**; la r
 
 La lectura de estas entradas debe incluir el corte remoto `f02f7cf8b902be80a07e4653d8389fef50e815d0`: XR-001 registra native ingress sin APIM aceptado en IaC y aún no reflejado en el modelo; PD-034/036 describen el contrato canónico histórico, no una instrucción de desplegar APIM. XR-002 registra la exclusión de Blob de workload frente al modelo/DD-006; afecta PD-016/030/031. XR-003 aporta fundación Foundry; ADR-021 concreta el contrato RAG sin acreditar valores ni disponibilidad Azure y conserva PD-023/026. XR-004/005 aportan preparación Terraform y decisiones dev-only que deben consumirse con PD-035; no acreditan contratos runtime ni despliegue. XR-007 complementa PD-033/031 sobre mensajería y llegada independiente. Estas relaciones no resuelven las discrepancias ni sustituyen ADRs automáticamente.
 
+## Contrato de validación de máquina — PD-031/034
+
+El usuario autorizó continuar la validación previa al registro de evidencia por
+el recorrido Log/Event → Pipeline → Ingestion. El incremento integrado aporta la
+consulta de pertenencia de Pipeline, la comprobación de revisión exacta de
+Ingestion y la propagación de correlación de Log/Event. Una prueba local conectó
+las tres implementaciones con autoridad de archivo y PostgreSQL aislado. La
+[implementación y su verificación](https://github.com/pipesor-org/pipesor-evidence-correlation-engine/blob/main/docs/deployment-contract.md#logevent-registration-before-correlation)
+registra el alcance. El
+[contrato versionado de intercambio v1](https://github.com/pipesor-org/pipesor-evidence-correlation-engine/blob/main/docs/contracts/owner-validation-v1.openapi.yaml)
+concreta las dos operaciones REST autorizadas localmente por el usuario.
+
+La actualización arquitectónica local incorpora una relación síncrona de
+solo lectura Log/Event → Pipeline para confirmar que pipeline, ejecución/intento
+e incidente automático ORIGIN pertenecen al contexto autorizado. Incorpora además
+una relación de máquina Pipeline → Ingestion para comprobar el permiso vigente
+sobre la revisión exacta de captura. Esta segunda operación requiere identidad
+de máquina y una ruta de captura resuelta mediante configuración confiable. La
+relación existente `rel_pipeline_ingestion_github_access` conserva su semántica de
+acceso humano verificado bajo ADR-020. El contrato nuevo necesita una relación
+diferenciada en el modelo para evitar atribuir esa autoridad al intercambio
+humano.
+
+La indicación del usuario «Aprobado, procede con la implementacion» autoriza
+localmente el contrato y el registro de estas relaciones. El modelo incorpora
+`rel_log_event_pipeline_operational_evidence` y
+`rel_pipeline_ingestion_machine_scope`. Su estado confirmado en el modelo
+acredita esa frontera de diseño. La entrega efectiva sigue sujeta a revisión
+de los propietarios y configuración de identidad, plazos y límites. Esta
+aprobación local conserva la regla de autoridad contractual registrada en
+la ampliación de etapa 5.
+
+La confianza del publicador, los reintentos por llegada tardía de las filas
+propietarias y la disposición de mensajes agotados continúan en PD-033. El
+registro de estas relaciones precede al cableado runtime del recorrido. Los
+permisos efectivos y parámetros de despliegue continúan bajo PD-035.
+
 ## Acuerdos locales de Correlation — 11/11/2026
 
 En la continuación de implementación de Evidence Correlation Engine, el usuario

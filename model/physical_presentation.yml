@@ -15,6 +15,8 @@ collapse:
 relationship_labels:
   rel_ingestion_github_connection: "Connects and verifies GitHub access"
   rel_pipeline_ingestion_github_access: "Verifies GitHub user access"
+  rel_pipeline_ingestion_machine_scope: "Checks capture scope"
+  rel_log_event_pipeline_operational_evidence: "Checks ORIGIN membership"
   rel_dashboard_ingestion_github_connection: "Connects GitHub and selects workflows"
   rel_github_github_actions: "Repository and workflows"
   rel_github_actions_ingestion_event: "Workflow events"

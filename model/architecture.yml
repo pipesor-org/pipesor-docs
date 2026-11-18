@@ -1223,6 +1223,28 @@ relationships:
     status: confirmed
     source: [SRC_ADR_020]
 
+  - id: rel_log_event_pipeline_operational_evidence
+    from: log_event_service
+    to: pipeline_service
+    label: "Checks committed operational membership before evidence registration"
+    protocol: REST/HTTPS
+    access: read_only
+    style: sync
+    status: confirmed
+    source:
+      - "docs/architecture/pending-decisions.md#contrato-de-validación-de-máquina--pd-031034"
+
+  - id: rel_pipeline_ingestion_machine_scope
+    from: pipeline_service
+    to: ingestion_normalization_service
+    label: "Verifies current machine permission for an exact protected evidence capture scope"
+    protocol: REST/HTTPS
+    access: read_only
+    style: sync
+    status: confirmed
+    source:
+      - "docs/architecture/pending-decisions.md#contrato-de-validación-de-máquina--pd-031034"
+
 outputs:
   - id: diagnostic_hypothesis
     name: Hipótesis diagnóstica
