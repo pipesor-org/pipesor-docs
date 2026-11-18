@@ -208,8 +208,12 @@ Table evidence.evidence_items {
   content_hash text [null, note: 'Hash del objeto cuando existe; algoritmo no fijado. Fuente: architecture.yml#log_event_service, SRC_ADR_019, architecture.yml#INV-001, SRC_ADR_013, DD-006']
   size_bytes bigint [null, note: 'Tamaño externo en bytes cuando está disponible. Fuente: architecture.yml#log_event_service, SRC_ADR_019, architecture.yml#INV-001, SRC_ADR_013, DD-006']
   created_at timestamptz [not null, note: 'Instante de persistencia; permite aplicar retención cuando corresponde. Assumption: A-002. Fuente: SRC_ADR_013, DD-015']
+  scope_tenant_id uuid [null, note: 'Tenant de captura autorizado al registrar la evidencia. Nulo en filas anteriores sin vínculo verificado. Fuente: DD-025']
+  scope_github_installation_id text [null, note: 'Instalación GitHub observada en la captura autorizada. Fuente: DD-025']
+  scope_revision text [null, note: 'Revisión de captura original. Su presencia no otorga permiso actual. Fuente: DD-025']
   checks {
     `size_bytes IS NULL OR size_bytes >= 0` [name: 'evidence_items_check_1']
+    `((scope_tenant_id IS NULL AND scope_github_installation_id IS NULL AND scope_revision IS NULL) OR (scope_tenant_id IS NOT NULL AND scope_tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid AND scope_github_installation_id IS NOT NULL AND scope_github_installation_id ~ '^[1-9][0-9]*$' AND scope_revision IS NOT NULL AND scope_revision ~ '^[A-Za-z0-9._:-]{1,128}$'))` [name: 'evidence_items_scope_binding_ck']
   }
   Note: 'Metadata y extracto normalizado en PostgreSQL; logs originales en GitHub Actions. Recuperación y conservación independientes siguen pendientes (ADR-019). Owner: log_event_service. approved_domain / confirmed.'
 }

@@ -184,6 +184,17 @@ propietarias y la disposición de mensajes agotados continúan en PD-033. El
 registro de estas relaciones precede al cableado runtime del recorrido. Los
 permisos efectivos y parámetros de despliegue continúan bajo PD-035.
 
+### Consultas de propietario para Correlation
+
+La aprobación local de DD-025 agrega las relaciones de solo lectura
+`rel_correlation_pipeline_operational_references` y
+`rel_correlation_log_event_evidence_membership`. Pipeline reutiliza la consulta
+operativa con un permiso de Correlation separado. Log/Event verifica el UUID
+de evidencia dentro de la ejecución e incidente autorizados y el vínculo de
+captura persistido. El contrato de recepción desde NLP, los valores de identidad
+y el tratamiento de reentregas del broker conservan sus acuerdos y pendientes.
+Véase [DD-025](../../model/domain_decisions.md#DD-025).
+
 ## Acuerdos locales de Correlation — 11/11/2026
 
 En la continuación de implementación de Evidence Correlation Engine, el usuario

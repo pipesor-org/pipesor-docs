@@ -1,5 +1,5 @@
 # SSOT del dominio persistente. DBML/SQL/ER/diccionario se generan; no editar derivados.
-model_version: 1.7.0
+model_version: 1.8.0
 source_authority:
   scope: SRC_CHARTER
   architecture:
@@ -867,11 +867,44 @@ entities:
     source:
     - SRC_ADR_013
     - DD-015
+  - name: scope_tenant_id
+    type: uuid
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Tenant de captura autorizado al registrar la evidencia. Nulo en filas anteriores sin vínculo verificado.
+    source: [DD-025]
+  - name: scope_github_installation_id
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Instalación GitHub observada en la captura autorizada.
+    source: [DD-025]
+  - name: scope_revision
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Revisión de captura original. Su presencia no otorga permiso actual.
+    source: [DD-025]
   traceability_required: true
   retention_policy: RET-001
   checks:
   - name: evidence_items_check_1
     expression: size_bytes IS NULL OR size_bytes >= 0
+  - name: evidence_items_scope_binding_ck
+    expression: >-
+      ((scope_tenant_id IS NULL AND scope_github_installation_id IS NULL AND scope_revision IS NULL)
+      OR (scope_tenant_id IS NOT NULL AND scope_tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid
+      AND scope_github_installation_id IS NOT NULL AND scope_github_installation_id ~ '^[1-9][0-9]*$'
+      AND scope_revision IS NOT NULL AND scope_revision ~ '^[A-Za-z0-9._:-]{1,128}$'))
 - id: correlation_groups
   table: correlation_groups
   schema: evidence

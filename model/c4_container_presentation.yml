@@ -32,6 +32,8 @@ relationship_labels:
   rel_pipeline_ingestion_github_access: "Verifies GitHub user access"
   rel_pipeline_ingestion_machine_scope: "Checks capture scope"
   rel_log_event_pipeline_operational_evidence: "Checks ORIGIN membership"
+  rel_correlation_pipeline_operational_references: "Verifies ORIGIN"
+  rel_correlation_log_event_evidence_membership: "Verifies scoped evidence"
   rel_github_actions_ingestion_event: "Workflow events"
   rel_service_bus_pipeline_service: "Execution context"
   rel_service_bus_log_event_service: "Normalized evidence"
@@ -94,6 +96,8 @@ views:
       rel_pipeline_ingestion_github_access: {from: n, to: n, via: [[990, 915], [450, 915]], label: [585, 915]}
       rel_pipeline_ingestion_machine_scope: {from: n, to: n, from_offset: -40, to_offset: 40, via: [[950, 945], [490, 945]], label: [710, 945]}
       rel_log_event_pipeline_operational_evidence: {from: w, to: e, via: [], label: [1125, 815]}
+      rel_correlation_pipeline_operational_references: {from: n, to: s, via: [], label: [950, 665]}
+      rel_correlation_log_event_evidence_membership: {from: n, to: s, from_offset: 50, to_offset: 25, via: [[1040, 715], [1285, 715]], label: [1180, 715]}
       rel_github_actions_ingestion_event: {from: e, to: w, via: [], label: [300, 810]}
       rel_service_bus_pipeline_service: {from: e, to: w, via: [], label: [855, 810]}
       rel_service_bus_log_event_service: {from: n, to: n, via: [[720, 900], [1260, 900]], label: [1050, 900]}

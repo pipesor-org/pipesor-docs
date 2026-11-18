@@ -576,3 +576,23 @@ main ni aprobación completa de wire/codec/límites. Correlation usará una nuev
 migración sin alterar V1–V3, con mapeo verificable de provenance previa o rechazo
 atómico, nunca backfill desde datos actuales/digests. No se inventan autoridad,
 permisos, llamadas owner, presupuestos, saneamiento, purga ni activación REST.
+
+<a id="DD-025"></a>
+
+## DD-025 — Vínculo de ámbito de evidencia en Log/Event
+
+**Adopción local.** El usuario aprobó el cambio de modelo y las dos consultas de
+Correlation con «Aprobado sigue», tras revisar la propuesta de pertenencia.
+Log/Event conserva tenant, instalación y revisión de captura en la propia
+fila desde el primer registro autorizado. Los tres campos son completos o
+todos nulos para permitir filas anteriores sin procedencia verificada. La
+reentrega compara el vínculo y preserva la fila original ante cualquier
+conflicto. Nunca se atribuye un ámbito legado desde la petición actual.
+
+Log/Event valida la pertenencia bajo el UUID de evidencia, ejecución,
+incidente y los tres campos del vínculo. Consulta únicamente después de
+autorizar al caller de Correlation para la operación y el ámbito. Correlation
+confirma el ámbito vigente y el intento ORIGIN con Pipeline antes de llamar.
+Ausencia y fila fuera de la consulta acotada se devuelven como `NOT_READY`.
+Log/Event conserva su propiedad y sus referencias lógicas. El modelo
+conserva únicamente la representación protegida y su política de retención.
