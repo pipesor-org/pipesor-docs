@@ -1245,6 +1245,28 @@ relationships:
     source:
       - "docs/architecture/pending-decisions.md#contrato-de-validación-de-máquina--pd-031034"
 
+  - id: rel_correlation_pipeline_operational_references
+    from: evidence_correlation_engine
+    to: pipeline_service
+    label: "Checks current scope and committed ORIGIN membership before correlation"
+    protocol: REST/HTTPS
+    access: read_only
+    style: sync
+    status: confirmed
+    source:
+      - "model/domain_decisions.md#DD-025"
+
+  - id: rel_correlation_log_event_evidence_membership
+    from: evidence_correlation_engine
+    to: log_event_service
+    label: "Verifies committed evidence membership in the authorized capture and attempt"
+    protocol: REST/HTTPS
+    access: read_only
+    style: sync
+    status: confirmed
+    source:
+      - "model/domain_decisions.md#DD-025"
+
 outputs:
   - id: diagnostic_hypothesis
     name: Hipótesis diagnóstica

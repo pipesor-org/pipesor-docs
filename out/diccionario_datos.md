@@ -1,7 +1,7 @@
 <!-- GENERATED — DO NOT EDIT. SSOT: model/domain.yml -->
 # Diccionario de datos
 
-Modelo: `1.7.0`. Una instancia PostgreSQL; 28 tablas.
+Modelo: `1.8.0`. Una instancia PostgreSQL; 28 tablas.
 
 Los tipos enum se materializan en el schema propietario de cada tabla.
 FK significa constraint físico intra-schema; logical_ref significa ID sin FK física.
@@ -184,7 +184,7 @@ Fuentes: architecture.yml#log_event_service, SRC_ADR_019, architecture.yml#INV-0
 
 Retención: 365 días (ADR-013), anclada en `created_at`; no hay purge jobs.
 
-Checks: `size_bytes IS NULL OR size_bytes >= 0`.
+Checks: `size_bytes IS NULL OR size_bytes >= 0`; `((scope_tenant_id IS NULL AND scope_github_installation_id IS NULL AND scope_revision IS NULL) OR (scope_tenant_id IS NOT NULL AND scope_tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid AND scope_github_installation_id IS NOT NULL AND scope_github_installation_id ~ '^[1-9][0-9]*$' AND scope_revision IS NOT NULL AND scope_revision ~ '^[A-Za-z0-9._:-]{1,128}$'))`.
 
 | Columna | Tipo | PK | FK | logical_ref | Nullable | Unique | Enum | Descripción | Fuente | Assumption |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -202,6 +202,9 @@ Checks: `size_bytes IS NULL OR size_bytes >= 0`.
 | content_hash | text | No | — | — | Sí | No | — | Hash del objeto cuando existe; algoritmo no fijado. | architecture.yml#log_event_service; SRC_ADR_019; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
 | size_bytes | bigint | No | — | — | Sí | No | — | Tamaño externo en bytes cuando está disponible. | architecture.yml#log_event_service; SRC_ADR_019; architecture.yml#INV-001; SRC_ADR_013; DD-006 | — |
 | created_at | timestamptz | No | — | — | No | No | — | Instante de persistencia; permite aplicar retención cuando corresponde. | SRC_ADR_013; DD-015 | A-002 |
+| scope_tenant_id | uuid | No | — | — | Sí | No | — | Tenant de captura autorizado al registrar la evidencia. Nulo en filas anteriores sin vínculo verificado. | DD-025 | — |
+| scope_github_installation_id | text | No | — | — | Sí | No | — | Instalación GitHub observada en la captura autorizada. | DD-025 | — |
+| scope_revision | text | No | — | — | Sí | No | — | Revisión de captura original. Su presencia no otorga permiso actual. | DD-025 | — |
 
 ### `evidence.correlation_groups`
 
@@ -1411,6 +1414,26 @@ main ni aprobación completa de wire/codec/límites. Correlation usará una nuev
 migración sin alterar V1–V3, con mapeo verificable de provenance previa o rechazo
 atómico, nunca backfill desde datos actuales/digests. No se inventan autoridad,
 permisos, llamadas owner, presupuestos, saneamiento, purga ni activación REST.
+
+<a id="DD-025"></a>
+
+### DD-025 — Vínculo de ámbito de evidencia en Log/Event
+
+**Adopción local.** El usuario aprobó el cambio de modelo y las dos consultas de
+Correlation con «Aprobado sigue», tras revisar la propuesta de pertenencia.
+Log/Event conserva tenant, instalación y revisión de captura en la propia
+fila desde el primer registro autorizado. Los tres campos son completos o
+todos nulos para permitir filas anteriores sin procedencia verificada. La
+reentrega compara el vínculo y preserva la fila original ante cualquier
+conflicto. Nunca se atribuye un ámbito legado desde la petición actual.
+
+Log/Event valida la pertenencia bajo el UUID de evidencia, ejecución,
+incidente y los tres campos del vínculo. Consulta únicamente después de
+autorizar al caller de Correlation para la operación y el ámbito. Correlation
+confirma el ámbito vigente y el intento ORIGIN con Pipeline antes de llamar.
+Ausencia y fila fuera de la consulta acotada se devuelven como `NOT_READY`.
+Log/Event conserva su propiedad y sus referencias lógicas. El modelo
+conserva únicamente la representación protegida y su política de retención.
 
 ## Assumptions
 

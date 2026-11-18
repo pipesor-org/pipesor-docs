@@ -28,7 +28,7 @@ class CorrelationGenerationTests(unittest.TestCase):
 
     def test_approved_metadata_is_exact_and_technical_retention_is_not_invented(self):
         self.assertEqual(validate_domain(self.model, self.architecture), [])
-        self.assertEqual(self.model['model_version'], '1.7.0')
+        self.assertEqual(self.model['model_version'], '1.8.0')
         self.assertEqual(len(self.model['entities']), 28)
         for name in TABLES:
             self.assertEqual(set(FIELDS[name]), {a['name'] for a in self.entity(name)['attributes']})
