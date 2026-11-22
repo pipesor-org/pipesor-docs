@@ -42,6 +42,7 @@ simulated caller auth) are allowed only in automated tests.
 | `PIPESOR_DASHBOARD_ORIGIN` | CORS origin (services with human APIs) |
 | `PIPESOR_DATABASE_URL` / user / password (local only) | PostgreSQL, database `pipesor` |
 | `PIPESOR_SERVICE_BUS_NAMESPACE` or `PIPESOR_SERVICE_BUS_CONNECTION_STRING` (local only) | messaging |
+| `PIPESOR_INFERENCE_ENDPOINT`, `PIPESOR_INFERENCE_DEPLOYMENT` | Recommendation only: Foundry account origin (`https://<account>.services.ai.azure.com`) and chat deployment (`pipesor-dev-diagnostics`) |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | optional telemetry (azure) |
 
 Container port is `8080` for every service. Java health: `/actuator/health/liveness`,
