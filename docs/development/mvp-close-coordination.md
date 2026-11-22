@@ -20,7 +20,9 @@ ajeno; los cambios necesarios en el otro lado se piden mediante issue.
 | Dueño | Repositorios | Alcance |
 |---|---|---|
 | Claude Code | `pipesor-ingestion-normalization-service`, `pipesor-pipeline-service`, `pipesor-log-event-service`, `pipesor-evidence-correlation-engine`, `pipesor-recommendation-service`, `pipesor-workspace`; en `pipesor-docs`, los contratos y ADR | Seguridad de plataforma en Java, composición runtime de cada servicio, consumidores de Service Bus, disparo y persistencia del diagnóstico, rutas `/api/v1`, salud, migraciones, Dockerfiles, localizador 2.2 en Java, stack local `docker compose` y generación de claves |
-| Codex | `pipesor-iac`, `pipesor-frontend`, `pipesor-nlp-log-processor`, `pipesor-rag-retrieval`, nuevo `pipesor-scenarios`; en `pipesor-docs`, el protocolo de evaluación (archivo propio en `docs/research/`) | IaC y despliegue, dashboard real con login, NLP y RAG según los contratos, repositorio de escenarios, corpus RAG y protocolo de evaluación |
+| Codex (compañero) | `pipesor-frontend`, `pipesor-nlp-log-processor`, `pipesor-rag-retrieval`, nuevo `pipesor-scenarios`; en `pipesor-docs`, el protocolo de evaluación (archivo propio en `docs/research/`) | Dashboard real con login, NLP y RAG según los contratos, repositorio de escenarios, corpus RAG y protocolo de evaluación |
+| Jhon | `pipesor-iac` | IaC y despliegue en Azure dev (con apoyo de Claude Code para redactar cambios; toda aplicación requiere su autorización) |
+| Codex (Jhon), CI/CD | En Correlation, Log/Event y Recommendation solo `.github/**`, `tools/check_image.py` y su test, herramientas de commit (`package.json`, `bun.lock`, `lefthook.yml`, `commitlint.config.js`) y la sección CI/CD del README | Workflows `ci`/`release`/`deploy` alineados con Pipeline e Ingestion; despliegue desactivado; sin cambios de ajustes, secretos ni environments |
 
 ## Reglas
 
@@ -57,7 +59,8 @@ Recorrido real ejecutado en local con el stack compartido y los cinco servicios 
 | Captura | Run auténtico `43055757606` → recibo `PUBLISHED`, snapshot y evidencia 2.2 `CONFIRMED` en el emulador de Service Bus |
 | Pipeline | Ejecución fallida, incidente `OPEN` (`INFRASTRUCTURE`) con vínculo `ORIGIN`; visible en `GET /api/v1/incidents?state=OPEN` |
 | Log/Event | Evidencia registrada tras `Evidence.Check` contra Pipeline, con los mismos IDs, run, attempt y localizador |
-| Pendiente | NLP → Correlation → Recommendation (RAG + GPT-4o) → dashboard: Correlation, Recommendation y su worker de diagnóstico ya corren y esperan la salida de NLP |
+| Correlation y Recommendation | Con un sustituto de prueba de NLP (firma como `nlp` con la clave local), la evidencia auténtica fue aceptada tras las comprobaciones reales contra Pipeline y Log/Event; contexto persistido, recibo de Recommendation y trabajo de diagnóstico creado; el reenvío devolvió `duplicate` |
+| Pendiente | NLP real, RAG (el worker reintenta con `rag_unavailable`), GPT-4o, dashboard y despliegue |
 
 La demostración paso a paso, con la evidencia que se debe registrar en cada tramo, está en la
 [guía de demostración del MVP](mvp-demo-guide.md).
@@ -116,22 +119,14 @@ ADR-022, docs/architecture/contracts/platform-identity-v1.md, protected-evidence
 mvp-http-api-v1.md, docs/development/runtime-manifest.md y
 docs/development/mvp-close-coordination.md, más el AGENTS.md de cada repositorio.
 
-Tus repositorios (solo estos): pipesor-iac, pipesor-frontend, pipesor-nlp-log-processor,
-pipesor-rag-retrieval y el nuevo pipesor-scenarios. No modifiques los servicios Java,
+Tus repositorios (solo estos): pipesor-frontend, pipesor-nlp-log-processor,
+pipesor-rag-retrieval y el nuevo pipesor-scenarios. La IaC (pipesor-iac) NO es tuya. No modifiques los servicios Java,
 pipesor-workspace ni los contratos; pide cambios mediante issue.
 
 Plazo: 25/11/2026. Puntos de sincronización en mvp-close-coordination.md.
 
 Entregables:
-1. pipesor-iac (dev, westus3, suscripción existente; el tenant no permite app
-   registrations): Key Vault de aplicación y vault de custodia OAuth; claves RSA de
-   firma por workload y pipesor-session-signing; secretos de la GitHub App como
-   referencias; identidades y asignaciones de rol del manifiesto; topic
-   workflow-evidence y sus tres suscripciones con filtros; siete Container Apps con
-   ingress, puertos, probes y variables del manifiesto; principales Entra de PostgreSQL
-   por servicio y extensión vector; Static Web Apps; Application Insights; workflow de
-   despliegue. Toda aplicación real (apply) requiere la autorización explícita de Jhon.
-2. pipesor-frontend: login según §5 del contrato de identidad (start, /auth/complete,
+1. pipesor-frontend: login según §5 del contrato de identidad (start, /auth/complete,
    intercambio del handoff, token solo en memoria); config.json en runtime con las
    URLs de las APIs; un cliente único en shared/api con timeouts, X-Correlation-ID y
    problem+json; lecturas reales para la cola de Operations (GET /api/v1/incidents),
@@ -141,17 +136,17 @@ Entregables:
    demo del bundle de producción. Diferenciar visualmente evidencia observada,
    hipótesis inferida y fuentes RAG. Schemas Zod alineados con el contrato
    (localizador 2.2). Configuración de Static Web Apps.
-3. pipesor-nlp-log-processor: sustituir el spool local por el emulador de Service Bus
+2. pipesor-nlp-log-processor: sustituir el spool local por el emulador de Service Bus
    (modo cadena de conexión en local, identidad administrada en Azure); emitir tokens
    de workload según el contrato (firma con Key Vault o con PEM local); HTTP mínimo
    con /health/live, /health/ready y /.well-known/jwks.json; endpoint de Correlation
    configurable con la regla de transporte del contrato; aceptar evidencia 2.0, 2.1 y
    2.2.
-4. pipesor-rag-retrieval: validar tokens de workload de plataforma (caller
+3. pipesor-rag-retrieval: validar tokens de workload de plataforma (caller
    recommendation, rol Rag.Query) manteniendo el modo Entra por configuración; prohibir
    backends simulados fuera de tests; consulta pgvector con LIMIT top_k y distancia
    desde SQL; statement timeout; importación de corpus autorizado con procedencia.
-5. pipesor-scenarios: repositorio con al menos 10 workflows que fallan de forma
+4. pipesor-scenarios: repositorio con al menos 10 workflows que fallan de forma
    controlada y distinta (build Maven, test JUnit, dependencia npm, lint, Docker build,
    red/DNS, permisos/secret ausente, timeout, set-up de runner, quality gate), cada uno
    con su causa de referencia documentada fuera del corpus RAG; workflow
