@@ -31,11 +31,36 @@ guarantees recorded in [pending decisions](../pending-decisions.md).
 | `POST /api/v1/auth/logout` | `GitHub.Self` | new | 204 |
 | `GET /api/v1/github/connection` | `GitHub.Self` | existing | |
 | `DELETE /api/v1/github/connection` | `GitHub.Self` | existing | |
-| `GET /api/v1/github/repositories?limit=&cursor=` | `GitHub.Self` | existing | admitted + readable only; `limit` required |
+| `GET /api/v1/github/repositories?limit=&cursor=` | `GitHub.Self` | existing | admitted + readable only; `limit` required; reconciles admissions first (ADR-024) |
+| `GET /api/v1/github/installations` | `GitHub.Self` | new | pipesor installations visible to the user, reconciled (ADR-024); shape below |
 | `GET /api/v1/github/repositories/{repositoryId}/workflows?limit=&cursor=` | `GitHub.Self` | existing | `limit` required |
 | `GET /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs?conclusion=failure|success` | `GitHub.Self` | new | `items[]: {runId, attempt, conclusion, headBranch, headSha, createdAt, htmlUrl}`; `failure` (default) lists runs to analyse, `success` runs to record as verification; other values 400 |
 | `POST /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs/{runId}/attempts/{attempt}/analysis` | `GitHub.Self` | generalized | replaces the configured single run; requires OPERATE conditions of ADR-020; returns `202 {analysisId, phase}` and only records durable intent; accepts failed runs (analysis) and successful runs (verification capture) |
 | `GET /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs/{runId}/attempts/{attempt}/analysis` | `GitHub.Self` | existing (pilot) | `{analysisId, phase: ACCEPTED|PREPARING|PUBLISHED|BLOCKED, blockedReason?, executionId?, incidentId?}` |
+
+`GET /api/v1/github/installations` returns `200`:
+
+```json
+{
+  "context": { "requestId": "…", "correlationId": "…", "githubUserId": "…", "observedAt": "RFC 3339" },
+  "installations": [
+    {
+      "installationId": "string",
+      "account": { "id": "string", "login": "string | null" },
+      "suspended": false,
+      "repositories": [
+        { "repositoryId": "string", "fullName": "owner/name", "admitted": true, "userIsAdmin": true }
+      ]
+    }
+  ]
+}
+```
+
+`admitted` means Pipesor may monitor the repository (after reconciliation); `userIsAdmin` is the
+user's GitHub role. Reading this route or the repository list admits repositories the user
+administers in a pipesor installation and revokes admissions the installation no longer lists
+(ADR-024); browser-supplied installation data is never used. Errors are `problem+json` with
+`code` (`CONNECTION_REQUIRED`, `UNAVAILABLE`, …) as for the other GitHub routes.
 
 `executionId` and `incidentId` are the deterministic Pipeline identifiers derived from
 the same repository, workflow, run and attempt, so the dashboard can navigate without

@@ -37,8 +37,11 @@ Evidence: GitHub user login shown by the dashboard; session lifetime ≤ 1 h; no
 Dashboard → repositories → workflows → failed runs (Ingestion routes in the
 [MVP HTTP API](../architecture/contracts/mvp-http-api-v1.md)).
 
-Evidence: repository `pipesor-org/pipesor-ingestion-normalization-service`, workflow `Verify`
-(`412504984`) and failed runs listed from GitHub with the user's own access.
+Evidence: repository `pipesor-org/pipesor-ingestion-normalization-service`, workflow `CI`
+(`414901007`; the former `Verify` workflow no longer exists) and failed runs listed from GitHub
+with the user's own access. A repository the user administers appears once it is selected in the
+pipesor App installation (ADR-024); `GET /api/v1/github/installations` shows `admitted` and
+`userIsAdmin` per repository.
 
 ## 3. Register the workflow (ADR-020)
 
