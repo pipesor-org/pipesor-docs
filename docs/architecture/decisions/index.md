@@ -35,6 +35,7 @@ Cada enlace de ADR identifica su sección `Decision`; los límites de la última
 | [ADR-017](ADR-017-diagnostic-service-component-boundaries.md#decision) | Cuatro componentes internos del servicio diagnóstico. | Zoom C4 Level 3; no nuevos microservicios ni sustitución de relaciones canónicas entre contenedores. |
 | [ADR-018](ADR-018-application-architecture-ddd-cqrs.md#decision) | Multirepo, Java/Spring Boot, Python/FastAPI, React/TypeScript, DDD y CQRS lógico. | Una instancia PostgreSQL y ownership por schema/tabla; referencias cross-schema lógicas. Sin Event Sourcing ni bases separadas de lectura/escritura. |
 | [ADR-021](ADR-021-rag-runtime-contract-v0.1.md#decision) | Contrato RAG–Recommendation–IaC v0.1. | Fija embeddings, Entra, permisos y resiliencia; región, cuota, valores reales, corpus productivo y despliegue siguen pendientes. |
+| [ADR-022](ADR-022-platform-identity-without-entra-app-registrations.md#decision) | Identidad de plataforma sin app registrations de Entra para el MVP académico. | Sustituye solo la exigencia de tokens emitidos por Entra en las APIs HTTP de Pipesor; conserva Entra para recursos Azure, la política de acceso de ADR-020 y el retorno a Entra por configuración. Ver el [contrato de identidad](../contracts/platform-identity-v1.md). |
 
 Otros temas no tienen un ADR específico que acredite por sí solo todas sus declaraciones:
 
