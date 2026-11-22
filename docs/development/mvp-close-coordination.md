@@ -126,7 +126,7 @@ pipesor-workspace ni los contratos; pide cambios mediante issue.
 Plazo: 25/11/2026. Puntos de sincronización en mvp-close-coordination.md.
 
 Entregables:
-2. pipesor-frontend: login según §5 del contrato de identidad (start, /auth/complete,
+1. pipesor-frontend: login según §5 del contrato de identidad (start, /auth/complete,
    intercambio del handoff, token solo en memoria); config.json en runtime con las
    URLs de las APIs; un cliente único en shared/api con timeouts, X-Correlation-ID y
    problem+json; lecturas reales para la cola de Operations (GET /api/v1/incidents),
@@ -136,17 +136,17 @@ Entregables:
    demo del bundle de producción. Diferenciar visualmente evidencia observada,
    hipótesis inferida y fuentes RAG. Schemas Zod alineados con el contrato
    (localizador 2.2). Configuración de Static Web Apps.
-3. pipesor-nlp-log-processor: sustituir el spool local por el emulador de Service Bus
+2. pipesor-nlp-log-processor: sustituir el spool local por el emulador de Service Bus
    (modo cadena de conexión en local, identidad administrada en Azure); emitir tokens
    de workload según el contrato (firma con Key Vault o con PEM local); HTTP mínimo
    con /health/live, /health/ready y /.well-known/jwks.json; endpoint de Correlation
    configurable con la regla de transporte del contrato; aceptar evidencia 2.0, 2.1 y
    2.2.
-4. pipesor-rag-retrieval: validar tokens de workload de plataforma (caller
+3. pipesor-rag-retrieval: validar tokens de workload de plataforma (caller
    recommendation, rol Rag.Query) manteniendo el modo Entra por configuración; prohibir
    backends simulados fuera de tests; consulta pgvector con LIMIT top_k y distancia
    desde SQL; statement timeout; importación de corpus autorizado con procedencia.
-5. pipesor-scenarios: repositorio con al menos 10 workflows que fallan de forma
+4. pipesor-scenarios: repositorio con al menos 10 workflows que fallan de forma
    controlada y distinta (build Maven, test JUnit, dependencia npm, lint, Docker build,
    red/DNS, permisos/secret ausente, timeout, set-up de runner, quality gate), cada uno
    con su causa de referencia documentada fuera del corpus RAG; workflow
