@@ -56,6 +56,12 @@ New:
 |---|---|
 | `GET /api/v1/incidents?state=OPEN|RESOLVED` | cross-pipeline lifecycle queue, filtered by VIEW grants and current GitHub access before paging; removes the per-pipeline N+1 fan-out. `OPEN` is every active incident (`OPEN`, `IN_REMEDIATION`, `VERIFICATION`) |
 
+Incident `severity` (nullable) is seeded when the incident is opened from its pipeline's
+criticality at that moment (same `CRITICAL|HIGH|MEDIUM|LOW` scale, MVP rule); criticality
+remains a pipeline property and later criticality changes do not alter existing incidents.
+Human reads reuse a successful `VIEW` access verification for up to 30 s (ADR-020
+amendment); commands always verify live.
+
 Incident reads (`/incidents`, `/incidents/{id}`, `/pipelines/{id}/incidents`) include
 `displayNumber`, a database-assigned sequence shown as `INC-<n>`. It is presentation only:
 routes and contracts keep the UUID as identity.
