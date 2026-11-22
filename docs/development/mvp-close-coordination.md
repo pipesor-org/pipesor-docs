@@ -59,6 +59,9 @@ Recorrido real ejecutado en local con el stack compartido y los cinco servicios 
 | Log/Event | Evidencia registrada tras `Evidence.Check` contra Pipeline, con los mismos IDs, run, attempt y localizador |
 | Pendiente | NLP → Correlation → Recommendation (RAG + GPT-4o) → dashboard: Correlation, Recommendation y su worker de diagnóstico ya corren y esperan la salida de NLP |
 
+La demostración paso a paso, con la evidencia que se debe registrar en cada tramo, está en la
+[guía de demostración del MVP](mvp-demo-guide.md).
+
 ### Reproducir en otra máquina
 
 1. Clonar los repos con `pipesor-workspace` y hacer checkout de las ramas de los PRs (o `main`
