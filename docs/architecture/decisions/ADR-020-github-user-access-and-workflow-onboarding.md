@@ -98,3 +98,13 @@ Consultadas el 2026-11-06; son evidencia técnica, no autoridad sobre la políti
 ## Consequences and reversibility
 
 Las operaciones humanas dependen de disponibilidad/rate limits GitHub y del conector. Sin caché positiva entre peticiones se prioriza comprobar acceso reciente; futuras optimizaciones requieren un presupuesto explícito de obsolescencia y revocación. Es un cambio de seguridad respecto de los grants locales existentes y debe implementarse también en las superficies humanas afectadas antes de afirmar acceso integrado seguro. Revertirlo o permitir acceso histórico independiente requiere otra decisión; no basta conservar un grant ni reutilizar credenciales de máquina.
+
+## Amendment 2026-11-22: VIEW verification budget (MVP)
+
+Accepted by the project owner after measuring the local stack: each human read re-verified access with 4–5 GitHub API calls (~1.7 s), and dashboard lists repeat it per row (~120 calls per page), enough to exhaust the user's GitHub rate limit during a demo.
+
+- **Staleness budget:** Pipeline may reuse a successful `VIEW` verification for at most 30 s (`pipeline.ingestion.view-access-cache-ttl`, maximum 60 s, `0` disables), keyed by actor, subject, repository set and operation. A revocation in GitHub therefore affects reads within 30 s.
+- **No budget for commands:** `OPERATE`, `CONFIGURE`, grants, registration and workflow verification always verify live, so a revoked user cannot change state from cached facts.
+- **Never cached:** failures, unavailable verifications and unlinked connections.
+
+Implementation: pipesor-pipeline-service `CachingGitHubConnector`.
