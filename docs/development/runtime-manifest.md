@@ -33,8 +33,12 @@ simulated caller auth) are allowed only in automated tests.
 | `PIPESOR_TENANT_ID` | environment tenant UUID |
 | `PIPESOR_WORKLOAD_ID` | workload id from the identity contract |
 | `PIPESOR_SIGNING_KEY_FILE` or `PIPESOR_SIGNING_KEY_ID` | signing key (see profiles) |
-| `PIPESOR_SECURITY_TRUSTED_WORKLOADS_<n>_ID/JWKS_URI/ROLES` | inbound callers |
-| `PIPESOR_SECURITY_SESSION_JWKS_URI` | session JWKS (services with human APIs) |
+| `PIPESOR_SECURITY_AUDIENCE` | own audience `urn:pipesor:api:<workload>` |
+| `PIPESOR_SECURITY_TRUSTEDWORKLOADS_<n>_ID`, `_JWKSURI`, `_ROLES` (comma-separated) | inbound callers (Spring relaxed binding of `pipesor.security.trusted-workloads[n]`) |
+| `PIPESOR_SECURITY_SESSION_JWKSURI` | session JWKS (services with human APIs) |
+| `PIPESOR_SESSION_SIGNING_KEY_FILE` or `PIPESOR_SESSION_SIGNING_KEY_ID` | session key (Ingestion only) |
+| `PIPESOR_ENDPOINTS_<TARGET>` | outbound base URL per target workload, e.g. `PIPESOR_ENDPOINTS_LOGEVENT` |
+| `PIPESOR_SERVICE_BUS_TOPIC` / `PIPESOR_SERVICE_BUS_SUBSCRIPTION` | `workflow-evidence` / own subscription |
 | `PIPESOR_DASHBOARD_ORIGIN` | CORS origin (services with human APIs) |
 | `PIPESOR_DATABASE_URL` / user / password (local only) | PostgreSQL, database `pipesor` |
 | `PIPESOR_SERVICE_BUS_NAMESPACE` or `PIPESOR_SERVICE_BUS_CONNECTION_STRING` (local only) | messaging |
@@ -96,8 +100,10 @@ pull images from GHCR with a registry credential stored as a Container Apps secr
   `vector` extension created at init;
 - `servicebus-emulator` with its SQL Edge dependency, configured with the topology
   above, AMQP on host port `5672`;
-- a key-generation script that writes one PEM per workload plus the session key under
-  `~/.config/pipesor-local/keys/` with mode 0600.
+- `tools/local_stack.py init`, which writes one PEM per workload plus the session key
+  under `~/.config/pipesor-local/keys/`, stack credentials, and one
+  `~/.config/pipesor-local/env/<workload>.env` per service with the settings above
+  (all mode 0600, directories 0700). `up`, `down` and `status` manage the containers.
 
 Services run from their repositories with the `local` profile against this stack. The
 historical `pipesor-local-postgres` container (port `55433`) is not part of the stack.
