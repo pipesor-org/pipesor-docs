@@ -122,3 +122,20 @@ Returns `200` with `{ "report": <diagnosis projection without reviews>,
 while processing (the workflow retries with backoff), `403` if the OIDC repository
 does not match. The report workflow uploads the markdown as a run artifact and links
 the failed run id and attempt.
+
+## Internal: capture workflow scopes (ADR-023)
+
+`PUT /internal/v1/capture/workflow-scopes/{repositoryId}/{workflowId}` — workload `pipeline`,
+role `Pipeline.CaptureScope.Write`.
+
+Request: `{"requestId": "uuid", "correlationId": "string", "pipelineId": "uuid",
+"monitoringStatus": "ACTIVE|PAUSED"}`.
+
+`200`: `{"repositoryId", "workflowId", "pipelineId", "status", "scopeRevision", "revision"}`.
+Repeating the same status returns the same revision. `404 REPOSITORY_NOT_ADMITTED` when the
+repository has no operator admission for the tenant; `409 PIPELINE_MISMATCH` when the scope is
+already bound to another pipeline id; `400` for invalid identifiers; `503` when storage is
+unavailable. Responses set `Cache-Control: no-store`.
+
+The analysis request (`POST …/analysis`) returns `409 CAPTURE_SCOPE_PENDING` while the workflow
+has no `ACTIVE` scope.
