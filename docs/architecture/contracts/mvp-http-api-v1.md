@@ -33,13 +33,15 @@ guarantees recorded in [pending decisions](../pending-decisions.md).
 | `DELETE /api/v1/github/connection` | `GitHub.Self` | existing | |
 | `GET /api/v1/github/repositories?limit=&cursor=` | `GitHub.Self` | existing | admitted + readable only; `limit` required |
 | `GET /api/v1/github/repositories/{repositoryId}/workflows?limit=&cursor=` | `GitHub.Self` | existing | `limit` required |
-| `GET /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs?conclusion=failure` | `GitHub.Self` | new | `items[]: {runId, attempt, conclusion, headBranch, headSha, createdAt, htmlUrl}` |
-| `POST /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs/{runId}/attempts/{attempt}/analysis` | `GitHub.Self` | generalized | replaces the configured single run; requires OPERATE conditions of ADR-020; returns `202 {analysisId, phase}` and only records durable intent |
+| `GET /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs?conclusion=failure|success` | `GitHub.Self` | new | `items[]: {runId, attempt, conclusion, headBranch, headSha, createdAt, htmlUrl}`; `failure` (default) lists runs to analyse, `success` runs to record as verification; other values 400 |
+| `POST /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs/{runId}/attempts/{attempt}/analysis` | `GitHub.Self` | generalized | replaces the configured single run; requires OPERATE conditions of ADR-020; returns `202 {analysisId, phase}` and only records durable intent; accepts failed runs (analysis) and successful runs (verification capture) |
 | `GET /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs/{runId}/attempts/{attempt}/analysis` | `GitHub.Self` | existing (pilot) | `{analysisId, phase: ACCEPTED|PREPARING|PUBLISHED|BLOCKED, blockedReason?, executionId?, incidentId?}` |
 
 `executionId` and `incidentId` are the deterministic Pipeline identifiers derived from
 the same repository, workflow, run and attempt, so the dashboard can navigate without
-asking for internal UUIDs.
+asking for internal UUIDs. Both appear once the phase is `PUBLISHED`; `incidentId` only
+when the run failed. A successful run yields only `executionId`, which the dashboard
+passes to Pipeline's `POST /api/v1/incidents/{id}/verification`.
 
 ## Pipeline — operations (external ingress)
 
@@ -52,7 +54,16 @@ New:
 
 | Method and route | Notes |
 |---|---|
-| `GET /api/v1/incidents?state=OPEN|NEEDS_VALIDATION|RESOLVED` | cross-pipeline queue for Operations, filtered by VIEW grants and current GitHub access before paging; removes the per-pipeline N+1 fan-out |
+| `GET /api/v1/incidents?state=OPEN|RESOLVED` | cross-pipeline lifecycle queue, filtered by VIEW grants and current GitHub access before paging; removes the per-pipeline N+1 fan-out. `OPEN` is every active incident (`OPEN`, `IN_REMEDIATION`, `VERIFICATION`) |
+
+Incident reads (`/incidents`, `/incidents/{id}`, `/pipelines/{id}/incidents`) include
+`displayNumber`, a database-assigned sequence shown as `INC-<n>`. It is presentation only:
+routes and contracts keep the UUID as identity.
+
+Diagnosis validation is not a lifecycle state, so Pipeline has no validation queue. The
+dashboard's *Needs validation* view is the `RESOLVED` queue joined with each incident's
+diagnosis `status = PENDING` from Recommendation (decision D03); with diagnoses read per
+visible row, a page may show fewer items than `pageSize`, which is accepted for the MVP.
 
 `POST /api/v1/pipelines` performs real registration: GitHub facts come from Ingestion
 (`Pipeline.GitHubFacts.Read` + subject token), never from the browser.
