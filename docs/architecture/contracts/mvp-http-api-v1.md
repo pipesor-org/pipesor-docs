@@ -42,7 +42,7 @@ guarantees recorded in [pending decisions](../pending-decisions.md).
 
 ```json
 {
-  "context": { "requestId": "…", "correlationId": "…", "githubUserId": "…", "observedAt": "RFC 3339" },
+  "context": { "…": "same discovery context object as GET /api/v1/github/repositories" },
   "installations": [
     {
       "installationId": "string",
