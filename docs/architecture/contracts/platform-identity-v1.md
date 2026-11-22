@@ -90,8 +90,12 @@ protected request still applies ADR-020's grant and current GitHub access checks
 When a workload acts for a user, it sends its workload token in `Authorization` and
 the user's unmodified session token in `X-Pipesor-Subject-Token`. The target validates
 both: the workload token per §2 and the session token per §3 with its own audience.
-The subject is the session `oid`. A subject token is never accepted alone and never
-forwarded beyond one hop.
+The subject is the session `oid`. A subject token is never accepted alone. It may be
+forwarded only to the owner of the facts the target needs and only along these paths:
+dashboard → Pipeline → Ingestion, dashboard → Recommendation → Pipeline, and
+Recommendation → Pipeline → Ingestion (Pipeline resolving GitHub facts for a diagnosis
+entitlement). Each hop presents its own workload token; the session token is never
+modified and its audiences limit where it is accepted.
 
 ## 5. Login flow (Ingestion)
 
