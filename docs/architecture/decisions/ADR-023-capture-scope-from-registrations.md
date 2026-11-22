@@ -42,4 +42,7 @@ owner approved replacing it on 2026-11-22.
   registrations and Ingestion of capture authority.
 - Until Pipeline's first successful sync, a newly registered workflow is not capturable; the
   analysis request reports that state instead of capturing.
+- Post-commit calls from two quick status changes can reach Ingestion out of order; the last
+  writer wins until the next reconciliation pass (default 5 minutes) restores Pipeline's current
+  status. Each replica reconciles independently; idempotent writes make that safe.
 - `model/domain.yml` must add both tables (tracked with the other MVP tables).
