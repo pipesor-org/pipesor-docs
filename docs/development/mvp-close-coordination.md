@@ -44,6 +44,64 @@ ajeno; los cambios necesarios en el otro lado se piden mediante issue.
 | 24/11 | Despliegue en Azure dev (o decisión de contingencia comunicada a coordinación) |
 | 25/11 | Escenarios ejecutados, artifact publicado, evidencias saneadas y demostración |
 
+## Estado verificado — 22/11/2026
+
+Recorrido real ejecutado en local con el stack compartido y los cinco servicios Java
+(ramas `feat/platform-runtime` / `feat/runtime-composition`, PRs abiertos):
+
+| Tramo | Resultado observado |
+|---|---|
+| Login | GitHub OAuth (App `pipesor-dev`) → sesión Pipesor con los claims de §3 del contrato de identidad |
+| Discovery | Repositorios, workflows y runs fallidos reales consultados con el token de usuario custodiado por Ingestion |
+| Registro | `POST /api/v1/pipelines` del workflow `412504984`: Pipeline verificó admin/admitido/legible vía Ingestion (workload + sujeto); grant `CONFIGURE` y evento de auditoría |
+| Captura | Run auténtico `43055757606` → recibo `PUBLISHED`, snapshot y evidencia 2.2 `CONFIRMED` en el emulador de Service Bus |
+| Pipeline | Ejecución fallida, incidente `OPEN` (`INFRASTRUCTURE`) con vínculo `ORIGIN`; visible en `GET /api/v1/incidents?state=OPEN` |
+| Log/Event | Evidencia registrada tras `Evidence.Check` contra Pipeline, con los mismos IDs, run, attempt y localizador |
+| Pendiente | NLP → Correlation → Recommendation (RAG + GPT-4o) → dashboard: Correlation, Recommendation y su worker de diagnóstico ya corren y esperan la salida de NLP |
+
+### Reproducir en otra máquina
+
+1. Clonar los repos con `pipesor-workspace` y hacer checkout de las ramas de los PRs (o `main`
+   cuando estén fusionados). Requisitos: Docker, Java 25, Python 3.14, `az login` con acceso al
+   recurso Foundry `ai-pipesor-dev-04f339b7` (para GPT-4o y embeddings).
+2. `python3 tools/local_stack.py init && python3 tools/local_stack.py up` en `pipesor-workspace`.
+3. Credenciales privadas, nunca en Git ni en chats: la clave PEM de la GitHub App en la ruta de
+   `~/.config/pipesor-local/ingestion-capture.properties`, el *client secret* de la App en
+   `~/.config/pipesor-local/github-client-secret` (0600) y `authority.json` con la instalación
+   admitida. Se comparten por un canal seguro (gestor de contraseñas). El login exige ser
+   administrador del repositorio registrado.
+4. `./mvnw -B -ntp -DskipTests package` en cada servicio Java y
+   `python3 tools/local_stack.py services-start`.
+5. Login en `http://127.0.0.1:8081/api/v1/auth/github/start?return_to=/operations`; el dashboard
+   recibe `/auth/complete?handoff=…` (o `?error=<code>` si falla) y lo canjea en
+   `POST /api/v1/auth/session`, cuya respuesta incluye también `returnTo`.
+6. Registrar el workflow, pedir el análisis de un run fallido y observar los logs en
+   `~/.local/state/pipesor-local/`.
+
+El emulador conserva los mensajes como máximo una hora: para probar NLP más tarde se analiza
+otro run fallido (por ejemplo `43054769400`) en lugar de esperar los mensajes ya publicados.
+
+### Puntos de integración para NLP, RAG y frontend
+
+- **NLP → Correlation:** `POST http://127.0.0.1:8085/internal/v1/processed-evidence` (Azure:
+  `https://correlation.internal.<env-domain>/…`) con token de workload `nlp`
+  (`aud urn:pipesor:api:correlation`, rol `Nlp.ProcessedEvidence.Send`), `Idempotency-Key` =
+  `message_id`, `X-Correlation-ID`. Correlation acepta `contract_version` 2.0, 2.1 y 2.2; con 2.1
+  o 2.2 el `source_locator` debe cumplir la gramática 2.2 y se reenvía sin cambios. Correlation
+  descubre la clave de NLP en `http://127.0.0.1:8084/.well-known/jwks.json`, por lo que NLP debe
+  publicar su JWKS aunque no tenga otra API. Respuestas: 200 `accepted|duplicate`; 503 = reintentar
+  (abandonar el mensaje); 400/409/413/422 = definitivo.
+- **Recommendation → RAG:** `POST http://127.0.0.1:8087/internal/v1/retrieval/query` con token de
+  workload `recommendation` (`aud urn:pipesor:api:rag`, rol `Rag.Query`); RAG valida contra
+  `http://127.0.0.1:8086/.well-known/jwks.json`. El cuerpo y la respuesta no cambian respecto a
+  ADR-021/contrato RAG v0.1.
+- **Frontend:** API según `mvp-http-api-v1.md`. Las rutas de discovery existentes de Ingestion
+  paginan con `limit` (obligatorio) y `cursor`; la lista de runs fallidos usa
+  `pageSize`/`pageToken`. CORS permite solo `PIPESOR_DASHBOARD_ORIGIN`
+  (`http://127.0.0.1:5173` en local).
+- **IaC:** variables y roles del manifiesto; Ingestion además necesita las variables
+  `PIPESOR_GITHUB_*` (ver README de Ingestion) y la callback de Azure registrada en la App.
+
 ## Brief para la sesión de Codex
 
 > Copiar este bloque como primer mensaje de la sesión de Codex.

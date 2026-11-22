@@ -27,12 +27,12 @@ guarantees recorded in [pending decisions](../pending-decisions.md).
 |---|---|---|---|
 | `GET /api/v1/auth/github/start?return_to=` | none | new | §5 of the identity contract |
 | `GET /api/v1/auth/github/callback` | none | new | redirects to the dashboard |
-| `POST /api/v1/auth/session` | none | new | `{handoff}` → `{accessToken, expiresAt, user}` |
+| `POST /api/v1/auth/session` | none | new | `{handoff}` → `{accessToken, expiresAt, user, returnTo}`; the callback redirects with `?error=<code>` on failure |
 | `POST /api/v1/auth/logout` | `GitHub.Self` | new | 204 |
 | `GET /api/v1/github/connection` | `GitHub.Self` | existing | |
 | `DELETE /api/v1/github/connection` | `GitHub.Self` | existing | |
-| `GET /api/v1/github/repositories` | `GitHub.Self` | existing | admitted + readable only |
-| `GET /api/v1/github/repositories/{repositoryId}/workflows` | `GitHub.Self` | existing | |
+| `GET /api/v1/github/repositories?limit=&cursor=` | `GitHub.Self` | existing | admitted + readable only; `limit` required |
+| `GET /api/v1/github/repositories/{repositoryId}/workflows?limit=&cursor=` | `GitHub.Self` | existing | `limit` required |
 | `GET /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs?conclusion=failure` | `GitHub.Self` | new | `items[]: {runId, attempt, conclusion, headBranch, headSha, createdAt, htmlUrl}` |
 | `POST /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs/{runId}/attempts/{attempt}/analysis` | `GitHub.Self` | generalized | replaces the configured single run; requires OPERATE conditions of ADR-020; returns `202 {analysisId, phase}` and only records durable intent |
 | `GET /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs/{runId}/attempts/{attempt}/analysis` | `GitHub.Self` | existing (pilot) | `{analysisId, phase: ACCEPTED|PREPARING|PUBLISHED|BLOCKED, blockedReason?, executionId?, incidentId?}` |
