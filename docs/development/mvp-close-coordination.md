@@ -29,6 +29,8 @@ Actualización del 23/11/2026: el repositorio de escenarios se creó como
 [`pipesor-validation-scenarios`](https://github.com/pipesor-org/pipesor-validation-scenarios). Hasta
 que se incorpore Codex, una sesión de Claude Code dedicada a IA y evaluación mantiene ese repositorio,
 el corpus de evaluación y el [protocolo de evaluación](../research/protocolo-evaluacion-oe3.md).
+La corrida oficial de OE3-I2 se ejecutó el mismo día. Sus resultados están en el
+[informe de validación](../research/informe-validacion-oe3.md).
 
 ## Reglas
 
