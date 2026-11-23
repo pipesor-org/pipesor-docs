@@ -95,6 +95,8 @@ make validate_design
 
 `make validate` comprueba arquitectura y dominio; `make validate_design` comprueba además el diseño. Cuando corresponda y esté dentro del alcance, ejecutar el generador afectado, `make all` y las pruebas relevantes. `make all` genera archivos y no ejecuta la suite unittest. El Makefile utiliza `.venv/bin/python`; las herramientas externas dependen del target y se comprueban en `tools/check_env.sh`. No instalar dependencias ni ampliar el alcance para ocultar un fallo.
 
+El [CI](.github/workflows/ci.yml) usa las convenciones compartidas de [pipesor-ci](https://github.com/pipesor-org/pipesor-ci) (commitlint/Lefthook canónicos, título de PR de hasta 65 caracteres, actionlint y zizmor) y ejecuta `make validate validate-domain validate_design` con `requirements.txt`. Instalar el hook local con `bun install --frozen-lockfile && bun run setup:hooks`. La suite `make test` y las validaciones de presentación no son bloqueantes todavía porque fallan en `main`; ver el issue enlazado en el PR que añadió el CI.
+
 Para comprobar cambios con las dependencias ya instaladas:
 
 ```sh

@@ -14,3 +14,4 @@ build/
 
 # Local JavaScript generation dependencies
 node_modules/
+lefthook-local.yml
