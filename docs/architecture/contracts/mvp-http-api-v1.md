@@ -36,7 +36,7 @@ guarantees recorded in [pending decisions](../pending-decisions.md).
 | `GET /api/v1/github/repositories/{repositoryId}/workflows?limit=&cursor=` | `GitHub.Self` | existing | `limit` required |
 | `GET /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs?conclusion=failure|success` | `GitHub.Self` | new | `items[]: {runId, attempt, conclusion, headBranch, headSha, createdAt, htmlUrl}`; `failure` (default) lists runs to analyse, `success` runs to record as verification; other values 400 |
 | `POST /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs/{runId}/attempts/{attempt}/analysis` | `GitHub.Self` | generalized | replaces the configured single run; requires OPERATE conditions of ADR-020; returns `202 {analysisId, phase}` and only records durable intent; accepts failed runs (analysis) and successful runs (verification capture) |
-| `GET /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs/{runId}/attempts/{attempt}/analysis` | `GitHub.Self` | existing (pilot) | `{analysisId, phase: ACCEPTED|PREPARING|PUBLISHED|BLOCKED, blockedReason?, executionId?, incidentId?}` |
+| `GET /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs/{runId}/attempts/{attempt}/analysis` | `GitHub.Self` | existing (pilot) | `{analysisId, phase: ACCEPTED|PREPARING|PUBLISHED|BLOCKED, blockedReason?: SCOPE_CHANGED|SOURCE_EXPIRED, executionId?, incidentId?}`. `BLOCKED` is terminal; `SOURCE_EXPIRED` means GitHub no longer retains the run's logs (410 Gone). |
 
 `GET /api/v1/github/installations` returns `200`:
 
