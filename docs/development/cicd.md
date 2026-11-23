@@ -1,282 +1,147 @@
-# CI/CD: base del piloto y adopción en Pipesor
+# CI/CD en Pipesor
 
-Estado al 08/11/2026: implementación local de `pipesor-pipeline-service` preparada
-para revisión e integración. Esta guía registra lo implementado y orienta su
-extensión; **no es un ADR Accepted, autorización de Azure ni certificación del
-estándar en los demás repositorios**. Las referencias a main describen el destino
-de integración; hasta que se fusionen los PRs, consultar sus ramas para ver los
-cambios. No se modifican modelos, ADRs ni contratos pendientes.
-
-Revisión de implementación preparada para integración en el servicio:
-`18f3a14b24e63aef947bc1d5eff67e93eb33d1fd`; baseline documental consultada:
-`pipesor-docs@e22627cfee10b0b02edab084b98eb18926c678b5`, e IaC:
-`4b42c0c8e66578dfb890ae1cca8c9c31c774026e`. Los cambios locales de otro trabajo en
-`model/domain_decisions.md` no se incorporan ni se toman como aprobación CI/CD.
+Estado al 22/11/2026. Esta guía resume las prácticas acordadas y lo implementado en todos los
+repositorios. **No es un ADR Accepted** ni autoriza operaciones en Azure. Los comandos, versiones y
+contratos de cada pieza viven en su repositorio: [pipesor-ci](https://github.com/pipesor-org/pipesor-ci)
+para el pipeline compartido, el README de cada servicio para su verificación y el
+[runbook de IaC](https://github.com/pipesor-org/pipesor-iac/blob/main/docs/dev-runtime-deployment.md)
+para despliegue, promoción y rollback.
 
 ## Autoridad y ubicación de la información
 
 - La [política de contribución](https://github.com/pipesor-org/.github/blob/main/CONTRIBUTING.md)
-  gobierna branches cortas `feature/` o `fix/` desde main, Conventional Commits,
-  revisión y squash. No hay rama develop ni branches por entorno.
-- [ADR-018](../architecture/decisions/ADR-018-application-architecture-ddd-cqrs.md)
-  conserva repositorios y ownership por servicio; [ADR-019](../architecture/decisions/ADR-019-align-mvp-with-iac.md)
+  gobierna Trunk-Based Development: branches cortas `feature/` o `fix/` desde `main`, Conventional
+  Commits en inglés, revisión y squash. No hay rama `develop` ni branches por entorno.
+- [ADR-018](../architecture/decisions/ADR-018-application-architecture-ddd-cqrs.md) conserva
+  repositorios y ownership por servicio; [ADR-019](../architecture/decisions/ADR-019-align-mvp-with-iac.md),
+  [IaC ADR 001](https://github.com/pipesor-org/pipesor-iac/blob/main/docs/adr-001-branching-and-promotion.md)
   y [IaC ADR 004](https://github.com/pipesor-org/pipesor-iac/blob/main/docs/adr-004-mvp-state-and-deployment.md)
-  conservan preparación dev-only, readiness de los servicios y autorización
-  específica antes de bootstrap, identidades, state o despliegue.
-- Esta guía concentra principios, límites, contratos de evidencia propuestos y
-  adaptación entre tecnologías. El [README del piloto](https://github.com/pipesor-org/pipesor-pipeline-service/blob/main/README.md#ci-images-and-disabled-delivery)
-  es dueño de comandos, versiones de herramientas y procedimientos operativos,
-  incluido el [runbook de rollback](https://github.com/pipesor-org/pipesor-pipeline-service/blob/main/README.md#rollback-implementation-and-runbook).
-  Su [deployment contract](https://github.com/pipesor-org/pipesor-pipeline-service/blob/main/docs/deployment-contract.md)
-  conserva configuración, accesos, dependencias y readiness específicos. El
-  [runbook IaC](https://github.com/pipesor-org/pipesor-iac/blob/main/docs/mvp-deployment-runbook.md)
-  conserva planes, state, custodia y operaciones de infraestructura.
+  conservan el alcance dev-only, la promoción por SHA/digest y la autorización explícita de cada apply.
+- [pipesor-ci](https://github.com/pipesor-org/pipesor-ci) es dueño de los workflows reutilizables,
+  de la configuración canónica de commitlint/Lefthook y de la herramienta de release.
 
-## Estado real y límites de evidencia
+## Controles del repositorio
 
-| Capacidad | Estado del piloto | Pendiente |
-|---|---|---|
-| PR/main CI | Workflow implementado; PR verificado en GitHub con commitlint, pruebas Java/PostgreSQL, empaquetado, imagen no root, smoke y artifact de reportes | Verificación hosted de main después de merge; checks no equivalen a merge protegido |
-| Publicación GHCR | Job separado, solo push main; carga la misma imagen comprobada, sin reconstruir | Permisos/package access, transferencia real de artifacts y publicación por GitHub |
-| Release RC/stable | Implementada y **deshabilitada en código**; manifiesto de versión al mismo digest | Activación autorizada; productor preprod para stable |
-| Deploy y rollback dev | Adaptador ACA image-only, operación explícita rollback, **deshabilitados en código** | Readiness, ownership, runner, OIDC/RBAC, pull privado, pruebas reales |
-| Retención | Inventario/protecciones locales → preview sin credenciales ni borrado | Inventario completo y política aprobada antes de implementar limpieza |
-| Promoción entre entornos | TO-BE documentado | Destinos, validadores, controles independientes y pruebas de mismo digest |
+Todos los repositorios de `pipesor-org` son públicos. En GitHub Free eso habilita rulesets, required
+checks y Environments con revisores, que antes no estaban disponibles. Desde el 22/11/2026:
 
-`release.yml` y `deploy.yml` contienen `false && ...` en el job: ningún dispatch
-ni variable puede activarlos. La integración de estos archivos no aprueba su
-activación. No hay recursos Azure creados por esta tarea. D03 no está aprobada;
-el laboratorio V1–V5 y D03-EXP quedan suspendidos. ACA Jobs, el bootstrap de
-identidades y la gestión de credenciales GHCR no quedan validados por pruebas
-locales con respuestas simuladas.
+- La rama por defecto de cada repositorio tiene un ruleset: PR obligatorio (sin aprobaciones mínimas,
+  porque el equipo es pequeño y los agentes publican con la cuenta de un integrante), resolución de
+  conversaciones, solo squash, sin force push ni borrado. Los required checks del CI se añaden a esos
+  rulesets una vez integrado el CI compartido.
+- Los tags `v*` están protegidos contra borrado y movimiento.
+- Ajustes de merge uniformes: solo squash con título y descripción del PR, borrado de la rama tras el
+  merge y auto-merge habilitado.
+- Las imágenes en GHCR siguen siendo privadas; el publicador compartido lo verifica en cada push.
 
-Evidencia posterior a la preparación local: [CI del PR #8](https://github.com/pipesor-org/pipesor-pipeline-service/actions/runs/42561403488),
-attempt 1, sobre `18f3a14b24e63aef947bc1d5eff67e93eb33d1fd`, terminó con éxito.
-El job verify ejecutó pruebas, construcción/smoke de imagen y subida del artifact
-`tests-42561403488-1`. El job publish se omitió por ser PR: no demuestra todavía
-transferencia/publicación de la imagen en main, GHCR, release ni Azure.
+## Pipeline compartido
 
-## Flujo implementado: verificación, artefacto y despliegue
+| Pieza | Qué hace |
+|---|---|
+| `conventions.yml` | Configuración canónica de commitlint/Lefthook (falla ante desviaciones), título de PR de hasta 65 caracteres y descripción no vacía, Conventional Commits del rango del PR y del commit integrado en `main`, actionlint y zizmor. Lo ejecutan todos los repositorios. |
+| `container-build.yml` | Verificación del repositorio, una sola construcción `ghcr.io/<repo>:sha-<sha>-<run>-<attempt>`, etiqueta OCI de revisión, usuario no root, chequeos propios del repositorio y traspaso del archivo exacto (artifact de un día). |
+| `image-assurance.yml` | SBOM CycloneDX y reporte de vulnerabilidades con Trivy (evidencia de 90 días); bloquea HIGH/CRITICAL con versión corregida. Las excepciones revisadas van en `.trivyignore.yaml` con issue y vencimiento. |
+| `publish-container.yml` | Solo push a `main`: carga el archivo verificado, mantiene privado el paquete, publica sin reconstruir y registra `candidate-<run>-<attempt>/candidate.json` (90 días). |
+| `service-ci.yml` | Compone las cuatro piezas anteriores con la sintaxis `uses: $/...`. |
+| `actions/release` | Nombra un digest existente con `vX.Y.Z[-rc.N]` y una GitHub Release; nunca reconstruye ni re-etiqueta el registro. |
 
-CI no es un entorno Azure. Un build de comprobación de PR no se publica. Tras
-integrar en main se vuelve a verificar el commit integrado, se empaqueta el JAR y
-se construye/prueba la imagen una vez. Un job con `packages: write` recibe el
-archivo exacto con checksum, verifica su revisión de origen y lo publica en GHCR.
-La verificación no recibe permisos de publicación ni credenciales cloud.
-
-La etiqueta técnica es `sha-<SHA completo>-<run>-<attempt>`; el despliegue consume
-`ghcr.io/<repositorio>@sha256:<digest>`. `candidate.json` schema 1 contiene
-`source_sha`, `image`, `digest`, `build_run_id`, `build_run_attempt`. El consumidor
-comprueba la ejecución/attempt histórica de CI: mismo repositorio, workflow,
-push main y éxito; también ancestry en main. El tag mutable no sustituye al
-digest. Una etiqueta/run nuevo tras un reintento no es una nueva release SemVer.
-
-La concurrencia de PR cancela verificaciones obsoletas. Main no cancela el job
-activo, pero GitHub puede reemplazar runs pendientes: no se garantiza un artefacto
-por cada merge en una ráfaga. Fallar CI impide publicación. Si falla publicación,
-revisar el estado remoto y repetir el workflow completo, no solo el job fallido:
-los artifacts y la etiqueta incorporan el attempt. No modificar candidatos previos.
+Los consumidores fijan el SHA completo del tag (`v1.0.0`) con un comentario de versión; Dependabot
+(`github-actions`, semanal, cooldown de 7 días) propone actualizaciones. Todas las acciones de terceros
+están fijadas por SHA y las imágenes de herramientas por digest.
 
 ```puml
-@startuml Pipesor_CI_Pilot
-title Pipesor - CI pilot (PR verified; main publication pending)
+@startuml Pipesor_Shared_CI
+title Pipesor - shared CI (pipesor-ci service-ci.yml)
 autonumber
 hide footbox
 actor Developer as dev
-participant "GitHub CI: verify" as ci
-participant "GitHub artifacts" as artifacts
-participant "GitHub CI: publish" as publish
+participant "conventions" as conv
+participant "build" as build
+participant "image assurance" as scan
+participant "publish" as publish
 participant GHCR as registry
-participant "Release / deploy" as delivery
-dev -> ci : PR short-lived branch -> main
-ci -> ci : Commitlint, tests, package, Docker build + smoke
-alt Verification fails
-  ci --> dev : Failure; no publication
-else Review and squash merge
-  dev -> ci : Push integrated main commit
-  ci -> ci : Verify merged commit; build/test image once
-  ci -> artifacts : Exact image archive + checksum (1 day)
-  artifacts --> publish : Same run/attempt archive
-  publish -> publish : Check checksum and source label
-  publish -> registry : Push technical image; obtain digest D
-  publish -> artifacts : candidate.json source/run/attempt/D (90 days)
+participant "pipesor-iac (Terraform)" as iac
+dev -> conv : PR short-lived branch -> main
+conv -> conv : Canonical tooling, title/body/commits, actionlint, zizmor
+dev -> build : Verify, build image once, repository checks
+build -> scan : Exact archive (same run)
+scan -> scan : SBOM, report, block fixable HIGH/CRITICAL
+alt Any check fails
+  scan --> dev : Failure; nothing published
+else Squash merge and push to main
+  dev -> build : Re-verify the integrated commit
+  build -> scan : Same flow
+  scan -> publish : Archive + checksum
+  publish -> registry : Push without rebuilding; private package; digest D
+  publish -> publish : candidate.json (source, run/attempt, D)
 end
-note over delivery
-Release and deployment jobs are hard-disabled.
-No automatic RC, version or dev deployment per merge.
+note over iac
+Services never deploy. The environment root pins D
+in a reviewed plan applied with explicit authorization.
 end note
 @enduml
 ```
 
-## Versiones, paquetes y retención
+## Estado por repositorio
 
-La **identidad técnica**, la **versión de release** y el **destino desplegado** son
-conceptos distintos. Cincuenta integraciones pueden producir candidatos técnicos
-sin producir ningún RC ni versión estable. El operador selecciona cuándo nombrar
-un candidato; RC `X.Y.Z-rc.N` es opcional, no una etapa obligatoria de CI.
+| Repositorio | CI | Artefacto | Estado |
+|---|---|---|---|
+| 5 servicios Java | `service-ci.yml` (Maven) | Imagen + `candidate.json` | Publicando desde `main`; release deshabilitado en código; excepciones Trivy con vencimiento 06/12/2026 (apt de la base y `proton-j`) con issues de remediación |
+| `pipesor-nlp-log-processor`, `pipesor-rag-retrieval` | `service-ci.yml` (Python) | Imagen + `candidate.json` | Publicando; sus validadores propios fueron reemplazados por commitlint; RAG ya no re-etiqueta GHCR (`promote-release` retirado) |
+| `pipesor-frontend` | `service-ci.yml` (Bun) | Imagen nginx + `candidate.json` | Build Once: el contenedor genera `/config.js` y la CSP desde `PIPESOR_*_URL` al arrancar; IaC define esas variables |
+| `pipesor-iac` | `conventions.yml` + matriz Terraform + tooling | — | Sin credenciales ni plan real en CI |
+| `pipesor-docs` | `conventions.yml` + validadores de modelos | — | `make test` y validaciones de presentación aún fallan en `main` ([#36](https://github.com/pipesor-org/pipesor-docs/issues/36)) |
+| `pipesor-landing` | `conventions.yml` + checks/test/build/dry-run | Workers | El despliegue sigue en Workers Builds |
+| `pipesor-workspace`, `.github`, `pipesor-ci` | `conventions.yml` + tests propios | — | La capa compartida anterior de workspace se retiró |
 
-La implementación prepara tags `vX.Y.Z[-rc.N]` y GitHub Release con notas y
-`candidate.json`, sin reconstrucción ni retag GHCR. Antes de una base estable 1.x,
-se exige objetivo explícito `X.Y.Z` creciente; breaking en 0.x no declara 1.0
-automáticamente. Desde base estable 1.x: breaking → major, feat → minor, otros
-cambios seleccionados → patch; prevalece el mayor impacto desde el mayor tag
-estable ancestral del candidato. RC retenido → stable conserva X.Y.Z. Estas son
-convenciones del piloto, no obligaciones de [SemVer](https://semver.org/).
-Versiones publicadas no se sobrescriben. El flujo excepcional hotfix de la
-política organizacional **no está implementado** por este piloto.
+## Identidad, versiones y retención
 
-Stable mantiene el gate preprod de la política existente. Dev-only no lo omite:
-sin productor/validación preprod no se puede publicar stable. El proceso
-main → dev bajo demanda difiere del objetivo organizacional de dev automático:
-es una preparación explícita del MVP; no cambia las reglas futuras. La selección
-manual de versiones 0.x y el contrato de evidencia preprod deben revisarse al
-adoptar el estándar, sin alterar unilateralmente CONTRIBUTING ni ADRs.
+La **identidad técnica**, la **versión de release** y el **destino desplegado** son conceptos distintos.
+El digest es la identidad; el tag técnico es único por run/attempt y un reintento no crea una nueva
+versión SemVer. `candidate.json` schema 1 (`source_sha`, `image`, `digest`, `build_run_id`,
+`build_run_attempt`) es el traspaso hacia releases y entornos. La herramienta de release verifica que
+el candidato provenga de un push exitoso de `ci.yml` en `main` y su ancestría.
 
-La entrega del backend es la imagen, no una biblioteca Maven/PyPI. El SNAPSHOT
-del POM es metadata interna, no identidad de entrega. Dependencias y base image
-están fijadas; actualizarlas requiere volver a validar, no reconstruir una release
-existente para promocionarla. No se publica un paquete adicional sin consumidor.
+RC `X.Y.Z-rc.N` es opcional. Antes de una base estable 1.x se exige un objetivo `X.Y.Z` explícito y
+creciente; desde 1.x, breaking → major, feat → minor, el resto → patch. Las versiones publicadas no se
+sobrescriben. Stable exige validación preprod retenida para el mismo digest, así que en dev-only no se
+publica stable. El hotfix organizacional no está implementado.
 
-GHCR conserva las imágenes: **no hay limpieza automática**. El preview protege
-releases RC/stable, digests activos/en curso/seleccionados y de rollback con
-snapshot completo verificado de hasta 24 h. Propone solo etiquetas técnicas
-reconocidas, antiguas y no protegidas; conserva las diez más recientes por
-defecto (edad 30 días). Son defaults revisables de preview, no política de borrado
-aprobada. Evidencia ausente/obsoleta lo rechaza; no alimentarlo directamente a un
-borrado. Evidencia original y manifiestos deben durar mientras haya elegibilidad
-para release/promoción/recuperación: 90 días de artifact no garantizan ese plazo.
-La retención funcional de [ADR-013](../architecture/decisions/ADR-013-retention-365-days.md)
-no se satisface ni redefine con estas retenciones técnicas.
+GHCR conserva las imágenes; **no hay limpieza automática**. `pipesor-pipeline-service` mantiene el
+preview local de retención (sin capacidad de borrado). Las evidencias de candidato y aseguramiento
+duran 90 días; si se necesita más para una promoción o recuperación, se revalida. La retención
+funcional de [ADR-013](../architecture/decisions/ADR-013-retention-365-days.md) no se satisface ni
+redefine con estas retenciones técnicas.
 
-## Responsabilidades y controles de activación
+## Despliegue, promoción y rollback
 
-| Owner | Responsabilidad y frontera |
-|---|---|
-| Servicio | Código/tests, dependencias, imagen/manifiesto, compatibilidad de schema/API y requisitos runtime; comandos y runbook propios |
-| Infraestructura | Fundaciones/red/entorno, state/planes, recursos/identidades y grants aprobados; no consumir implícitamente un contrato de readiness |
-| Aplicación, pendiente de aceptación | Un owner para provisión/configuración de la app y su imagen; el adaptador preparado solo actualiza imagen de una app existente |
-| Operador dev | Revisión/autorización exacta, coordinación de writes, compatibilidad y aceptación funcional tras readiness |
+**Decisión del 22/11/2026 (Jhon y Ramiro, por mejor ajuste a las prácticas buscadas):** el root
+Terraform de cada entorno es el **único dueño de la imagen desplegada**. Motivos: un solo escritor del
+estado deseado (sin reconciliación competitiva entre Terraform y un adaptador imperativo), plan
+revisado por entorno según IaC ADR 001, promoción del mismo digest entre roots, ninguna credencial de
+Azure ni runner self-hosted en repositorios públicos de aplicación, y un flujo ya probado en el
+despliegue integral de dev. Por eso se retiraron los `deploy.yml`, el adaptador ACA image-only y su
+rollback de los cinco servicios Java.
 
-Preparar el adaptador nativo **no decide** Terraform frente a ACA nativo como
-estándar global. Antes de activarlo hay que aceptar propiedad de imagen/config,
-evitar reconciliación competitiva de Terraform y coordinar configuración,
-provisioning y recuperación. `ignore_changes` aislado no constituye un contrato.
-Si se conserva Terraform como owner de imagen, sustituir el adaptador inactivo
-bajo revisión. No se reutilizan planes Terraform entre estados/entornos.
+- **Desplegar:** tomar el `image@digest` de `candidate.json`, ponerlo en `workloads.images` del root,
+  generar un plan nuevo, revisar que solo cambie la Container App esperada y aplicarlo con
+  autorización.
+- **Promover:** el mismo digest en el root del siguiente entorno, con su propio plan revisado; nunca se
+  reutiliza un plan ni un state.
+- **Rollback:** un plan revisado nuevo con el digest anterior. No hay downgrade SQL ni restauración de
+  state implícitos; una incompatibilidad de esquema o configuración obliga a revisar un forward fix.
+- **Configuración:** variables y referencias a secretos las aporta el root; ningún valor secreto vive
+  en la imagen ni en los manifiestos. El frontend lee sus orígenes en runtime para que su digest sea
+  promovible.
 
-GitHub Free/private no aporta los required reviewers/protecciones de entorno
-asumidos en el modelo EY. El piloto no usa environment secrets ni gates no
-contratados. Review/squash y autorización por issue/PR son procedimientos humanos;
-una URL no demuestra aprobación independiente. OIDC autentica, Azure RBAC
-autoriza; ambos son distintos de permisos GitHub y de la identidad runtime/pull
-privado. Trust main del repositorio exacto y RBAC mínimo sobre la app existente
-requieren configuración y validación separadas; app-write no es permiso solo de
-imagen. No se añade Contributor de suscripción ni grants de infraestructura por
-comodidad. Ver [disponibilidad por plan](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments).
-
-Prerrequisitos de activación, todos pendientes de evidencia real: readiness e
-integración de servicios según ADR 004; runtime/config/probes/migraciones/acceso
-PostgreSQL Entra y audit; app/env/container existentes en modo Single; ownership
-aceptado y exclusión de writes concurrentes; pull GHCR privado; runner Debian
-limpio de un job, CLI/dependencias/red cualificados; identidad/trust/RBAC y coste;
-autorización explícita del destino/acción y eliminación revisada del disable.
-La [lista operativa del piloto](https://github.com/pipesor-org/pipesor-pipeline-service/blob/main/README.md#ci-images-and-disabled-delivery)
-conserva los nombres exactos de variables e inputs.
-
-## Recuperación y validación
-
-Rollback es un dispatch explícito de la misma ruta serializada, no una reacción
-automática ni un Git revert. Requiere un candidato publicado y un run/attempt de
-entrega anterior exitoso para el mismo destino, con receipt versionado y
-`aca_ready`, más confirmación humana de aceptación funcional y compatibilidad
-actual de schema/config. Verifica productor/origen/digest antes de Azure. Escribe
-antes de mutar el estado previo permitido y después el resultado; conserva
-request y receipts por 90 días. Se vuelve a desplegar el digest A, sin construir
-ni asignar otra versión. Una nueva revisión ACA no es requisito de idempotencia:
-mismo digest/config puede conservar la revisión. El receipt histórico no implica
-que se reactive esa misma revisión histórica.
-
-```puml
-@startuml Pipesor_Recovery_Prepared
-title Pipesor - prepared recovery (hard-disabled; simulated Azure tests)
-autonumber
-hide footbox
-actor Operator as op
-participant "deploy.yml / preflight" as flow
-participant "CI + prior delivery artifacts" as proof
-participant "OIDC / Azure RBAC" as identity
-participant "Existing dev Container App" as aca
-participant "Delivery receipts" as evidence
-op -> flow : Deploy B + exact digest/target + authorization
-flow -> proof : Verify candidate and historical CI attempt
-flow -> identity : Login only after preflight (activation required)
-flow -> aca : Read exact target; persist previous state
-flow -> evidence : fsync previous image/revisions before update
-flow -> aca : Update image B; poll readiness
-alt Rejected before update
-  flow -> evidence : Rejected / not_started result
-else Update or readiness fails
-  flow -> evidence : Failed result; no automatic rollback
-  op -> aca : Inspect actual target (authorized read)
-  op -> flow : rollback A + good delivery run/attempt + compatibility confirmation
-  flow -> proof : Bind A to earlier successful same-target delivery
-  flow -> identity : Preflight then authorized login
-  flow -> aca : Persist before-state; update exact digest A
-  flow -> evidence : Recovery result and selected rollback origin
-  op -> aca : Approved functional validation
-else Control-plane ready
-  flow -> evidence : aca_ready (not functional acceptance)
-  op -> aca : Approved functional validation
-end
-@enduml
-```
-
-No hay downgrade SQL, restauración de state, recreación de app, traffic splitting
-ni recuperación de configuración en este rollback. Un fallo de actualización puede
-haber mutado la app: inspeccionar antes de decidir. Falta de evidencia, competencia
-de writes o compatibilidad incierta obliga a detenerse y revisar un forward fix o
-recuperación por el owner. Perder el runner puede impedir subir receipts; fsync
-local no es backup independiente. El runbook del servicio contiene los comandos.
-
-Las pruebas significativas cubren guards, procedencia, fallos de storage/readiness,
-A listo → B falla → rollback explícito A y preview de retención. Respuestas GitHub/
-Azure simuladas no prueban APIs ni permisos reales. `act` + Docker/WSL2 ejecuta solo
-el job verify, sin credenciales, publicación o deploy; omite artifacts/cache y no
-emula OIDC, permisos, concurrency ni approvals. `actionlint` complementa sintaxis;
-la ejecución registrada omite ShellCheck. Reservar PR metadata real, artifacts,
-GHCR, OIDC/RBAC y ACA para ejecuciones autorizadas en sus plataformas. Ver
-[limitaciones act](https://nektosact.com/not_supported.html) y el registro de
-verificación del README; no duplicar aquí su lista de comandos.
-
-## Extensión proporcional a otros repositorios
-
-Esta tabla es una **guía de adopción**, no cambios implementados en otros servicios.
-Primero implantar un segundo consumidor y comprobar el contrato; solo entonces
-extraer un reusable workflow si elimina duplicación real. No crear una plataforma,
-biblioteca de scripts o matriz común por anticipado.
-
-| Artefacto | Reutilizar | Adaptar/verificar antes de adopción |
-|---|---|---|
-| Otros Java/Spring | PR/main, commitlint/Lefthook, publish separado, imagen por digest y evidencia | Wrapper/JDK/dependencias, nombre del JAR, tests/fixtures y smoke propios; contratos DB/migración/ingress, sin copiar permisos ni schemas de Pipeline |
-| Python/FastAPI (`pipesor-nlp-log-processor`, `pipesor-rag-retrieval`) | Stages, identidad OCI/manifiesto, no root, mismo digest y guards | Build/test del proyecto, Python compatible y dependencias resueltas reproduciblemente; no imponer Maven/JPA/PostgreSQL al servicio sin tablas. NLP ya tiene código/pyproject/Dockerfile y Quality CI con pytest/compileall y startup negativo (exit 2); conservar esos checks, sin afirmar ejecución hosted/GHCR/ACA ni copiar un smoke HTTP. RAG sigue documental: no hay build/imagen que extender todavía. No elegir un package manager adicional aquí |
-| React SPA (`pipesor-frontend`) | Verificar PR/main, dependencias lockeadas, conservar el resultado comprobado y source/run/hash | Unidad `dist/` archivada con hash/manifiesto, no imagen ACA. CI de frontend ya construye/sube dist; falta demostrar consumo sin rebuild y rollback en SWA. Identidad, permisos y rollback son específicos de SWA |
-| Terraform | CI sin apply/credenciales PR, dependencias fijadas, SHA/evidencia, autorización explícita | Plan por root/state/inputs, custodia/backup y locks según IaC; nunca promover el mismo plan entre estados |
-| Docs/modelos y otros sitios | Checks pertinentes y trazabilidad de outputs | Usar sus propios comandos/generadores; no aplicar build de app ni deploy ACA a toda modificación documental. Landing conserva su contrato Workers, distinto de SPA/SWA |
-
-En SPA, [Vite sustituye variables en build](https://vite.dev/guide/env-and-mode#env-variables):
-compilar por entorno con distintas `VITE_*` cambia los bytes. Antes de afirmar
-Build Once, Deploy Many hay que acordar cómo separar configuración pública del
-bundle, o documentar explícitamente esa limitación. Nunca incluir secretos en
-configuración del navegador. Microsoft documenta [SWA con frontend precompilado](https://learn.microsoft.com/en-us/azure/static-web-apps/build-configuration#skip-building-front-end-app)
-(`skip_app_build`); su disponibilidad no prueba el flujo de promoción ni decide
-aquí su autenticación. No trasladar los scopes/CLI/OIDC de ACA a SWA por analogía.
-ACA Jobs también requiere validar create/update, ejecución, completitud y rollback
-propios: los tests de Container Apps no los cubren.
+El objetivo organizacional de despliegue automático a dev no está activo: cada apply sigue requiriendo
+autorización explícita (ADR 004). Automatizarlo exige identidad OIDC por entorno, un runner validado y
+un gate aceptado.
 
 ## Future environment promotion (TO-BE)
 
 
-**Design target, not a commissioned or implemented multi-environment workflow.** The current execution footprint remains dev only, deployed on demand; CI runs independently and continues verifying/publishing successful main candidates without assigning RCs. An environment is an execution/configuration/data/identity boundary, not an artifact version. A given digest can be installed in several environments at the same time, and each microservice can advance independently. No environment branches or environment-specific image rebuilds are introduced.
+**Design target, not a commissioned or implemented multi-environment workflow.** The current execution footprint remains dev only: the dev Terraform root pins every image by digest and is applied on demand with explicit authorization; CI runs independently and continues verifying/publishing successful main candidates without assigning RCs. An environment is an execution/configuration/data/identity boundary, not an artifact version. A given digest can be installed in several environments at the same time, and each microservice can advance independently. No environment branches or environment-specific image rebuilds are introduced.
 
 The TO-BE follows the future environments retained by [IaC ADR 001](https://github.com/pipesor-org/pipesor-iac/blob/main/docs/adr-001-branching-and-promotion.md) and [ADR 004](https://github.com/pipesor-org/pipesor-iac/blob/main/docs/adr-004-mvp-state-and-deployment.md): dev → qa → preprod → prod. `preprod` is the project's staging name. This section neither changes those ADRs nor provisions their future roots. DORA's [same process/packages across environments](https://dora.dev/capabilities/deployment-automation/) is an engineering recommendation; the chosen environment names/order and approval rules are project decisions.
 
@@ -289,7 +154,7 @@ The TO-BE follows the future environments retained by [IaC ADR 001](https://gith
 | Stable release | Name D after its successful preprod qualification; an RC is optional and does not imply a different image. | New Git tag and Release manifest mapping version to D. |
 | prod | Deploy that stable release's D after preprod qualification and required independent production authorization. | Production target/config references, result, monitoring/functional validation and recovery point. |
 
-Future permissions/identities and target mappings must be environment-scoped; operators must not turn arbitrary dispatch IDs into deployment authority. Reuse the deployment process, with locks per service/environment and explicit coordination with the infrastructure owner. Configuration, secret-version references and data are supplied separately; no secret values are stored in image/validation manifests. Promotion checks the selected digest's qualification, not whether it is still the current image in the previous environment. A functional fix produces a new candidate and repeats the relevant validation path. Terraform still generates an environment-specific reviewed plan; application digest reuse never means reusing Terraform plans/states.
+Future permissions/identities and target mappings must be environment-scoped; operators must not turn arbitrary dispatch IDs into deployment authority. Each promotion is an environment-specific reviewed Terraform plan that pins D, serialized per state. Configuration, secret-version references and data are supplied separately; no secret values are stored in image/validation manifests. Promotion checks the selected digest's qualification, not whether it is still the current image in the previous environment. A functional fix produces a new candidate and repeats the relevant validation path. Terraform still generates an environment-specific reviewed plan; application digest reuse never means reusing Terraform plans/states.
 
 ### Candidate validation versus active deployment
 
@@ -297,7 +162,7 @@ The prepared stable gate consumes a **proposed Pipesor producer contract**, not 
 
 Publish validation statuses with `auto_inactive=false`. GitHub's [default auto-inactive behavior](https://docs.github.com/en/rest/deployments/statuses#create-a-deployment-status) otherwise replaces earlier success with inactive when another deployment succeeds. In this explicit candidate-validation contract inactive describes lifecycle only, not withdrawal of acceptance. The gate permits inactive only with a retained, unambiguous preceding success and no later non-inactive failure or unfinished/unknown state. It rejects ordinary inactive records, duplicate authoritative records, invalid chronology and unavailable history. GitHub retains historical statuses for a limited period; if required proof has expired, revalidate instead of inferring approval. Record IDs/logs/configuration and acceptance references must remain traceable while the candidate is eligible for promotion or recovery.
 
-The dev procedural approval exception is not extended to qa/preprod/prod. GitHub Free/private cannot supply the assumed protected-environment independent reviewer gates; future stronger authorization/enforcement must be accepted before those stages are activated. The validation producer, functional gates, per-environment mappings and enforcement are TO-BE dependencies, not implemented by the current dev adapter or by a metadata field. No statement in this section treats a boolean marker as proof of human approval.
+The dev procedural approval exception is not extended to qa/preprod/prod. The repositories are now public, so GitHub Environments with required reviewers and self-review prevention are available on the current plan; they must be configured and accepted before those stages are activated. The validation producer, functional gates, per-environment mappings and enforcement are TO-BE dependencies, not implemented by a metadata field. No statement in this section treats a boolean marker as proof of human approval.
 
 ```puml
 @startuml Pipesor_Promotion_TO_BE
@@ -362,21 +227,12 @@ end note
 
 ## Referencias y decisiones aún abiertas
 
-[DORA: deployment automation](https://dora.dev/capabilities/deployment-automation/)
-recomienda paquetes/procesos repetibles e idempotentes entre entornos; es una
-recomendación de ingeniería, no exigencia de dev automático ni cuatro entornos.
-[SemVer](https://semver.org/) define formato, precedencia e inmutabilidad, no cuándo
-crear una release. Los nombres/orden de entornos y los gates son decisiones del
-proyecto; las convenciones 0.x y el formato de manifests son del piloto.
+[DORA: deployment automation](https://dora.dev/capabilities/deployment-automation/) recomienda
+paquetes/procesos repetibles entre entornos; [SemVer](https://semver.org/) define formato, precedencia
+e inmutabilidad. Los nombres/orden de entornos y los gates son decisiones del proyecto.
 
-Referencias técnicas del adaptador: [ACA update](https://learn.microsoft.com/en-us/cli/azure/containerapp#az-containerapp-update),
-[revisiones Single](https://learn.microsoft.com/en-us/azure/container-apps/revisions#revision-modes),
-[OIDC Azure](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-azure)
-y [artifact handoff](https://docs.github.com/en/actions/how-tos/writing-workflows/choosing-what-your-workflow-does/storing-and-sharing-data-from-a-workflow).
-Estos documentos describen capacidades, no evidencia de que estén configuradas.
-
-Pendientes que este registro no cierra: PD-035/contratos runtime y datos; propiedad
-Terraform/ACA y coordinación; productor de validaciones/retención de evidencia;
-autorización independiente futura; recuperación cloud real y adopción de cada
-artefacto. La aprobación de estos PRs integra la preparación local y esta guía;
-no elimina los requisitos previos de activación ni resuelve esos asuntos.
+Pendientes que esta guía no cierra: remediar las excepciones Trivy antes del 06/12/2026; restaurar la
+suite de pipesor-docs y añadirla a los required checks; configurar Environments con revisores
+independientes antes de qa/preprod/prod; productor de validaciones de candidato y retención de
+evidencia; despliegue automático a dev con OIDC; atestaciones de procedencia (SLSA) para las imágenes;
+PD-035 (contratos runtime y datos) y la recuperación cloud real.

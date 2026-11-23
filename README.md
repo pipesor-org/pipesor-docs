@@ -19,16 +19,12 @@ Workers, pero su despliegue no está verificado.
 
 [ADR-019](docs/architecture/decisions/ADR-019-align-mvp-with-iac.md) alinea ahora el modelo canónico con las decisiones MVP de IaC: ingress nativo de ACA sin gateway dedicado, exclusión de Blob de workload, fundación Microsoft Foundry y preparación Terraform dev-only temporal. Los diagramas derivan de ese modelo; no acreditan despliegue. Se conservan Entra ID, las siete fronteras backend, PostgreSQL/pgvector y la retención de 365 días. Exposición/auth, contratos, modelos AI y garantías de recuperación/retención siguen pendientes. Los antecedentes APIM/Blob se leen con la evolución de ADR-019.
 
-## CI/CD del piloto — actualización 08/11/2026
+## CI/CD — actualización 22/11/2026
 
-La [guía CI/CD](docs/development/cicd.md) registra la preparación local del piloto
-Pipeline: CI/main, artefactos por digest, release y despliegue/rollback todavía
-deshabilitados, límites de GitHub Free/private y adaptación para Java, Python y
-SPA. Sirve como referencia de adopción; no aprueba un estándar universal de
-ownership Terraform/ACA ni activa Azure. El estado del 06/11 anterior conserva
-su fecha: Pipeline ya tiene aplicación local; no inferir su estado actual de aquel
-snapshot. También hay incrementos ejecutables en Ingestion y NLP; la presencia
-de código no prueba integración completa ni cloud. Consultar el README de cada
+La [guía CI/CD](docs/development/cicd.md) resume las prácticas acordadas y su implementación: CI
+compartido en [pipesor-ci](https://github.com/pipesor-org/pipesor-ci) para todos los repositorios,
+rulesets en las ramas por defecto, imágenes inmutables con `candidate.json` y aseguramiento Trivy, y
+Terraform (pipesor-iac) como único dueño de las imágenes desplegadas. Consultar el README de cada
 repositorio para comandos y resultados exactos.
 
 ## Lectura y estructura
@@ -38,7 +34,7 @@ Leer primero [AGENTS.md](AGENTS.md), que define las reglas de trabajo. Consultar
 | Ruta | Responsabilidad |
 |---|---|
 | `model/` | Arquitectura, dominio persistente, diseño de clases, decisiones explicativas y modelos de presentación. |
-| `docs/development/cicd.md` | Guía común de CI/CD, límites del piloto y adopción por tipo de artefacto. |
+| `docs/development/cicd.md` | Guía común de CI/CD: controles, pipeline compartido, estado por repositorio y promoción. |
 | `docs/architecture/decisions/` | ADRs y evolución de decisiones arquitectónicas. |
 | `docs/architecture/cross-repository-reconciliation.md` | Corte actual de evidencia integrada, decisiones externas, drift y dependencias entre repositorios. |
 | `docs/sources/` | Copias íntegras de fuentes y registro de procedencia, integridad y aprobación verificable. |
