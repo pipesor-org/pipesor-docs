@@ -25,6 +25,11 @@ ajeno; los cambios necesarios en el otro lado se piden mediante issue.
 | Jhon | `pipesor-iac` | IaC y despliegue en Azure dev (con apoyo de Claude Code para redactar cambios; toda aplicación requiere su autorización) |
 | Codex (Jhon), CI/CD | En Correlation, Log/Event y Recommendation solo `.github/**`, `tools/check_image.py` y su test, herramientas de commit (`package.json`, `bun.lock`, `lefthook.yml`, `commitlint.config.js`) y la sección CI/CD del README | Workflows `ci`/`release`/`deploy` alineados con Pipeline e Ingestion; despliegue desactivado; sin cambios de ajustes, secretos ni environments |
 
+Actualización del 23/11/2026: el repositorio de escenarios se creó como
+[`pipesor-validation-scenarios`](https://github.com/pipesor-org/pipesor-validation-scenarios). Hasta
+que se incorpore Codex, una sesión de Claude Code dedicada a IA y evaluación mantiene ese repositorio,
+el corpus de evaluación y el [protocolo de evaluación](../research/protocolo-evaluacion-oe3.md).
+
 ## Reglas
 
 1. Rama corta por repositorio desde `main` y un PR por repositorio, con commits
