@@ -174,7 +174,9 @@ criterios de ambas etapas quedan fijados aquí antes de ejecutarlas.
 - **Regla de decisión:**
   - construcción de la consulta: mayor MRR@10; si hay empate, mayor hit@1 y luego mayor acierto en la
     vista de producción;
-  - `top_k`: el menor valor que alcanza el máximo hit@k en `dev`;
+  - tipos de corpus: los de mayor MRR@10 con la consulta elegida; si empatan, documentación y
+    procedimientos, porque los procedimientos aportan los pasos de atención que usa la recomendación;
+  - `top_k`: el menor valor que alcanza el máximo hit@k en `dev` con los tipos elegidos;
   - umbral: solo se adopta si existe un valor que, en `dev`, rechaza todos los casos fuera del inventario y
     conserva todos los relevantes. Si no existe, no hay umbral y se registran las puntuaciones.
 - Los cambios elegidos se implementan en los servicios responsables (`pipesor-recommendation-service`,
