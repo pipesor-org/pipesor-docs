@@ -46,13 +46,18 @@ Las fuentes externas entregan evidencia a ingesta, que la protege antes del topi
 | 11 | NLP Log Processing → Evidence Correlation Service | Delivers logs and processed evidence for correlation | REST/HTTPS | sync |
 | 12 | Evidence Correlation Service → PostgreSQL | Records correlated context and traceability | PostgreSQL | sync |
 | 13 | RAG Knowledge Retrieval → PostgreSQL | Retrieves semantically related operational knowledge | PostgreSQL/pgvector | sync |
-| 14 | Compatible Observability and Runtime Sources → Ingestion and Normalization Service | Provides authorized telemetry and operational evidence | REST/HTTPS | sync |
-| 15 | Evidence Correlation Service → Diagnostic & Recommendation Service | Delivers correlated incident context for assisted diagnosis | REST/HTTPS | sync |
-| 16 | Diagnostic & Recommendation Service → RAG Knowledge Retrieval | Requests authorized contextual knowledge for the incident | REST/HTTPS | sync |
-| 17 | Diagnostic & Recommendation Service → Azure OpenAI Service | Requests diagnostic inference with sanitized evidence and RAG context | Azure OpenAI API/HTTPS | sync |
-| 18 | Diagnostic & Recommendation Service → PostgreSQL | Persists human review decisions and traceability | PostgreSQL | sync |
-| 19 | GitHub Actions → Diagnostic & Recommendation Service | Queries diagnostic_output to publish the workflow artifact | REST/HTTPS | sync |
-| 20 | Pipeline Service → Ingestion and Normalization Service | Requests verified user access and workflow metadata without GitHub credentials | REST/HTTPS | sync |
+| 14 | RAG Knowledge Retrieval → Azure OpenAI Service | Generates compatible document and query embeddings | Azure OpenAI API v1/HTTPS | sync |
+| 15 | Compatible Observability and Runtime Sources → Ingestion and Normalization Service | Provides authorized telemetry and operational evidence | REST/HTTPS | sync |
+| 16 | Evidence Correlation Service → Diagnostic & Recommendation Service | Delivers correlated incident context for assisted diagnosis | REST/HTTPS | sync |
+| 17 | Diagnostic & Recommendation Service → RAG Knowledge Retrieval | Requests authorized contextual knowledge for the incident | REST/HTTPS | sync |
+| 18 | Diagnostic & Recommendation Service → Azure OpenAI Service | Requests diagnostic inference with sanitized evidence and RAG context | Azure OpenAI API/HTTPS | sync |
+| 19 | Diagnostic & Recommendation Service → PostgreSQL | Persists human review decisions and traceability | PostgreSQL | sync |
+| 20 | GitHub Actions → Diagnostic & Recommendation Service | Queries diagnostic_output to publish the workflow artifact | REST/HTTPS | sync |
+| 21 | Pipeline Service → Ingestion and Normalization Service | Requests verified user access and workflow metadata without GitHub credentials | REST/HTTPS | sync |
+| 22 | Log/Event Service → Pipeline Service | Checks committed operational membership before evidence registration | REST/HTTPS | sync |
+| 23 | Pipeline Service → Ingestion and Normalization Service | Verifies current machine permission for an exact protected evidence capture scope | REST/HTTPS | sync |
+| 24 | Evidence Correlation Service → Pipeline Service | Checks current scope and committed ORIGIN membership before correlation | REST/HTTPS | sync |
+| 25 | Evidence Correlation Service → Log/Event Service | Verifies committed evidence membership in the authorized capture and attempt | REST/HTTPS | sync |
 
 ## C4 Level 2B — Consumption, Governance and Persistence
 
@@ -87,3 +92,4 @@ El usuario accede al dashboard, se autentica con Entra ID y consume APIs mediant
 | 08 | AIOps Web Dashboard → Diagnostic & Recommendation Service | Routes diagnosis and review queries and operations | REST/HTTPS | sync |
 | 09 | Diagnostic & Recommendation Service → PostgreSQL | Persists human review decisions and traceability | PostgreSQL | sync |
 | 10 | GitHub Actions → Diagnostic & Recommendation Service | Queries diagnostic_output to publish the workflow artifact | REST/HTTPS | sync |
+| 11 | Log/Event Service → Pipeline Service | Checks committed operational membership before evidence registration | REST/HTTPS | sync |
