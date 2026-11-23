@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Versión | 0.2 — **borrador para aprobación** (historial en §13) |
+| Versión | 0.3 — **borrador para aprobación** (historial en §13) |
 | Fecha | 23/11/2026 |
 | Alcance | Indicador OE3-I2 del Project Charter v1.3. OE4 queda fuera de este protocolo. |
 | Repositorio de ejecución | [pipesor-validation-scenarios](https://github.com/pipesor-org/pipesor-validation-scenarios) |
@@ -96,6 +96,18 @@ Los fixtures imprimen junto al error el contexto que mostraría un pipeline real
 log del servicio, permisos, estado de la VM). Una prueba automática impide que contengan términos que
 revelen el carácter de prueba.
 
+**Protección de la evidencia.** Antes del diagnóstico, la protección de la ingestión
+(`verify-protection-v1`) actúa sobre el extracto:
+
+- enmascara por completo los tokens que contienen una dirección IP, un `@` (correos, `paquete@versión`),
+  un JWT o un token de GitHub, y los valores de claves sensibles;
+- **rechaza** el extracto entero si contiene `\"` o `\u`; en ese caso no hay evidencia ni diagnóstico.
+
+Los fixtures se ajustaron para no perder evidencia por elecciones incidentales: imprimen `localhost` en
+lugar de direcciones IP y no imprimen comillas escapadas. Pruebas automáticas mantienen esas reglas. El
+enmascaramiento de `paquete@versión` en npm (NC-01) es intrínseco a la herramienta y se registra como
+limitación de la plataforma.
+
 ## 4. Causa de referencia
 
 - Se define por construcción del fixture y se registra en `eval/cases/<escenario>.json`, con
@@ -137,10 +149,74 @@ mantendrán separados del contenido utilizado para preparar la recuperación».
   en `test`.** Las demás se reportan íntegras como ablación. No se elige a posteriori la mejor
   configuración según `test`.
 - El manifiesto de cada corrida fija:
-  - los SHA de los repositorios y los digests de las imágenes desplegadas;
+  - los SHA de los repositorios, el hash del código del arnés y los digests de las imágenes desplegadas;
   - el despliegue y la versión del modelo, y `promptVersion`;
   - el hash del corpus, `top_k`, el umbral y la versión de la consulta;
   - la versión de la rúbrica y la de este protocolo.
+
+La configuración final se elige en `dev` en dos etapas y en este orden: primero la recuperación y después
+el modelo, porque el modelo se compara con los fragmentos que entrega la recuperación ya congelada. Los
+criterios de ambas etapas quedan fijados aquí antes de ejecutarlas.
+
+### 6.1 Selección de la recuperación
+
+- **Medición.** `harness.retrieval` consulta el corpus con el despliegue de embeddings del entorno
+  (`pipesor-dev-embeddings`) y ordena por similitud coseno, el mismo orden de pgvector. La consulta es la
+  evidencia reportada por Pipesor o, si no hay reporte, una emulación del extracto
+  `failed-run-evidence-v1` que pasa por la emulación de la protección (§3). Relevancia según `qrels`.
+- **Candidatos:**
+  - construcción de la consulta: la actual (el extracto), sin marcas de tiempo, sin los bloques del runner
+    y solo líneas de error;
+  - tipos de corpus: solo documentación técnica (la configuración actual) o documentación y
+    procedimientos;
+  - `top_k`: 1 (la configuración actual con una sola evidencia), 3 o 5;
+  - umbral mínimo de similitud: ninguno o uno calibrado en `dev`.
+- **Regla de decisión:**
+  - construcción de la consulta: mayor MRR@10; si hay empate, mayor hit@1 y luego mayor acierto en la
+    vista de producción;
+  - `top_k`: el menor valor que alcanza el máximo hit@k en `dev`;
+  - umbral: solo se adopta si existe un valor que, en `dev`, rechaza todos los casos fuera del inventario y
+    conserva todos los relevantes. Si no existe, no hay umbral y se registran las puntuaciones.
+- Los cambios elegidos se implementan en los servicios responsables (`pipesor-recommendation-service`,
+  `pipesor-rag-retrieval`) y se miden de nuevo en `dev` antes de congelarlos.
+
+### 6.2 Selección del modelo de diagnóstico
+
+- **Candidatos:** un modelo por tramo de costo, más la línea base:
+  - el despliegue actual (gpt-4o);
+  - gpt-6-luna;
+  - gpt-6.1-terra;
+  - un modelo del tramo sol (gpt-6.1-sol o gpt-6.2-sol), que se fija antes de ejecutar.
+
+  Su despliegue sigue el procedimiento de IaC con aprobación del responsable del entorno.
+- **Entradas fijas (repetición).** Para cada caso `dev` se toman:
+  - la evidencia del reporte de Pipesor;
+  - los fragmentos que entrega la recuperación congelada (§6.1);
+  - el prompt y el esquema de respuesta del adaptador desplegado (`promptVersion` registrada).
+
+  Se envía la misma petición a cada modelo, con los mismos parámetros que usa el adaptador, **3 veces**.
+  El modelo es la única variable. Si un modelo exige parámetros distintos, eso es un fallo del filtro
+  eliminatorio, salvo que se apruebe un cambio del adaptador y se repita la comparación para todos.
+- **Filtro eliminatorio:** el 100 % de las respuestas debe ser válido (esquema, `finish_reason = stop`,
+  sin rechazos) y citar solo los identificadores suministrados.
+- **Criterio principal:** acierto estricto (§8.1) en los casos positivos de `dev`.
+  - Los dos evaluadores puntúan la primera repetición de cada modelo, con los modelos mezclados bajo alias
+    (`harness.ratings`).
+  - Las otras dos repeticiones se usan para medir estabilidad con un indicador automático: si la causa
+    probable menciona los términos clave del caso.
+- **Criterios secundarios:**
+  - precisión de citas según `qrels`;
+  - rúbrica de recomendación;
+  - comportamiento en controles fuera del inventario: declarar incertidumbre en lugar de atribuir un patrón
+    del inventario.
+- **Regla de decisión:**
+  - se descartan los modelos que no superan el filtro eliminatorio;
+  - se descartan los que aciertan **2 o más casos positivos menos** que el mejor;
+  - entre los restantes se elige **el de menor costo por diagnóstico**;
+  - si hay empate: latencia p95, luego estabilidad entre repeticiones y luego fecha de retiro del modelo.
+- Con 10 casos positivos en `dev`, cada caso vale 10 puntos. Las diferencias menores a la regla anterior no
+  se presentan como superioridad de un modelo. La decisión y sus datos se registran en un ADR, y el cambio
+  del despliegue de producción requiere aprobación.
 
 ## 7. Procedimiento de ejecución
 
@@ -308,6 +384,7 @@ El informe reporta el IC de Wilson, los casos sin diagnóstico y los defectos en
 |---|---|---|
 | 0.1 | 23/11/2026 | Borrador inicial. |
 | 0.2 | 23/11/2026 | Los integrantes del equipo asignan las puntuaciones de la rúbrica. Los asesores revisan el protocolo y califican el logro del indicador. El juez LLM pasa a ser verificación auxiliar recomendada y se añade la amenaza de evaluadores autores. |
+| 0.3 | 23/11/2026 | Procedimiento preregistrado de selección en `dev`: primero la recuperación (§6.1) y después el modelo (§6.2). Efecto de la protección de la ingestión sobre la evidencia (§3). La medición de la recuperación queda resuelta: local con el despliegue de embeddings del entorno. |
 - Cualquier cambio posterior genera una nueva versión con su motivo. Las corridas indican la versión
   aplicada.
 
@@ -323,6 +400,7 @@ El informe reporta el IC de Wilson, los casos sin diagnóstico y los defectos en
    - captura automática por webhook en dev, recomendada porque hace interpretable la latencia;
    - solicitud manual desde el dashboard.
 3. **Repeticiones** de la configuración final (§7.8): una o tres.
-4. **Entorno de medición de la recuperación.** Opciones:
-   - stack local con el mismo corpus y el mismo despliegue de embeddings;
-   - tarea dentro de la red del entorno, que requiere un cambio de IaC aprobado.
+4. **Modelo del tramo sol** para §6.2: gpt-6.1-sol (más maduro) o gpt-6.2-sol (más reciente).
+
+Resuelto en la versión 0.3: la recuperación se mide en local con el despliegue de embeddings del entorno
+(`pipesor-dev-embeddings`), autorizado por el responsable del proyecto. No requiere cambios de IaC.
