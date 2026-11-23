@@ -2,20 +2,21 @@
 
 | Campo | Valor |
 |---|---|
-| Versión | 0.6 — **vigente para la segunda y última corrida oficial de OE3-I2** (historial en §13) |
+| Versión | 0.7 — **vigente para la revisión humana de la corrida oficial de OE3-I2** (historial en §13) |
 | Fecha | 23/11/2026 |
 | Alcance | Indicador OE3-I2 del Project Charter v1.3. OE4 queda fuera de este protocolo. |
 | Repositorio de ejecución | [pipesor-validation-scenarios](https://github.com/pipesor-org/pipesor-validation-scenarios) |
 | Evaluación de la rúbrica | Los dos integrantes del equipo del proyecto (§8.3) |
-| Revisión y aprobación | Pendiente: asesor especializado y asesor metodológico (§13) |
+| Calificación del indicador | Asesor especializado y asesor metodológico, a partir del informe y sus registros (§13) |
 
 Este documento fija, **antes de ejecutar las pruebas oficiales**, los escenarios, la causa de referencia,
-las reglas de medición, la rúbrica y los criterios de aceptación del diagnóstico de Pipesor. Así lo
-exige el Charter («Enfoques del trabajo»: «Antes de las pruebas comparativas se aprobará un protocolo que
-establezca los escenarios, la evidencia disponible, la causa de referencia y las reglas de medición»).
-El protocolo atiende parcialmente [PD-022, PD-023 y PD-024](../architecture/pending-decisions.md):
-define el método y deja la evidencia de su aprobación y de los resultados para los registros indicados
-en §12–§13. No resuelve PD-001 (TMD).
+las reglas de medición, la rúbrica y los criterios de aceptación del diagnóstico de Pipesor. Cumple para
+OE3-I2 la función que el Charter asigna a un protocolo previo a las pruebas («Enfoques del trabajo»: un
+protocolo «que establezca los escenarios, la evidencia disponible, la causa de referencia y las reglas de
+medición»). El equipo del proyecto fija cada versión antes de las corridas que la aplican.
+
+El protocolo atiende parcialmente [PD-022, PD-023 y PD-024](../architecture/pending-decisions.md): define
+el método y los registros de resultados (§10, §13). No resuelve PD-001 (TMD).
 
 ## 1. Alcance y objetivo
 
@@ -66,7 +67,7 @@ eso la causa de referencia se define por construcción (§4).
 | ESC-09 | C09 permiso denegado en archivos | real (directorios de solo lectura) | pwsh / unzip / Python |
 | ESC-10 | C07 HTTP 500 tras despliegue, rollback | real (servicio local) | archivo renombrado / clave ausente / JSON inválido |
 | ESC-11 | C05 timeout de extensión de VM | simulada (Azure CLI) | agente sin respuesta / instalación interactiva / proxy |
-| ESC-04 | C10 fallo de inicialización del workflow | pendiente (§14) | — |
+| ESC-04 | C10 fallo de inicialización del workflow | no implementado: límite de cobertura (§14) | — |
 
 Controles:
 
@@ -143,14 +144,15 @@ Rigen CTRL-006 e INV-010 ([architecture.yml](../../model/architecture.yml)), DD-
 y Evidencias» del Charter: «Los casos destinados a la evaluación y sus soluciones de referencia se
 mantendrán separados del contenido utilizado para preparar la recuperación».
 
-- El corpus RAG se genera solo a partir del inventario (`inventory/`), con procedencia y referencia de
-  autorización por documento.
+- El corpus RAG se genera solo a partir del inventario maestro (`inventory/`), validado durante OE1 con el
+  asesor especializado y con el entorno de validación. No requiere una validación adicional. Cada
+  documento registra su procedencia.
 - Los casos, las causas de referencia, los juicios de relevancia (`qrels`) y los extractos del entorno de
   validación viven en `eval/` y nunca se importan.
 - El importador solo verifica la marca `evaluation_material`. La separación efectiva se comprueba en el
   repositorio de ejecución: el generador del corpus no lee `eval/`, y una prueba busca líneas de
   evaluación dentro de los fragmentos del corpus.
-- La importación del corpus en un entorno requiere aprobación explícita del responsable del entorno.
+- El responsable del proyecto autorizó la importación del corpus en el entorno dev.
 
 ## 6. Configuraciones
 
@@ -277,8 +279,8 @@ criterios de ambas etapas quedan fijados aquí antes de ejecutarlas.
    - recuperación ejecutada (con o sin coincidencias);
    - diagnóstico disponible;
    - reporte generado y publicado (artifact);
-   - incidente visible en el dashboard (verificado en una muestra de al menos un caso por escenario);
-   - revisión humana registrada en el dashboard con la decisión de consenso.
+   - incidente visible en el dashboard, verificado en los 20 casos positivos de la corrida oficial (§8.3);
+   - revisión humana registrada en el dashboard con la decisión del revisor (§8.3).
 8. **Repeticiones.** La cifra oficial usa una ejecución por caso. Si el costo lo permite, la configuración
    final se repite dos veces más sobre `test` y se reporta la estabilidad (proporción de casos con la
    misma puntuación).
@@ -309,38 +311,66 @@ de OE3-I2.
 
 ### 8.3 Procedimiento de evaluación
 
-- Asignan las puntuaciones, de forma independiente, los **dos integrantes del equipo del proyecto**
-  (evaluadores A y B). Al equipo le corresponde obtener las métricas y sustentarlas. Los asesores
-  revisan este protocolo y califican el logro del indicador a partir del informe y de los registros de
-  evaluación, que quedan disponibles para su verificación (§10).
-- Cada evaluador recibe, por caso: el extracto de evidencia tal como se envió, el diagnóstico, la causa
-  de referencia y la evidencia clave.
-- Los casos se presentan en orden aleatorio con identificadores anonimizados. No se revela la
-  configuración (C0, C1…).
-- Las discrepancias se resuelven en una sesión de consenso que queda registrada. La puntuación final es
-  la de consenso.
-- La concordancia se reporta con el κ de Cohen sobre las puntuaciones previas al consenso, en escala
-  0/1/2 y en forma binaria (2 frente a menos de 2).
-- **Juez LLM (recomendado como verificación auxiliar).** Los evaluadores son autores del sistema
-  (§12), así que se aplica un juez LLM independiente.
-  - Usa un despliegue distinto del modelo que diagnostica y un prompt versionado, con las mismas
-    entradas y la misma rúbrica.
-  - Se reporta su concordancia con el consenso y cada caso en que discrepe.
-  - Nunca sustituye la evaluación humana.
-- En OE4, el próximo periodo, la evaluación quedará a cargo del personal del entorno de validación. Eso
-  se definirá en un protocolo propio.
-- **Desviación registrada (v0.5).**
-  - Este semestre no se recogen puntuaciones humanas: ni del equipo ni de terceros.
-  - La rúbrica de §8.1 y §8.2 la aplica el **juez LLM** como evaluador automático:
-    - despliegue `pipesor-dev-diagnostics-sol` (gpt-6.2-sol), distinto del modelo que diagnostica;
-    - versión `rubric-judge-v1` (`harness.judge`), con salida JSON estricta;
-    - 3 juicios por ítem: mediana para las puntuaciones y mayoría para los indicadores.
-  - Recibe por ítem la evidencia enviada, el diagnóstico, la causa de referencia, la evidencia clave y la
-    corrección esperada. En los controles fuera del inventario recibe además los nombres de los patrones del
-    inventario.
-  - Todo resultado se reporta como **acierto evaluado automáticamente**, junto con la estabilidad del juez.
-    No hay κ entre humanos.
-  - Las hojas ciegas se conservan para una confirmación humana posterior.
+- **Al equipo le corresponde obtener y sustentar las métricas.** Los asesores califican el logro del
+  indicador a partir del informe y de los registros de evaluación (§10). En OE4, el próximo periodo, la
+  evaluación quedará a cargo del personal del entorno de validación, con un protocolo propio.
+- **Revisión humana (v0.7).** Los dos integrantes del equipo revisan los **20 diagnósticos positivos** de la
+  corrida oficial (`results/2026-11-23-oe3-test-r2/`).
+  - **Reparto:** cada integrante revisa la mitad. Las variantes `b` y `c` de cada escenario se asignan a
+    integrantes distintos por sorteo con semilla fija (`harness.review prepare`). Así, cada integrante revisa
+    los 10 escenarios una vez y cada caso tiene un único revisor.
+  - **Materiales:** cada revisor recibe sus casos con alias y en orden aleatorio, con el extracto de evidencia
+    tal como se envió, el diagnóstico, la causa de referencia, la evidencia clave y la corrección esperada.
+  - **Por caso, el revisor:**
+    1. puntúa la rúbrica de §8.1 y §8.2;
+    2. asigna la categoría cualitativa de §8.4, coherente con la puntuación, y la justifica en una o dos
+       frases;
+    3. indica si la recomendación es accionable (sí, parcial o no);
+    4. abre el incidente en el dashboard y verifica que sea visible y que sus secciones (evidencia,
+       hipótesis, recomendación, citas y modelo) coincidan con la hoja;
+    5. registra la revisión en el dashboard: **Confirmar** solo si la causa obtuvo 2; si no, **Rechazar**, con
+       la causa de referencia como causa real y la nota «Puntaje N; categoría X».
+  - **Reglas del registro:** no se editan revisiones registradas ni se resuelven los incidentes. Las capturas
+    no muestran usuario, avatar ni correo.
+  - **Cegamiento:** hasta terminar sus casos, el revisor no consulta las puntuaciones ni las justificaciones
+    del juez LLM.
+  - **Coherencia:** `harness.review consolidate` verifica la coherencia entre puntuación, categoría y
+    decisión.
+- **Cifra principal (fijada antes de la revisión).**
+  - El acierto estricto según la revisión humana de los 20 casos es la cifra principal de OE3-I2.
+  - El juez LLM queda como verificación auxiliar. Se reportan el acuerdo humano–juez (proporción con IC de
+    Wilson y κ en escala 0/1/2 y binaria) y cada discrepancia con su motivo.
+  - Ninguna de las dos series se modifica después de conocer la otra.
+  - Los controles fuera del inventario conservan la puntuación del juez.
+- **Juez LLM.** Aplica la misma rúbrica, con las mismas entradas, sobre un despliegue distinto del modelo
+  que diagnostica:
+  - `pipesor-dev-diagnostics-sol` (gpt-6.2-sol), versión `rubric-judge-v1` (`harness.judge`), con salida
+    JSON estricta;
+  - 3 juicios por ítem: mediana para las puntuaciones y mayoría para los indicadores;
+  - en los controles fuera del inventario recibe además los nombres de los patrones del inventario.
+
+  En v0.5 y v0.6 fue el único evaluador. Desde v0.7 es verificación auxiliar de la revisión humana.
+
+### 8.4 Análisis cualitativo
+
+El revisor asigna a cada diagnóstico una categoría, definida antes de la revisión y coherente con la
+puntuación de la causa:
+
+| Categoría | Descripción | Puntuación |
+|---|---|---|
+| A | Acierto completo: identifica el elemento determinante. | 2 |
+| B | Identifica el patrón o el síntoma, pero no el elemento determinante. | 1 |
+| C | Menciona la causa de referencia solo como alternativa secundaria. | 1 |
+| D | Reformula el error sin proponer una causa. | 0 |
+| E | Propone una causa distinta o contradictoria. | 0 |
+
+- **Por caso se registra también:** la justificación (una o dos frases) y si la recomendación es accionable.
+- **El informe presenta:**
+  - las frecuencias por categoría, en total y por tipo de reproducción;
+  - los casos ilustrativos;
+  - una síntesis temática de las justificaciones (análisis de errores).
+- **Alcance:** este análisis describe el comportamiento del diagnóstico. No mide la percepción ni la utilidad
+  para usuarios, que corresponden a OE4.
 
 ## 9. Métricas
 
@@ -349,7 +379,9 @@ de OE3-I2.
 | **Acierto estricto (principal)** | Casos con puntuación 2 / 20 casos `test` de los 10 escenarios positivos. Los casos sin diagnóstico cuentan como 0. Se reporta con IC de Wilson al 95 %. | Criterio OE3-I2: ≥ 80 % (≥ 16/20). |
 | Acierto por escenario | Escenarios con ambas variantes `test` en 2. | Descriptiva. |
 | Distribución de la rúbrica | Proporción de casos con 0, 1 y 2, por escenario y por tipo de reproducción. | Descriptiva. |
-| Concordancia | κ de Cohen entre evaluadores; κ del juez LLM frente al consenso. | Calidad de la medición. |
+| Concordancia | Acuerdo de la revisión humana con el juez LLM: proporción con IC de Wilson y κ de Cohen (0/1/2 y binario). | Calidad de la medición. |
+| Categorías cualitativas | Frecuencia de las categorías de §8.4 y de recomendaciones accionables. | Análisis de errores. |
+| Prueba funcional del dashboard | Incidentes visibles, secciones coherentes y revisiones registradas, sobre los 20 casos (§7.7). | Criterio OE3-I2. |
 | Recuperación | hit@k (k = 1, 3, 5, 10) y MRR@10 frente a `qrels`. Se miden consultando `pipesor-rag-retrieval` directamente con la consulta que construye la recomendación, porque el servicio de recomendaciones no conserva las puntuaciones. | Ablación y mejoras. |
 | Precisión de citas | Fragmentos citados relevantes según `qrels` / fragmentos citados. Los diagnósticos sin citas se cuentan aparte. | Respaldo del diagnóstico. |
 | Controles | ESC-12: proporción de corridas sin incidente. NC: acierto según §8.1 y tasa de atribución falsa a patrones del inventario. | Especificidad. |
@@ -399,14 +431,19 @@ El informe reporta el IC de Wilson, los casos sin diagnóstico y los defectos en
     que puede sesgar la puntuación. Mitigaciones:
     - rúbrica, reglas de decisión y causas de referencia fijadas antes de ejecutar, con el commit
       registrado en el manifiesto;
-    - ocultamiento de la configuración y orden aleatorio;
-    - dos evaluaciones independientes con κ antes del consenso;
+    - ocultamiento de la configuración, alias y orden aleatorio;
+    - coherencia verificada entre puntuación, categoría y decisión registrada (§8.3);
     - concordancia con un juez LLM independiente;
     - registros completos disponibles para que los asesores los verifiquen.
+  - **Un único revisor por caso (v0.7).** No se mide el acuerdo entre humanos. La verificación de la medición
+    es el acuerdo con el juez LLM, que se reporta también por revisor.
+  - **Cegamiento parcial.** Uno de los integrantes conoció las puntuaciones del juez antes de la revisión.
+    Se declara en el informe.
 - **De constructo.**
   - Los escenarios son sintéticos y cuatro usan respuestas simuladas.
   - El extracto de 40 líneas puede omitir contexto: se observó con la ayuda que imprime `npm ci`.
-  - La rúbrica conserva cierta subjetividad, que se mitiga con dos evaluadores y κ.
+  - La rúbrica conserva cierta subjetividad. Se mitiga con reglas de decisión y categorías definidas antes
+    de la revisión, y con el contraste con el juez LLM.
 - **Externa.**
   - El inventario procede de tres repositorios elegidos de forma intencional, con despliegues sobre
     VM/IIS. Los resultados no se generalizan a otras organizaciones ni plataformas.
@@ -417,27 +454,23 @@ El informe reporta el IC de Wilson, los casos sin diagnóstico y los defectos en
   - Cambios del modelo desplegado o de las imágenes entre corridas. Mitigación: el manifiesto fija
     versiones y digests, y las corridas comparadas comparten entorno.
 
-## 13. Aprobación y cambios
+## 13. Calificación y cambios
 
-| Rol | Responsabilidad | Decisión | Fecha |
-|---|---|---|---|
-| Asesor especializado | Revisa y aprueba el protocolo; califica el logro del indicador | Pendiente | — |
-| Asesor metodológico | Revisa y aprueba el protocolo; califica el logro del indicador | Pendiente | — |
-
-- La aprobación cubre este protocolo y las rúbricas de §8, y se registra antes de la primera corrida
-  oficial.
-- **v0.5:** este semestre no se contemplan validaciones humanas externas al equipo. El protocolo se fija en
-  esta versión antes de la corrida oficial, sin aprobación previa de los asesores. Los asesores califican
-  el logro del indicador a partir del informe y sus registros.
+| Rol | Responsabilidad |
+|---|---|
+| Equipo del proyecto | Fija cada versión del protocolo antes de las corridas o revisiones que la aplican; obtiene y sustenta las métricas |
+| Asesor especializado | Califica el logro del indicador a partir del informe y sus registros |
+| Asesor metodológico | Califica el logro del indicador a partir del informe y sus registros |
 
 | Versión | Fecha | Cambio |
 |---|---|---|
 | 0.1 | 23/11/2026 | Borrador inicial. |
-| 0.2 | 23/11/2026 | Los integrantes del equipo asignan las puntuaciones de la rúbrica. Los asesores revisan el protocolo y califican el logro del indicador. El juez LLM pasa a ser verificación auxiliar recomendada y se añade la amenaza de evaluadores autores. |
+| 0.2 | 23/11/2026 | Los integrantes del equipo asignan las puntuaciones de la rúbrica. Los asesores califican el logro del indicador. El juez LLM pasa a ser verificación auxiliar recomendada y se añade la amenaza de evaluadores autores. |
 | 0.3 | 23/11/2026 | Procedimiento preregistrado de selección en `dev`: primero la recuperación (§6.1) y después el modelo (§6.2). Efecto de la protección de la ingestión sobre la evidencia (§3). La medición de la recuperación queda resuelta: local con el despliegue de embeddings del entorno. |
 | 0.4 | 23/11/2026 | Resultado de §6.2 y desviación registrada: gpt-6-luna se elige con el filtro eliminatorio y el indicador automático, sin la rúbrica humana (ADR-026). El modelo del tramo sol quedó en gpt-6.2-sol. |
-| 0.5 | 23/11/2026 | Decisiones de §14 resueltas y configuración final congelada (§15). La rúbrica la aplica el juez LLM, sin puntuaciones humanas (desviación, §8.3). Sin aprobación previa de los asesores. |
+| 0.5 | 23/11/2026 | Decisiones de §14 resueltas y configuración final congelada (§15). La rúbrica la aplica el juez LLM, sin puntuaciones humanas (desviación, §8.3). |
 | 0.6 | 23/11/2026 | Primera corrida oficial: 15/20. Regla de corrección de defectos de escenario y revisión r2 de los escenarios (§4). Segunda corrida de los 28 casos `test`, oficial y última del semestre (§10). Configuración de §15 sin cambios, verificada en el entorno. |
+| 0.7 | 24/11/2026 | Revisión humana de los 20 diagnósticos positivos de la corrida oficial: un integrante por caso, con las variantes de cada escenario repartidas entre ambos (§8.3). Incluye la prueba del dashboard (§7.7) y el análisis cualitativo (§8.4). La cifra principal pasa a ser la humana y el juez LLM queda como verificación auxiliar. Se aclaran los roles (§13) y el origen del corpus en el inventario validado en OE1 (§5). |
 - Cualquier cambio posterior genera una nueva versión con su motivo. Las corridas indican la versión
   aplicada.
 
@@ -463,6 +496,7 @@ El informe reporta el IC de Wilson, los casos sin diagnóstico y los defectos en
 | Imágenes desplegadas | Recommendation `sha256:fe77a18d…`, RAG `27f301b2…`, Ingestion `a9207a15…`, NLP `71e7e782…`, Correlation `50b6b95b…`, Pipeline `f763b26d…`, Log/Event `ffaf1216…` |
 | Evaluador | Juez LLM `rubric-judge-v1` sobre `pipesor-dev-diagnostics-sol` (§8.3) |
 | Escenarios | Primera corrida: revisión r1 (`eval/cases` preregistrado). Segunda corrida: revisión r2 (commit `002248f`, §4) |
+| Revisión humana (v0.7) | Lote `results/review-2026-11-23-oe3-test-r2/` (`harness.review`, semilla 20261124): 10 casos por integrante |
 
 Los manifiestos de las corridas registran estos valores completos. Cualquier cambio de configuración posterior
 abre una nueva versión del protocolo y una corrida nueva.

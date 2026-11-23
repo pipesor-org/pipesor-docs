@@ -52,8 +52,9 @@ Se resume aquí; el detalle completo está en el protocolo.
 - **Causa de referencia.** Se define por construcción del fixture y se registra antes de ejecutar
   (`eval/cases`). No se toma del RCA retrospectivo del inventario.
 - **Separación entre conocimiento y evaluación.**
-  - El corpus RAG (22 documentos, 33 fragmentos) se genera solo a partir del inventario, con procedencia y
-    autorización registradas.
+  - El corpus RAG (22 documentos, 33 fragmentos) se genera solo a partir del inventario maestro, validado
+    durante OE1 con el asesor especializado y con el entorno de validación. Cada documento registra su
+    procedencia.
   - Los casos, las causas de referencia y los juicios de relevancia no se importan.
   - Una prueba automática impide que texto específico de los casos llegue al corpus.
 - **Selección de la configuración, solo en `dev`** (protocolo §6):
@@ -156,7 +157,6 @@ Segunda corrida (oficial):
 | Desviación | Motivo | Efecto |
 |---|---|---|
 | La rúbrica la aplica un juez LLM, sin puntuaciones humanas (v0.5 §8.3) | No se contemplan validaciones humanas este semestre | El acierto es una medición automática; no hay κ humano. Las hojas ciegas quedan disponibles para confirmarlo |
-| Sin aprobación previa de los asesores (v0.5 §13) | Misma razón | El protocolo se fijó (v0.5 y v0.6) antes de cada corrida oficial |
 | Corrección de escenarios y segunda corrida después de ver resultados de `test` (v0.6 §4, §10) | Tres casos positivos con defectos de escenario en la primera corrida | Se reportan ambas corridas; la segunda es la oficial y la última del semestre (§6) |
 | Modelo elegido sin la rúbrica (v0.4, ADR-026) | Decisión del responsable del proyecto | La selección se apoya en el filtro eliminatorio y el indicador automático |
 | Umbral de similitud no adoptado (§6.1) | Separación de 0,0007 con 3 casos | Sin umbral; se registran las puntuaciones |
@@ -231,14 +231,16 @@ Segunda corrida (oficial):
 | «Enfoques del trabajo»: protocolo previo, causa de referencia, reglas de medición, casos sin diagnóstico registrados | Protocolo v0.5 y v0.6; `eval/cases` (revisiones r1 y r2); ningún caso quedó sin diagnóstico |
 | «Recursos de Datos y Evidencias»: procedencia, autorización y separación de la evaluación | `corpus/authorization.json`; `inventory/`; protocolo §5; prueba de fugas del arnés |
 | CTRL-006 / INV-010 | Corpus generado solo desde `inventory/`; `eval/qrels.json` marcado como material de evaluación |
-| PD-022 / PD-023 / PD-024 | Este informe, el protocolo y los manifiestos aportan la evidencia pendiente. Las aprobaciones humanas siguen fuera de este semestre |
+| PD-022 / PD-023 / PD-024 | Este informe, el protocolo y los manifiestos aportan la evidencia de método y resultados |
 
 ## 8. Próximos pasos
 
 1. **Completar las pruebas funcionales de §7.7**, condición necesaria para declarar cumplido OE3-I2:
    - verificar en el dashboard el incidente de al menos un caso por escenario de la corrida oficial;
    - registrar en el dashboard una revisión con la decisión de consenso.
-2. **Confirmación humana** de las puntuaciones del juez con las hojas ciegas disponibles, si es posible. En
-   especial, de los casos corregidos y de ESC-03-b y ESC-08-b.
+2. **Revisión humana de los 20 diagnósticos positivos** (protocolo v0.7, §8.3 y §8.4), en curso.
+   - Cada integrante revisa una variante de cada escenario.
+   - La revisión aporta la cifra principal de acierto, el acuerdo con el juez LLM, el análisis cualitativo
+     y la evidencia del dashboard del punto 1.
 3. **OE4:** un protocolo propio con el personal del entorno de validación, 20 escenarios comparativos y TMD.
    En ese protocolo también se corregirían los controles con defecto (NC-02 y NC-03-b).
