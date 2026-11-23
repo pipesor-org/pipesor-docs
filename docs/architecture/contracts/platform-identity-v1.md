@@ -104,8 +104,9 @@ modified and its audiences limit where it is accepted.
    one-time attempt (random `state`, PKCE S256 verifier kept server-side, 10 min
    expiry) and redirects to GitHub's authorize URL for the App's client id.
 2. `GET /api/v1/auth/github/callback?code&state` consumes the attempt once,
-   exchanges the code server-side, verifies the GitHub user, installation and
-   repository facts as ADR-020 requires, stores the user token in custody, and
+   exchanges the code server-side, verifies the GitHub user (any GitHub user who
+   authorizes the App may sign in, ADR-025; repository access is checked per
+   repository afterwards), stores the user token in custody, and
    redirects to `<dashboard origin>/auth/complete?handoff=<one-time opaque value>`.
    The handoff value is single-use and expires in 60 s.
 3. The dashboard calls `POST /api/v1/auth/session` with `{"handoff": "..."}` and
