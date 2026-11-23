@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Versión | 0.4 — **borrador para aprobación** (historial en §13) |
+| Versión | 0.5 — **vigente para la corrida oficial de OE3-I2** (historial en §13) |
 | Fecha | 23/11/2026 |
 | Alcance | Indicador OE3-I2 del Project Charter v1.3. OE4 queda fuera de este protocolo. |
 | Repositorio de ejecución | [pipesor-validation-scenarios](https://github.com/pipesor-org/pipesor-validation-scenarios) |
@@ -313,6 +313,18 @@ de OE3-I2.
   - Nunca sustituye la evaluación humana.
 - En OE4, el próximo periodo, la evaluación quedará a cargo del personal del entorno de validación. Eso
   se definirá en un protocolo propio.
+- **Desviación registrada (v0.5).**
+  - Este semestre no se recogen puntuaciones humanas: ni del equipo ni de terceros.
+  - La rúbrica de §8.1 y §8.2 la aplica el **juez LLM** como evaluador automático:
+    - despliegue `pipesor-dev-diagnostics-sol` (gpt-6.2-sol), distinto del modelo que diagnostica;
+    - versión `rubric-judge-v1` (`harness.judge`), con salida JSON estricta;
+    - 3 juicios por ítem: mediana para las puntuaciones y mayoría para los indicadores.
+  - Recibe por ítem la evidencia enviada, el diagnóstico, la causa de referencia, la evidencia clave y la
+    corrección esperada. En los controles fuera del inventario recibe además los nombres de los patrones del
+    inventario.
+  - Todo resultado se reporta como **acierto evaluado automáticamente**, junto con la estabilidad del juez.
+    No hay κ entre humanos.
+  - Las hojas ciegas se conservan para una confirmación humana posterior.
 
 ## 9. Métricas
 
@@ -392,6 +404,9 @@ El informe reporta el IC de Wilson, los casos sin diagnóstico y los defectos en
 
 - La aprobación cubre este protocolo y las rúbricas de §8, y se registra antes de la primera corrida
   oficial.
+- **v0.5:** este semestre no se contemplan validaciones humanas externas al equipo. El protocolo se fija en
+  esta versión antes de la corrida oficial, sin aprobación previa de los asesores. Los asesores califican
+  el logro del indicador a partir del informe y sus registros.
 
 | Versión | Fecha | Cambio |
 |---|---|---|
@@ -399,21 +414,31 @@ El informe reporta el IC de Wilson, los casos sin diagnóstico y los defectos en
 | 0.2 | 23/11/2026 | Los integrantes del equipo asignan las puntuaciones de la rúbrica. Los asesores revisan el protocolo y califican el logro del indicador. El juez LLM pasa a ser verificación auxiliar recomendada y se añade la amenaza de evaluadores autores. |
 | 0.3 | 23/11/2026 | Procedimiento preregistrado de selección en `dev`: primero la recuperación (§6.1) y después el modelo (§6.2). Efecto de la protección de la ingestión sobre la evidencia (§3). La medición de la recuperación queda resuelta: local con el despliegue de embeddings del entorno. |
 | 0.4 | 23/11/2026 | Resultado de §6.2 y desviación registrada: gpt-6-luna se elige con el filtro eliminatorio y el indicador automático, sin la rúbrica humana (ADR-026). El modelo del tramo sol quedó en gpt-6.2-sol. |
+| 0.5 | 23/11/2026 | Decisiones de §14 resueltas y configuración final congelada (§15). La rúbrica la aplica el juez LLM, sin puntuaciones humanas (desviación, §8.3). Sin aprobación previa de los asesores. |
 - Cualquier cambio posterior genera una nueva versión con su motivo. Las corridas indican la versión
   aplicada.
 
-## 14. Decisiones pendientes antes de aprobar
+## 14. Decisiones (resueltas en la versión 0.5)
 
-1. **ESC-04 (C10, `startup_failure`).** El perfil de ingestión vigente no prepara evidencia para ese
-   resultado, por lo que no habrá diagnóstico. Opciones:
-   - (a) incluirlo y contarlo como 0, con lo que el máximo posible baja a 10/11;
-   - (b) reportarlo aparte como límite de cobertura de la ingestión, fuera del denominador.
+1. **ESC-04 (C10, `startup_failure`)** no se implementa este semestre. El perfil de ingestión no prepara
+   evidencia para ese resultado, así que se reporta como **límite de cobertura** fuera del denominador. Los
+   10 escenarios positivos de §3 cumplen el mínimo de OE3-I2.
+2. **Disparo del análisis:** captura automática por **webhook**, activa en dev desde el 23/11/2026. La
+   latencia (§7.6) mide la cadena sin intervención humana.
+3. **Repeticiones:** **una** ejecución oficial por caso. La estabilidad entre repeticiones del modelo se midió
+   en `dev`, en la comparación de §6.2.
+4. **Medición de la recuperación** (resuelta en v0.3): local, con el despliegue de embeddings del entorno
+   (`pipesor-dev-embeddings`), autorizado por el responsable del proyecto.
 
-   Hasta decidir, los 10 escenarios positivos de §3 cumplen el mínimo de OE3-I2.
-2. **Disparo del análisis.** Opciones:
-   - captura automática por webhook en dev, recomendada porque hace interpretable la latencia;
-   - solicitud manual desde el dashboard.
-3. **Repeticiones** de la configuración final (§7.8): una o tres.
+## 15. Configuración final congelada (v0.5)
 
-Resuelto en la versión 0.3: la recuperación se mide en local con el despliegue de embeddings del entorno
-(`pipesor-dev-embeddings`), autorizado por el responsable del proyecto. No requiere cambios de IaC.
+| Componente | Valor |
+|---|---|
+| Modelo de diagnóstico | `pipesor-dev-diagnostics-luna`, gpt-6-luna 2026-09-22 ([ADR-026](../architecture/decisions/ADR-026-diagnosis-model-gpt-6-luna.md)); prompt `diagnostic-hypothesis-v2`; `max_completion_tokens` 1024 |
+| Recuperación | Consulta sin marcas de tiempo, solo documentación técnica, `topK` 3, sin umbral (§6.1) |
+| Corpus | Inventario R01–R03: 22 documentos y 33 fragmentos; `source_version` `f75113f1f7fc`; contenido `c07ce2e37a72…`; `scope_revision` `scope-r1` |
+| Imágenes desplegadas | Recommendation `sha256:fe77a18d…`, RAG `27f301b2…`, Ingestion `a9207a15…`, NLP `71e7e782…`, Correlation `50b6b95b…`, Pipeline `f763b26d…`, Log/Event `ffaf1216…` |
+| Evaluador | Juez LLM `rubric-judge-v1` sobre `pipesor-dev-diagnostics-sol` (§8.3) |
+
+Los manifiestos de las corridas registran estos valores completos. Cualquier cambio de configuración posterior
+abre una nueva versión del protocolo y una corrida nueva.
