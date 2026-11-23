@@ -32,6 +32,7 @@ relationship_labels:
   rel_correlation_recommendation: "Correlated context"
   rel_recommendation_rag: "Requests knowledge"
   rel_rag_pgvector: "Semantic search"
+  rel_rag_embeddings: "Generates embeddings"
   rel_recommendation_llm: "Inference with evidence and RAG"
   rel_technical_users_dashboard: "Querying and human review"
   rel_dashboard_entra: "Corporate authentication"

@@ -49,6 +49,7 @@ Las cajas de agrupación organizan la lectura; no son nuevos elementos arquitect
 | Delivers normalized events for processing | Azure Service Bus | logica_expo_02 |
 | Delivers logs and processed evidence for correlation | REST/HTTPS | logica_expo_02 |
 | Retrieves semantically related operational knowledge | PostgreSQL/pgvector | logica_expo_02 |
+| Generates compatible document and query embeddings | Azure OpenAI API v1/HTTPS | logica_expo_02 |
 | Provides the repository, commits and CI/CD workflow definitions | GitHub API/HTTPS | logica_expo_01 |
 | Provides authorized telemetry and operational evidence | REST/HTTPS | logica_expo_01 |
 | Queries results and records human review | HTTPS | logica_expo_03 |
@@ -63,9 +64,13 @@ Las cajas de agrupación organizan la lectura; no son nuevos elementos arquitect
 | Queries diagnostic_output to publish the workflow artifact | REST/HTTPS | logica_expo_03 |
 | Authorizes users and verifies GitHub identity, installations and repository access | OAuth/HTTPS + REST/HTTPS | logica_expo_01 |
 | Requests verified user access and workflow metadata without GitHub credentials | REST/HTTPS | logica_expo_01 |
+| Checks committed operational membership before evidence registration | REST/HTTPS | logica_expo_01, logica_expo_03 |
+| Verifies current machine permission for an exact protected evidence capture scope | REST/HTTPS | logica_expo_01 |
 
 ## Relaciones entre vistas
 
 - `rel_ingestion_postgresql_connector_metadata`: Ingestion and Normalization Service → PostgreSQL: Persists connector metadata and durable capture/publication ledger with temporary protected output bytes; no credential values (PostgreSQL).
 - `rel_correlation_postgresql`: Evidence Correlation Service → PostgreSQL: Records correlated context and traceability (PostgreSQL).
 - `rel_dashboard_ingestion_github_connection`: AIOps Web Dashboard → Ingestion and Normalization Service: Connects GitHub identity and selects authorized repositories/workflows (REST/HTTPS).
+- `rel_correlation_pipeline_operational_references`: Evidence Correlation Service → Pipeline Service: Checks current scope and committed ORIGIN membership before correlation (REST/HTTPS).
+- `rel_correlation_log_event_evidence_membership`: Evidence Correlation Service → Log/Event Service: Verifies committed evidence membership in the authorized capture and attempt (REST/HTTPS).

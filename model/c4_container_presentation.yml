@@ -46,6 +46,7 @@ relationship_labels:
   rel_nlp_correlation: "Processed evidence"
   rel_correlation_postgresql: "Context and traceability"
   rel_rag_pgvector: "Semantic retrieval"
+  rel_rag_embeddings: "Generates embeddings"
   rel_observability_sources_ingestion: "Authorized telemetry"
   rel_correlation_recommendation: "Correlated context"
   rel_recommendation_rag: "Requests RAG knowledge"
@@ -94,13 +95,13 @@ views:
     routes:
       rel_ingestion_postgresql_connector_metadata: {from: s, to: n, via: [], label: [430, 475]}
       rel_pipeline_ingestion_github_access: {from: n, to: n, via: [[990, 915], [450, 915]], label: [585, 915]}
-      rel_pipeline_ingestion_machine_scope: {from: n, to: n, from_offset: -40, to_offset: 40, via: [[950, 945], [490, 945]], label: [710, 945]}
+      rel_pipeline_ingestion_machine_scope: {from: n, to: n, from_offset: -40, to_offset: 40, via: [[950, 893], [490, 893]], label: [600, 893]}
       rel_log_event_pipeline_operational_evidence: {from: w, to: e, via: [], label: [1125, 815]}
       rel_correlation_pipeline_operational_references: {from: n, to: s, via: [], label: [950, 665]}
-      rel_correlation_log_event_evidence_membership: {from: n, to: s, from_offset: 50, to_offset: 25, via: [[1040, 715], [1285, 715]], label: [1180, 715]}
+      rel_correlation_log_event_evidence_membership: {from: n, to: s, from_offset: 50, to_offset: 25, via: [[1040, 695], [1285, 695]], label: [1180, 695]}
       rel_github_actions_ingestion_event: {from: e, to: w, via: [], label: [300, 810]}
       rel_service_bus_pipeline_service: {from: e, to: w, via: [], label: [855, 810]}
-      rel_service_bus_log_event_service: {from: n, to: n, via: [[720, 900], [1260, 900]], label: [1050, 900]}
+      rel_service_bus_log_event_service: {from: n, to: n, via: [[720, 904], [1260, 904]], label: [1150, 904]}
       rel_pipeline_service_postgresql: {from: s, to: e, to_offset: 40, via: [[990, 680], [590, 680], [590, 285]], label: [850, 680]}
       rel_log_event_service_postgresql: {from: s, to: e, to_offset: 24, via: [[1260, 650], [578, 650], [578, 269]], label: [1100, 650]}
       rel_recommendation_service_postgresql: {from: s, to: e, to_offset: -8, via: [[1260, 400], [595, 400], [595, 237]], label: [1110, 400]}
@@ -110,6 +111,7 @@ views:
       rel_nlp_correlation: {from: e, to: w, via: [], label: [855, 550]}
       rel_correlation_postgresql: {from: s, to: e, to_offset: 8, via: [[990, 425], [585, 425], [585, 253]], label: [780, 425]}
       rel_rag_pgvector: {from: w, to: e, from_offset: -40, to_offset: -40, via: [], label: [585, 195]}
+      rel_rag_embeddings: {from: s, to: e, to_offset: -50, via: [[720, 150], [300, 150], [300, 195]], label: [300, 172]}
       rel_observability_sources_ingestion: {from: e, to: s, via: [[300, 535], [300, 665], [450, 665]], label: [380, 665]}
       rel_correlation_recommendation: {from: e, to: w, via: [], label: [1125, 550]}
       rel_recommendation_rag: {from: w, to: n, from_offset: -40, via: [[1120, 495], [1120, 360], [720, 360]], label: [930, 360]}
@@ -148,6 +150,7 @@ views:
     routes:
       rel_pipeline_service_postgresql: {from: e, to: n, via: [[1260, 795]], label: [1215, 810]}
       rel_log_event_service_postgresql: {from: e, to: w, via: [], label: [1125, 550]}
+      rel_log_event_pipeline_operational_evidence: {from: n, to: s, via: [], label: [1010, 665]}
       rel_recommendation_service_postgresql: {from: e, to: w, via: [[1125, 245], [1125, 535]], label: [1125, 350]}
       rel_technical_users_dashboard: {from: e, to: w, via: [], label: [300, 810]}
       rel_dashboard_entra: {from: s, to: e, via: [[450, 665], [300, 665], [300, 245]], label: [300, 400]}

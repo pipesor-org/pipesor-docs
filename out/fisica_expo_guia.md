@@ -28,6 +28,8 @@ Service Bus also delivers events to NLP (view 02). Persistence and access: view 
 | Provides authorized telemetry and operational evidence | REST/HTTPS |
 | Authorizes users and verifies GitHub identity, installations and repository access | OAuth/HTTPS + REST/HTTPS |
 | Requests verified user access and workflow metadata without GitHub credentials | REST/HTTPS |
+| Checks committed operational membership before evidence registration | REST/HTTPS |
+| Verifies current machine permission for an exact protected evidence capture scope | REST/HTTPS |
 
 ## Physical View 02 — Assisted Diagnosis Runtime
 
@@ -42,6 +44,7 @@ Input from view 01. PostgreSQL/pgvector: the same physical instance. Consumption
 | Delivers normalized events for processing | Azure Service Bus |
 | Delivers logs and processed evidence for correlation | REST/HTTPS |
 | Retrieves semantically related operational knowledge | PostgreSQL/pgvector |
+| Generates compatible document and query embeddings | Azure OpenAI API v1/HTTPS |
 | Delivers correlated incident context for assisted diagnosis | REST/HTTPS |
 | Requests authorized contextual knowledge for the incident | REST/HTTPS |
 | Requests diagnostic inference with sanitized evidence and RAG context | Azure OpenAI API/HTTPS |
@@ -66,12 +69,15 @@ Actions retrieves the diagnosis through ACA native ingress and publishes its art
 | Routes diagnosis and review queries and operations | REST/HTTPS |
 | Persists human review decisions and traceability | PostgreSQL |
 | Queries diagnostic_output to publish the workflow artifact | REST/HTTPS |
+| Checks committed operational membership before evidence registration | REST/HTTPS |
 
 ## Relaciones entre vistas
 
 - `rel_ingestion_postgresql_connector_metadata`: Ingestion and Normalization Service → PostgreSQL: Persists connector metadata and durable capture/publication ledger with temporary protected output bytes; no credential values (PostgreSQL).
 - `rel_correlation_postgresql`: Evidence Correlation Service → PostgreSQL: Records correlated context and traceability (PostgreSQL).
 - `rel_dashboard_ingestion_github_connection`: AIOps Web Dashboard → Ingestion and Normalization Service: Connects GitHub identity and selects authorized repositories/workflows (REST/HTTPS).
+- `rel_correlation_pipeline_operational_references`: Evidence Correlation Service → Pipeline Service: Checks current scope and committed ORIGIN membership before correlation (REST/HTTPS).
+- `rel_correlation_log_event_evidence_membership`: Evidence Correlation Service → Log/Event Service: Verifies committed evidence membership in the authorized capture and attempt (REST/HTTPS).
 
 ## Advertencias
 

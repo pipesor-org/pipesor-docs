@@ -5,7 +5,7 @@ import re
 import sys
 
 import yaml
-from domain_constraints import validate_constraints
+from domain_constraints import normalize, validate_constraints
 from connector_constraints import validate_connector
 from capture_constraints import validate_capture
 from correlation_constraints import validate_correlation
@@ -287,8 +287,10 @@ def validate_domain(domain, architecture):
         errors.append("diagnosis.correlated_context_receipts.signals: required typed JSON array")
     if "append_only" not in receipt.get("domain_constraints", []):
         errors.append("diagnosis.correlated_context_receipts: missing approved append_only")
-    if not any(c.get("name") == "correlated_context_receipts_signals_shape_ck" and
-               c.get("expression") == "CASE WHEN jsonb_typeof(signals) = 'array' THEN jsonb_array_length(signals) > 0 AND jsonb_array_length(signals) = cardinality(evidence_ids) ELSE false END"
+    # Constraint names are presentation details; compare the approved expression.
+    if not any(normalize(c.get("expression", "")) == normalize(
+                   "CASE WHEN jsonb_typeof(signals) = 'array' THEN jsonb_array_length(signals) > 0 "
+                   "AND jsonb_array_length(signals) = cardinality(evidence_ids) ELSE false END")
                for c in receipt.get("checks", [])):
         errors.append("diagnosis.correlated_context_receipts.signals: required array shape CHECK")
     errors.extend(validate_correlation(domain))

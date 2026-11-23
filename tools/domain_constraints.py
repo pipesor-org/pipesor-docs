@@ -1,4 +1,4 @@
-"""Current DD-003/005/006/007/009/013 constraints, not a SQL parser.
+"""Current DD-003/005/006/007/009/013/023/024 constraints, not a SQL parser.
 
 An authorized domain evolution updates these contracts and regression tests.
 Constraint names are presentation details; compare expressions and column sets.
@@ -35,6 +35,12 @@ REQUIRED_REFERENCES = {
     'evidence.correlated_contexts.incident_id': ('logical_ref', 'ops.incidents.id'),
     'evidence.correlated_contexts.execution_id': ('logical_ref', 'ops.pipeline_executions.id'),
     'evidence.correlated_contexts.evidence_ids': ('logical_ref', 'evidence.evidence_items.id'),
+    'evidence.correlated_contexts.scope_pipeline_id': ('logical_ref', 'ops.pipelines.id'),
+    'diagnosis.correlated_context_receipts.context_id': ('logical_ref', 'evidence.correlated_contexts.id'),
+    'diagnosis.correlated_context_receipts.pipeline_id': ('logical_ref', 'ops.pipelines.id'),
+    'diagnosis.correlated_context_receipts.incident_id': ('logical_ref', 'ops.incidents.id'),
+    'diagnosis.correlated_context_receipts.execution_id': ('logical_ref', 'ops.pipeline_executions.id'),
+    'diagnosis.correlated_context_receipts.evidence_ids': ('logical_ref', 'evidence.evidence_items.id'),
     'diagnosis.diagnoses.incident_id': ('logical_ref', 'ops.incidents.id'),
     'diagnosis.recommendations.diagnosis_id': ('fk', 'diagnosis.diagnoses.id'),
     'diagnosis.diagnosis_evidence_links.diagnosis_id': ('fk', 'diagnosis.diagnoses.id'),
@@ -58,6 +64,16 @@ REQUIRED_CHECKS = {
     'human_reviews': ["decision <> 'CORRECTED' OR (actual_cause IS NOT NULL AND btrim(actual_cause) <> '')"],
     'knowledge_documents': ["btrim(provenance) <> ''", "corpus_kind <> 'reviewed_incidents' OR reviewed_incident_id IS NOT NULL"],
     'knowledge_chunks': ['chunk_index >= 0', "btrim(provenance) <> ''"],
+    'correlated_context_receipts': [
+        'operation_id = context_id',
+        "request_fingerprint ~ '^v1:sha256:[0-9a-f]{64}$'",
+        "github_installation_id ~ '^[1-9][0-9]{0,31}$'",
+        "github_repository_id ~ '^[1-9][0-9]{0,31}$'",
+        "scope_revision ~ '^[A-Za-z0-9._:-]{1,128}$'",
+        'cardinality(evidence_ids) > 0',
+        "btrim(summary) <> ''",
+        "correlation_id ~ '^[A-Za-z0-9._:-]{1,128}$'",
+    ],
 }
 
 
