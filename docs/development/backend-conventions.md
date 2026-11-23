@@ -41,9 +41,10 @@ Trabajar en incrementos pequeños: definir comportamiento y criterios de aceptac
 
 Mantener comandos verificados en el README de cada servicio. Fijar dependencias compatibles al introducir el build. Entregar por cambios revisables conforme a la política de contribución; sin despliegues o recursos cloud implícitos.
 
-La [guía CI/CD](cicd.md) concentra los principios reutilizables y el estado del
-piloto, incluyendo diferencias entre Java, Python y artefactos estáticos. No
-sustituye los comandos de cada README ni aprueba contratos de despliegue.
+La [guía CI/CD](cicd.md) concentra las prácticas acordadas, el pipeline
+compartido de [pipesor-ci](https://github.com/pipesor-org/pipesor-ci) y el estado
+de cada repositorio. Los servicios publican candidatos inmutables y no despliegan;
+no sustituye los comandos de cada README ni aprueba contratos de despliegue.
 
 ## Adopción de esta iteración
 
