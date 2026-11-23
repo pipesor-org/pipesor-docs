@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Versión | 0.5 — **vigente para la corrida oficial de OE3-I2** (historial en §13) |
+| Versión | 0.6 — **vigente para la segunda y última corrida oficial de OE3-I2** (historial en §13) |
 | Fecha | 23/11/2026 |
 | Alcance | Indicador OE3-I2 del Project Charter v1.3. OE4 queda fuera de este protocolo. |
 | Repositorio de ejecución | [pipesor-validation-scenarios](https://github.com/pipesor-org/pipesor-validation-scenarios) |
@@ -119,6 +119,22 @@ limitación de la plataforma.
 - Si un evaluador demuestra que la evidencia disponible no permite identificar la causa de referencia,
   el caso se registra como **defecto del escenario**. No se excluye: se reporta, y el escenario se corrige
   para una versión posterior.
+- **Regla de corrección (v0.6).**
+  - **Qué se corrige.** Solo los casos que el consenso del evaluador marcó como defecto de escenario, no
+    los que obtuvieron una puntuación baja.
+  - **Cómo se corrige.** Se modifica el fixture para que su evidencia muestre el elemento determinante,
+    como lo mostraría un registro real. La causa de referencia solo se reescribe para nombrar **el mismo
+    elemento** con lo que muestra la evidencia nueva. No se rebaja lo que exige.
+  - **Qué no cuenta como defecto.** Los datos que oculta el procesamiento de Pipesor, como el enmascaramiento
+    de la ingestión: se reportan como limitación de la plataforma.
+  - **Controles fuera del inventario marcados.** No se corrigen en esta versión: no entran en la métrica
+    principal y el defecto no afecta su función, que es detectar atribuciones falsas.
+- **Revisión r2 de los escenarios** (pipesor-validation-scenarios#14), sobre la primera corrida oficial:
+  - ESC-01-b: el build muestra el campo `TaxRate` sin usar (CS0414).
+  - ESC-01-c: el build muestra que falta el espacio de nombres `Orders.Api.Validation` (CS0234).
+  - ESC-08: las horas de inicio de los run commands son relativas a la ejecución, no fijas de la noche
+    anterior.
+  - NC-01-c: no se corrige, porque su dato lo enmascara la ingestión.
 
 ## 5. Separación entre conocimiento y evaluación
 
@@ -349,6 +365,12 @@ de OE3-I2.
   excluyen**: el caso cuenta como 0 y se registra la fase en que falló.
 - No se eliminan casos después de ver los resultados. Los defectos de escenario (§4) se reportan con el
   caso.
+- **Segunda corrida oficial (v0.6).** Tras la corrección de §4 se repiten los 28 casos `test`, no solo los
+  corregidos, una vez cada uno y con la configuración de §15.
+  - Es la corrida oficial para OE3-I2 y **la última de este semestre**. Su resultado se reporta sea cual sea,
+    junto al de la primera corrida.
+  - La corrección se decidió después de ver los resultados de `test`. El informe la declara como amenaza a la
+    validez (§12).
 - Los resultados por reproducción real y simulada se presentan por separado y en conjunto.
 - Cada corrida se versiona en `results/<fecha>-<etiqueta>/` del repositorio de ejecución:
   `manifest.json`, registros por caso, evaluaciones por evaluador, consenso, `metrics.json` y resumen.
@@ -415,6 +437,7 @@ El informe reporta el IC de Wilson, los casos sin diagnóstico y los defectos en
 | 0.3 | 23/11/2026 | Procedimiento preregistrado de selección en `dev`: primero la recuperación (§6.1) y después el modelo (§6.2). Efecto de la protección de la ingestión sobre la evidencia (§3). La medición de la recuperación queda resuelta: local con el despliegue de embeddings del entorno. |
 | 0.4 | 23/11/2026 | Resultado de §6.2 y desviación registrada: gpt-6-luna se elige con el filtro eliminatorio y el indicador automático, sin la rúbrica humana (ADR-026). El modelo del tramo sol quedó en gpt-6.2-sol. |
 | 0.5 | 23/11/2026 | Decisiones de §14 resueltas y configuración final congelada (§15). La rúbrica la aplica el juez LLM, sin puntuaciones humanas (desviación, §8.3). Sin aprobación previa de los asesores. |
+| 0.6 | 23/11/2026 | Primera corrida oficial: 15/20. Regla de corrección de defectos de escenario y revisión r2 de los escenarios (§4). Segunda corrida de los 28 casos `test`, oficial y última del semestre (§10). Configuración de §15 sin cambios, verificada en el entorno. |
 - Cualquier cambio posterior genera una nueva versión con su motivo. Las corridas indican la versión
   aplicada.
 
@@ -430,7 +453,7 @@ El informe reporta el IC de Wilson, los casos sin diagnóstico y los defectos en
 4. **Medición de la recuperación** (resuelta en v0.3): local, con el despliegue de embeddings del entorno
    (`pipesor-dev-embeddings`), autorizado por el responsable del proyecto.
 
-## 15. Configuración final congelada (v0.5)
+## 15. Configuración final congelada (v0.5, vigente en v0.6)
 
 | Componente | Valor |
 |---|---|
@@ -439,6 +462,7 @@ El informe reporta el IC de Wilson, los casos sin diagnóstico y los defectos en
 | Corpus | Inventario R01–R03: 22 documentos y 33 fragmentos; `source_version` `f75113f1f7fc`; contenido `c07ce2e37a72…`; `scope_revision` `scope-r1` |
 | Imágenes desplegadas | Recommendation `sha256:fe77a18d…`, RAG `27f301b2…`, Ingestion `a9207a15…`, NLP `71e7e782…`, Correlation `50b6b95b…`, Pipeline `f763b26d…`, Log/Event `ffaf1216…` |
 | Evaluador | Juez LLM `rubric-judge-v1` sobre `pipesor-dev-diagnostics-sol` (§8.3) |
+| Escenarios | Primera corrida: revisión r1 (`eval/cases` preregistrado). Segunda corrida: revisión r2 (commit `002248f`, §4) |
 
 Los manifiestos de las corridas registran estos valores completos. Cualquier cambio de configuración posterior
 abre una nueva versión del protocolo y una corrida nueva.
