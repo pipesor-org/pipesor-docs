@@ -59,7 +59,7 @@ jobs:
       - name: Install Graphviz renderer
         run: |
           sudo apt-get update
-          sudo apt-get install --yes graphviz fonts-dejavu-core
+          sudo apt-get install --yes --no-install-recommends graphviz libgvplugin-neato-layout8 fonts-dejavu-core
       - run: python -m pip install --disable-pip-version-check -r requirements.txt
       - name: Run unit tests
         run: make PYTHON=python test
