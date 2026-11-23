@@ -2,11 +2,12 @@
 
 | Campo | Valor |
 |---|---|
-| Versión | 0.1 — **borrador para aprobación** |
+| Versión | 0.2 — **borrador para aprobación** (historial en §13) |
 | Fecha | 23/11/2026 |
 | Alcance | Indicador OE3-I2 del Project Charter v1.3. OE4 queda fuera de este protocolo. |
 | Repositorio de ejecución | [pipesor-validation-scenarios](https://github.com/pipesor-org/pipesor-validation-scenarios) |
-| Aprobación | Pendiente: asesor especializado y asesor metodológico (§13) |
+| Evaluación de la rúbrica | Los dos integrantes del equipo del proyecto (§8.3) |
+| Revisión y aprobación | Pendiente: asesor especializado y asesor metodológico (§13) |
 
 Este documento fija, **antes de ejecutar las pruebas oficiales**, los escenarios, la causa de referencia,
 las reglas de medición, la rúbrica y los criterios de aceptación del diagnóstico de Pipesor. Así lo
@@ -203,7 +204,10 @@ de OE3-I2.
 
 ### 8.3 Procedimiento de evaluación
 
-- Evalúan, de forma independiente, el **asesor especializado** y el **asesor metodológico**.
+- Asignan las puntuaciones, de forma independiente, los **dos integrantes del equipo del proyecto**
+  (evaluadores A y B). Al equipo le corresponde obtener las métricas y sustentarlas. Los asesores
+  revisan este protocolo y califican el logro del indicador a partir del informe y de los registros de
+  evaluación, que quedan disponibles para su verificación (§10).
 - Cada evaluador recibe, por caso: el extracto de evidencia tal como se envió, el diagnóstico, la causa
   de referencia y la evidencia clave.
 - Los casos se presentan en orden aleatorio con identificadores anonimizados. No se revela la
@@ -212,10 +216,14 @@ de OE3-I2.
   la de consenso.
 - La concordancia se reporta con el κ de Cohen sobre las puntuaciones previas al consenso, en escala
   0/1/2 y en forma binaria (2 frente a menos de 2).
-- **Juez LLM (opcional).**
-  - Usa un despliegue distinto del modelo que diagnostica y un prompt versionado.
-  - Se reporta solo su concordancia con el consenso.
+- **Juez LLM (recomendado como verificación auxiliar).** Los evaluadores son autores del sistema
+  (§12), así que se aplica un juez LLM independiente.
+  - Usa un despliegue distinto del modelo que diagnostica y un prompt versionado, con las mismas
+    entradas y la misma rúbrica.
+  - Se reporta su concordancia con el consenso y cada caso en que discrepe.
   - Nunca sustituye la evaluación humana.
+- En OE4, el próximo periodo, la evaluación quedará a cargo del personal del entorno de validación. Eso
+  se definirá en un protocolo propio.
 
 ## 9. Métricas
 
@@ -263,7 +271,15 @@ El informe reporta el IC de Wilson, los casos sin diagnóstico y los defectos en
   - El mismo equipo construye los escenarios, las causas de referencia y el corpus, lo que puede
     facilitar la recuperación.
   - Mitigaciones: separación de §5, variantes `test` no vistas durante el ajuste y controles NC.
-  - Otros riesgos: el no determinismo del LLM (§7.8) y que los evaluadores conozcan los escenarios.
+  - Otro riesgo es el no determinismo del LLM (§7.8).
+  - **Los evaluadores son los autores** del sistema, de los escenarios y de las causas de referencia, lo
+    que puede sesgar la puntuación. Mitigaciones:
+    - rúbrica, reglas de decisión y causas de referencia fijadas antes de ejecutar, con el commit
+      registrado en el manifiesto;
+    - ocultamiento de la configuración y orden aleatorio;
+    - dos evaluaciones independientes con κ antes del consenso;
+    - concordancia con un juez LLM independiente;
+    - registros completos disponibles para que los asesores los verifiquen.
 - **De constructo.**
   - Los escenarios son sintéticos y cuatro usan respuestas simuladas.
   - El extracto de 40 líneas puede omitir contexto: se observó con la ayuda que imprime `npm ci`.
@@ -280,13 +296,18 @@ El informe reporta el IC de Wilson, los casos sin diagnóstico y los defectos en
 
 ## 13. Aprobación y cambios
 
-| Rol | Decisión | Fecha |
-|---|---|---|
-| Asesor especializado | Pendiente | — |
-| Asesor metodológico | Pendiente | — |
+| Rol | Responsabilidad | Decisión | Fecha |
+|---|---|---|---|
+| Asesor especializado | Revisa y aprueba el protocolo; califica el logro del indicador | Pendiente | — |
+| Asesor metodológico | Revisa y aprueba el protocolo; califica el logro del indicador | Pendiente | — |
 
 - La aprobación cubre este protocolo y las rúbricas de §8, y se registra antes de la primera corrida
   oficial.
+
+| Versión | Fecha | Cambio |
+|---|---|---|
+| 0.1 | 23/11/2026 | Borrador inicial. |
+| 0.2 | 23/11/2026 | Los integrantes del equipo asignan las puntuaciones de la rúbrica. Los asesores revisan el protocolo y califican el logro del indicador. El juez LLM pasa a ser verificación auxiliar recomendada y se añade la amenaza de evaluadores autores. |
 - Cualquier cambio posterior genera una nueva versión con su motivo. Las corridas indican la versión
   aplicada.
 
