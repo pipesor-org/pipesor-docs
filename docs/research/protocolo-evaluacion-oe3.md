@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Versión | 0.3 — **borrador para aprobación** (historial en §13) |
+| Versión | 0.4 — **borrador para aprobación** (historial en §13) |
 | Fecha | 23/11/2026 |
 | Alcance | Indicador OE3-I2 del Project Charter v1.3. OE4 queda fuera de este protocolo. |
 | Repositorio de ejecución | [pipesor-validation-scenarios](https://github.com/pipesor-org/pipesor-validation-scenarios) |
@@ -219,6 +219,17 @@ criterios de ambas etapas quedan fijados aquí antes de ejecutarlas.
 - Con 10 casos positivos en `dev`, cada caso vale 10 puntos. Las diferencias menores a la regla anterior no
   se presentan como superioridad de un modelo. La decisión y sus datos se registran en un ADR, y el cambio
   del despliegue de producción requiere aprobación.
+- **Resultado y desviación registrada (v0.4).**
+  - La comparación del 23/11/2026 (312 llamadas) dio estos resultados:
+    - los cuatro candidatos superaron el filtro eliminatorio;
+    - con el indicador automático, gpt-6-luna acertó 10/10 positivos, gpt-6.2-sol 9/10, gpt-6.1-terra 8/10 y
+      gpt-4o 4/10;
+    - el costo por diagnóstico fue de USD 0,0004 para luna frente a 0,0030–0,0061 para los demás.
+  - El responsable del proyecto eligió **gpt-6-luna**
+    ([ADR-026](../architecture/decisions/ADR-026-diagnosis-model-gpt-6-luna.md)) **sin aplicar todavía el
+    criterio principal, la rúbrica humana**.
+  - Si una evaluación con la rúbrica, hecha antes de las corridas de `test`, deja a luna 2 o más positivos por
+    debajo del mejor, se revisa la decisión.
 
 ## 7. Procedimiento de ejecución
 
@@ -387,6 +398,7 @@ El informe reporta el IC de Wilson, los casos sin diagnóstico y los defectos en
 | 0.1 | 23/11/2026 | Borrador inicial. |
 | 0.2 | 23/11/2026 | Los integrantes del equipo asignan las puntuaciones de la rúbrica. Los asesores revisan el protocolo y califican el logro del indicador. El juez LLM pasa a ser verificación auxiliar recomendada y se añade la amenaza de evaluadores autores. |
 | 0.3 | 23/11/2026 | Procedimiento preregistrado de selección en `dev`: primero la recuperación (§6.1) y después el modelo (§6.2). Efecto de la protección de la ingestión sobre la evidencia (§3). La medición de la recuperación queda resuelta: local con el despliegue de embeddings del entorno. |
+| 0.4 | 23/11/2026 | Resultado de §6.2 y desviación registrada: gpt-6-luna se elige con el filtro eliminatorio y el indicador automático, sin la rúbrica humana (ADR-026). El modelo del tramo sol quedó en gpt-6.2-sol. |
 - Cualquier cambio posterior genera una nueva versión con su motivo. Las corridas indican la versión
   aplicada.
 
@@ -402,7 +414,6 @@ El informe reporta el IC de Wilson, los casos sin diagnóstico y los defectos en
    - captura automática por webhook en dev, recomendada porque hace interpretable la latencia;
    - solicitud manual desde el dashboard.
 3. **Repeticiones** de la configuración final (§7.8): una o tres.
-4. **Modelo del tramo sol** para §6.2: gpt-6.1-sol (más maduro) o gpt-6.2-sol (más reciente).
 
 Resuelto en la versión 0.3: la recuperación se mide en local con el despliegue de embeddings del entorno
 (`pipesor-dev-embeddings`), autorizado por el responsable del proyecto. No requiere cambios de IaC.
