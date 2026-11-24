@@ -138,6 +138,111 @@ queda en las preguntas siguientes.
     - DCQ-002 y DCQ-003 están parcialmente contradichas por contratos aprobados.
     - CD-1 ya tiene 15 nodos, justo el máximo, para añadir la API del informe de Actions.
 
+### Respuestas del responsable — 24/11/2026
+
+El responsable respondió parte de las preguntas el mismo día y pidió atender las observaciones de
+la revisión del Capstone v1.2:
+
+- P3: hosting del dashboard sin ADR; las Figuras 1 y 4 siguen mostrando Static Web Apps.
+- Las Figuras 1 y 7 son idénticas a las de entregas anteriores, y la 7 trunca rótulos.
+- Las figuras se ven poco.
+- Retirar Entra ID como autenticación y usar GitHub OAuth con PKCE.
+
+La revisión de `origin/main` se repitió sobre:
+
+| Repositorio | Revisión |
+|---|---|
+| docs | `c240269` |
+| pipesor-iac | `318af56` |
+| frontend | `2806ae1` |
+| workspace | `168d72d` |
+| Ingestion | `a41188a` |
+| Pipeline | `f6b64c3` |
+| Log/Event | `5f3475f` |
+| Correlation | `be231a0` |
+| Recommendation | `c3ce559` |
+| NLP | `d70a81a` |
+| RAG | `312b520` |
+
+#54–#58 ya estaban fusionados.
+
+| Pregunta | Respuesta | Acción |
+|---|---|---|
+| 4. Comentario en REJECTED | Opcional en este semestre, para no contaminar el corpus de validación. En OE4 cada REJECTED podría alimentar el RAG. | [DD-029](../../model/domain_decisions.md#DD-029) conserva DD-005. Quedan por alinear la CHECK de Recommendation V8 y el contrato MVP, que aún lo exigen. La idea de OE4 queda en PD-037, que sigue abierta. |
+| 5. `ON DELETE CASCADE` | «Propón algo». | Propuesta abajo, no implementada. |
+| 6. Owner de `audit.audit_events` | Pidió la opción más coherente. | Recomendación abajo; la decisión sigue abierta. |
+| 8. `rel_dashboard_entra` | Se retira. | #63: sin `entra_id`; inicio de sesión con GitHub (OAuth + PKCE S256 mediante Ingesta, ADR-022/029). Entra queda como identidad administrada ante recursos Azure, como decide ADR-022. |
+| 9. Key Vault | Debe modelarse: está en Terraform y guarda secretos. | #63: `azure_key_vault` con seis relaciones de firma, más la custodia y el material de la App de Ingesta. |
+| 10. Dashboard en Container App | Redactar el ADR. Static Web Apps se descartó por la suscripción Azure for Students. | #63: [ADR-030](decisions/ADR-030-dashboard-on-azure-container-apps.md). Static Web Apps no se ofrece en las regiones permitidas. |
+| 11. Modelo LLM | gpt-6-luna. | #63: `gpt-6-luna` 2026-09-22, con el alcance de ADR-026 (dev y OE3-I2). PD-026 sigue abierta para otros entornos. |
+| 15. Historial de reviews | «Verifícalo». | Verificado: **sí** se expone (detalle abajo). #64 lo registra en el contrato; decidir si se oculta sigue pendiente. |
+| 17. Webhook | Debe estar en un contrato. | #64: [contrato del webhook v1](contracts/github-workflow-webhook-v1.md). No hace falta ADR: el enrutamiento ya lo decide ADR-023 y la admisión ADR-024. |
+| Figuras del Capstone | Confirmar la poca visibilidad y mejorarla. | Confirmado (detalle abajo). #63 añade variantes de impresión en `out/doc/` y corrige el contenido de las Figuras 1, 4 y 7. |
+
+Siguen sin respuesta las preguntas 1–3, 7, 12–14, 16 y 18–24.
+
+**15. Historial de reviews.**
+
+- Recommendation `c3ce559` exige OPERATE solo en `POST /api/v1/diagnoses/{id}/reviews`.
+- El `GET` responde a quien tiene VIEW con cada entrada de `history[]`, que incluye:
+  - `reviewer`: el sujeto de plataforma, UUIDv5 del ID de usuario GitHub; no es el login, pero es estable entre diagnósticos;
+  - `comment`, `actualCause` y `correctedRecommendation`.
+- La proyección del diagnóstico por incidente no los incluye.
+- El dashboard descarta `reviewer`, pero muestra la causa y el comentario a usuarios VIEW.
+- Ninguna prueba cubre una lectura VIEW con revisiones existentes.
+
+**5. Propuesta para acciones referenciales.**
+
+- `domain.yml` tendría un atributo opcional `on_delete` (`restrict`, como hoy, o `cascade`).
+  - Solo en relaciones `fk` intra-schema; nunca en `logical_ref`, que no tiene FK física.
+- El validador rechazaría cualquier otro valor o uso.
+- Los generadores lo emitirían:
+  - `to_sql`: `ON DELETE CASCADE`;
+  - `to_dbml`: `[delete: cascade]`;
+  - el diccionario de datos.
+- El registro congelado de referencias y una prueba en PostgreSQL lo fijarían.
+- El primer uso sería `knowledge.knowledge_chunks.document_id` → `knowledge.knowledge_documents.id` (migración RAG `20261111_01`), registrado en un DD nuevo.
+- Es un cambio acotado de validador, generadores y pruebas. Se implementa en un PR propio si se aprueba.
+
+**6. Recomendación sobre `audit.audit_events`.**
+
+Estado actual:
+
+- Pipeline es el único servicio que la crea (V6, `IF NOT EXISTS`), la escribe (`SqlAuditLog`) y la lee.
+- Los demás servicios guardan su trazabilidad en sus propios schemas, por ejemplo `diagnosis.human_reviews` e `ingestion.consent_records`.
+
+Lo más coherente con ADR-011 y ADR-018, que hacen de `audit` una capacidad transversal sin `audit_service`:
+
+- conservar `owner_container: shared` como propiedad lógica;
+- registrar a Pipeline como custodio físico en el MVP: dueño de la migración y único escritor;
+- que otro servicio que necesite esta tabla escriba mediante Pipeline y no con permisos directos.
+
+Registrarlo exige un DD y, si se quiere en `domain.yml`, un campo de custodio que el validador hoy no admite.
+
+**Figuras del Capstone v1.2.** Las figuras extraídas del documento coinciden byte a byte con exportaciones antiguas de `out/`:
+
+| Figura | Archivo | Exportación |
+|---|---|---|
+| 1 | `c4_expo_2a.png` | 09/11 |
+| 2 | `fisica_expo_01.png` | 08/11 |
+| 3 | `fisica_expo_02.png` | 06/11 |
+| 4 | `fisica_expo_03.png` | 06/11 |
+| 6 | `logica_expo_02.png` | 04/11 |
+| 7 | render de `c4_component_diagnostic.svg` | — |
+
+Por eso las Figuras 1 y 7 repiten huella. Al ancho de inserción del documento (15,8 cm y 23,6 cm en la Figura 1), los textos se imprimen entre 3,3 y 5,6 pt; solo los títulos superan 7 pt.
+
+Las variantes de `out/doc/` se comprueban para que ningún texto baje de 8 pt en A4. La [guía de figuras](../../out/doc/guia_figuras.md) indica la orientación y el tamaño de inserción de cada una. Reinsertarlas en el Capstone es tarea de sus autores.
+
+**Hallazgo nuevo.** pipesor-iac crea la clave `pipesor-rag-signing`, le da a RAG el rol Crypto User y le pasa `PIPESOR_SIGNING_KEY_ID`, pero RAG no firma tokens: solo valida JWKS. Además, `docs/key-vault-integration.md` de pipesor-iac contradice el módulo `workloads` en:
+
+- tipo de identidad;
+- credencial;
+- rol Secrets Officer;
+- referencias de Key Vault.
+
+Se reporta aquí y no se corrige: pipesor-iac está fuera de este repositorio.
+
 ### Límites de esta auditoría
 
 - No se compilaron los servicios ni se levantó el stack local.
