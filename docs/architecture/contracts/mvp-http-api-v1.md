@@ -9,16 +9,35 @@ guarantees recorded in [pending decisions](../pending-decisions.md).
 
 - JSON over HTTPS, UTF-8. Errors use `application/problem+json` with `type`, `title`,
   `status`, `code` and `correlationId`; no stack traces, tokens or internal messages.
+  `code` is a stable token compared exactly: UPPER_SNAKE in Ingestion and Pipeline,
+  lower_snake in Recommendation. `type` is `about:blank` (Ingestion, Pipeline) or
+  `urn:pipesor:problem:<code>` (Recommendation); Pipeline may add a fixed `detail` and
+  `instance`. A missing or invalid token is `401 UNAUTHENTICATED` (`unauthenticated` in
+  Recommendation); a missing scope or role is `403 DENIED` (Ingestion), `ACCESS_DENIED`
+  (Pipeline) or `forbidden` (Recommendation).
 - Every request may send `X-Correlation-ID` (`[A-Za-z0-9._:-]{1,128}`); the service
   echoes it or generates one.
+  Known divergence (audit 2026-11-24): Ingestion answers an invalid `X-Correlation-ID`
+  with `400 INVALID_REQUEST` instead of generating one, and its `/internal/v1/capture/**`
+  routes do not echo the header — pending owner decision.
 - Every authenticated response sets `Cache-Control: no-store`.
 - Lists use `?pageSize=` (1–100, default 24) and an opaque `?pageToken=`; responses
   return `items` and `nextPageToken` (nullable). Authorization filters are applied
-  before paging (ADR-020).
+  before paging (ADR-020). `pageSize`/`pageToken` govern the routes that implement
+  them (incident queue, workflow runs, collaborators, paged discovery); a route may
+  state its own default. The existing Pipeline lists (`/pipelines`,
+  `/pipelines/{id}/executions`, `/pipelines/{id}/incidents`, `/pipelines/{id}/grants`,
+  `/pipelines/{id}/activities`, `/incidents/{id}/runs`) take `?offset=` (≥0, default 0)
+  and `?limit=` (1–100, default 25) and return `{items, offset, limit}`; they ignore
+  `pageSize`/`pageToken`. `/executions/{id}/stages` returns a bare array.
 - CORS allows only the configured dashboard origin, methods in use, headers
-  `Authorization`, `Content-Type`, `X-Correlation-ID`; no credentials mode.
-- Each service exposes its OpenAPI document at `/v3/api-docs` (Java) or
-  `/openapi.json` (Python) in the `local` profile. Existing routes keep their
+  `Authorization`, `Content-Type`, `X-Correlation-ID`, plus `If-Match` (Ingestion) and
+  `Idempotency-Key` (Recommendation); it exposes `X-Correlation-ID`, `ETag` (Ingestion)
+  and `Location` (Pipeline); no credentials mode.
+- Ingestion, Pipeline and Recommendation expose their OpenAPI document at
+  `/v3/api-docs` in the `local` profile. Log/Event and Correlation have no springdoc,
+  and the Python services do not serve `/openapi.json` (RAG versions its document in
+  `docs/openapi/internal-v1.json` of its repository). Existing routes keep their
   current shapes; this document lists them and defines the new ones.
 
 ## Ingestion — authentication and GitHub discovery (external ingress)
@@ -35,9 +54,32 @@ guarantees recorded in [pending decisions](../pending-decisions.md).
 | `GET /api/v1/github/installations` | `GitHub.Self` | new | pipesor installations visible to the user, reconciled (ADR-024); shape below |
 | `GET /api/v1/github/repositories/{repositoryId}/workflows?pageSize=&pageToken=&q=` | `GitHub.Self` | extended | paged form below; the legacy `?limit=` form is unchanged |
 | `GET /api/v1/github/repositories/{repositoryId}/collaborators?pageSize=&pageToken=` | `GitHub.Self` | new | GitHub collaborators of a repository the caller currently administers, to choose grant recipients (ADR-028); shape below |
-| `GET /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs?conclusion=failure|success` | `GitHub.Self` | new | `items[]: {runId, attempt, conclusion, headBranch, headSha, createdAt, htmlUrl}`; `failure` (default) lists runs to analyse, `success` runs to record as verification; other values 400 |
-| `POST /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs/{runId}/attempts/{attempt}/analysis` | `GitHub.Self` | generalized | replaces the configured single run; requires OPERATE conditions of ADR-020; returns `202 {analysisId, phase}` and only records durable intent; accepts failed runs (analysis) and successful runs (verification capture) |
-| `GET /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs/{runId}/attempts/{attempt}/analysis` | `GitHub.Self` | existing (pilot) | `{analysisId, phase: ACCEPTED|PREPARING|PUBLISHED|BLOCKED, blockedReason?: SCOPE_CHANGED|SOURCE_EXPIRED, executionId?, incidentId?}`. `BLOCKED` is terminal; `SOURCE_EXPIRED` means GitHub no longer retains the run's logs (410 Gone). |
+| `GET /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs?conclusion=failure|success&pageSize=&pageToken=` | `GitHub.Self` | new | `{items: [{runId, attempt, conclusion, headBranch, headSha, createdAt, runStartedAt, htmlUrl}], nextPageToken}`; `failure` (default) lists runs to analyse, `success` runs to record as verification; other values 400. `pageSize` 1–100, default 24; `nextPageToken` is `null` on the last page and after 10 pages; a malformed or out-of-range `pageToken` is `400 INVALID_REQUEST` |
+| `POST /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs/{runId}/attempts/{attempt}/analysis` | `GitHub.Self` | generalized | replaces the configured single run; requires OPERATE conditions of ADR-020; returns `202` with the same body as `GET` (a repeated request for the same attempt returns its receipt) and only records durable intent; accepts failed runs (analysis) and successful runs (verification capture) |
+| `GET /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs/{runId}/attempts/{attempt}/analysis` | `GitHub.Self` | existing (pilot) | `{analysisId, phase: ACCEPTED|PREPARING|PUBLISHED|BLOCKED, blockedReason?: SCOPE_CHANGED|SOURCE_EXPIRED, executionId?, incidentId?}`. `BLOCKED` is terminal; `SOURCE_EXPIRED` means GitHub no longer retains the run's logs (GitHub answered `410 Gone` to the log download; this route still answers `200`). |
+
+`GET /api/v1/github/connection` returns `{locallyLinked, revision, cleanupStatus}` and, when a
+connection exists, its `revision` as `ETag`. `DELETE` requires `If-Match` with that quoted
+`revision`: a missing or malformed header is `400 INVALID_REQUEST`; no connection or another
+revision is `409 CONNECTION_CONFLICT`.
+
+The analysis routes (`POST` and `GET …/analysis`) answer `400 INVALID_REQUEST`, `403 DENIED`,
+`409 CAPTURE_SCOPE_PENDING` (no `ACTIVE` capture scope, ADR-023), `409 CAPTURE_CONFLICT`,
+`503 CAPTURE_UNAVAILABLE` and `503 VERIFICATION_UNAVAILABLE`. `POST` answers
+`422 UNSUPPORTED_EVIDENCE` for a run that is not completed with a `failure`, `timed_out` or
+`success` conclusion. `GET` answers `404 ANALYSIS_NOT_FOUND` when the attempt was never
+requested.
+
+Known divergence (audit 2026-11-24): the analysis routes check no AIOps grant; Ingestion
+requires an active GitHub link and current GitHub administration of the admitted, readable
+repository (otherwise `403 DENIED`), unlike ADR-020's OPERATE conditions (AIOps OPERATE plus
+current read) — pending owner decision.
+
+Known divergence (audit 2026-11-24): Ingestion also serves
+`POST /webhooks/v1/github/workflow-runs` without a platform token, disabled by default
+(`pipesor.github.webhook-enabled: false`; IaC enables it when a webhook secret version is
+set); no contract documents its request,
+response or errors — pending owner decision.
 
 `GET /api/v1/github/installations` returns `200`:
 
@@ -61,7 +103,8 @@ guarantees recorded in [pending decisions](../pending-decisions.md).
 user's GitHub role. Reading this route or the repository list admits repositories the user
 administers in a pipesor installation and revokes admissions the installation no longer lists
 (ADR-024); browser-supplied installation data is never used. Errors are `problem+json` with
-`code` (`CONNECTION_REQUIRED`, `UNAVAILABLE`, …) as for the other GitHub routes.
+`code` (`409 CONNECTION_REQUIRED`, `503 VERIFICATION_UNAVAILABLE`, …) as for the other GitHub
+routes.
 
 ### Paged discovery
 
@@ -77,10 +120,12 @@ accept exactly one of two forms:
   `context` object (`tenantId`, `subjectObjectId`, …); repository pages repeat the ADR-024
   reconciliation and workflow pages re-check the repository's admission and readability.
 - **Legacy:** `limit` (1–100) with no `pageSize`/`pageToken`/`q`: unchanged, including
-  `503 VERIFICATION_UNAVAILABLE` when the user sees more than `limit` items.
+  `503 VERIFICATION_UNAVAILABLE` when the user sees more than `limit` items, except that the
+  body carries `nextPageToken: null`.
 
-Sending both forms, neither form, or `cursor` is `400 INVALID_REQUEST`. A `pageToken` that is
-malformed or was issued for another route, repository, user or `q` is `400 INVALID_PAGE_TOKEN`.
+Sending both forms, neither form, `cursor`, or a repeated `pageSize`, `pageToken` or `q` is
+`400 INVALID_REQUEST`. A `pageToken` that is malformed or was issued for another route,
+repository, user or `q` is `400 INVALID_PAGE_TOKEN`.
 Ingestion still reads at most 500 repositories per user from GitHub
 (`pipesor.github.limits.user-max-items`); beyond that the read is `503` in both forms.
 
@@ -140,9 +185,11 @@ organization).
 ## Pipeline — operations (external ingress)
 
 Existing routes (`/api/v1/pipelines`, `/pipelines/{id}`, `/pipelines/{id}/executions`,
-`/pipelines/{id}/incidents`, `/executions/{id}`, `/executions/{id}/stages`,
-`/incidents/{id}`, `/incidents/{id}/runs`, settings, policy, ownership, grants and
-incident lifecycle commands) keep their shapes and require `Pipeline.Access`.
+`/pipelines/{id}/incidents`, `/pipelines/{id}/activities`, `/executions/{id}`,
+`/executions/{id}/stages`, `/incidents/{id}`, `/incidents/{id}/runs`, settings, policy,
+ownership, grants and the incident lifecycle commands `remediation`, `verification`,
+`retry-remediation` and `resolve`) keep their shapes and require `Pipeline.Access`. Their
+lists page with `offset`/`limit` (see Conventions); `activities` adds `historyComplete`.
 `DELETE /api/v1/pipelines/{id}/grants/{principalRef}/CONFIGURE` refuses to remove the
 pipeline's last `CONFIGURE` grant, also the caller's own: `409 LAST_CONFIGURE_GRANT`
 (ADR-028). It counts stored grants; grant changes of one pipeline are serialized.
@@ -154,7 +201,7 @@ New:
 | `GET /api/v1/incidents?state=OPEN|RESOLVED` | cross-pipeline lifecycle queue, filtered by VIEW grants and current GitHub access before paging; removes the per-pipeline N+1 fan-out. `OPEN` is every active incident (`OPEN`, `IN_REMEDIATION`, `VERIFICATION`). Filters, `total` and enriched items below (ADR-027) |
 | `GET /api/v1/pipelines/registrations?repositoryId=` | monitored workflows of a repository the caller can currently read on GitHub, with or without a grant (ADR-028); existence only, shape below |
 | `GET /api/v1/incidents/summary?state=OPEN|RESOLVED` | counts of the same filtered, visible set per severity, status and diagnosis (ADR-027) |
-| `GET /api/v1/insights?from=&to=` | History Insights over visible resolved incidents (ADR-027) |
+| `GET /api/v1/insights?from=&to=&top=` | History Insights over visible resolved incidents (ADR-027) |
 
 Incident `severity` (nullable) is seeded when the incident is opened from its pipeline's
 criticality at that moment (same `CRITICAL|HIGH|MEDIUM|LOW` scale, MVP rule); criticality
@@ -204,12 +251,12 @@ queue order (`createdAt` descending, then `id`) does not change.
 | Parameter | Values |
 |---|---|
 | `pipelineId` | pipeline UUID |
-| `repositoryId` | GitHub numeric repository id (string of digits), as returned by discovery |
+| `repositoryId` | GitHub numeric repository id (string of up to 20 digits, no leading zero), as returned by discovery |
 | `severity` | `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `UNCLASSIFIED` (severity `null`) |
 | `stage` | `BUILD`, `TESTING`, `QUALITY_GATE`, `DEPLOYMENT`, `CONTAINER`, `INFRASTRUCTURE` |
 | `status` | with `state=OPEN`: `OPEN`, `IN_REMEDIATION`, `VERIFICATION`; with `state=RESOLVED`: `RESOLVED` |
 | `diagnosis` | `PENDING`, `CONFIRMED`, `CORRECTED`, `REJECTED`, `ABSENT` (no admitted diagnosis projected) |
-| `q` | single value, normalized (NFKC, trimmed, inner whitespace collapsed), at most 100 characters. `INC-123` or `123` (case-insensitive prefix, digits only, from one digit) matches `displayNumber` exactly. Any other text needs at least 2 characters and is split into words: an incident matches when **every** word is a case-insensitive substring of the repository `fullName` or of the workflow name (each word may match a different field; `%` and `_` are literal) |
+| `q` | single value, normalized (NFKC, trimmed, inner whitespace collapsed), at most 100 characters. `INC-123` or `123` (case-insensitive prefix, 1–18 digits) matches `displayNumber` exactly; control characters are `400 INVALID_FILTER`. Any other text needs at least 2 characters and is split into words: an incident matches when **every** word is a case-insensitive substring of the repository `fullName` or of the workflow name (each word may match a different field; `%` and `_` are literal) |
 
 With `state=RESOLVED` two more single-value parameters apply:
 
@@ -365,25 +412,43 @@ execution. It never falls back to an older version.
 
 `hypothesis` is model output (inferred); `evidence` is observed and sanitized;
 `sources` lists retrieved knowledge. The dashboard labels them accordingly.
-Errors: `404 incident_not_found` (also used when the subject lacks access),
+Errors: `400 invalid_request` (path id not a canonical lower-case UUID),
+`404 incident_not_found` (also used when the subject lacks access),
 `404 diagnosis_absent` (processing not finished or no diagnosis),
 `409 diagnosis_stale`, `503 authority_unavailable`, `503 diagnosis_unavailable`.
 
 ### Reviews
 
-`GET` returns the existing review view (status, revision, history). `POST` body:
-`{ "expectedRevision": n, "decision": "CONFIRMED|CORRECTED|REJECTED", "comment": "…",
-"actualCause": "…"|null, "correctedRecommendation": "…"|null }`. The reviewer is the
-session subject, never a body field. Requires OPERATE conditions on the incident's
-pipeline. `409` on revision mismatch.
+`GET` and `POST` return the review view `{diagnosticId, diagnosisVersion, reviewRevision,
+status, original, history}`: `status` is `PENDING|CONFIRMED|CORRECTED|REJECTED`, `original`
+is the diagnosis output and `history[]` is `{id, revision, reviewer, decision, timestamp,
+correlationId, actualCause, comment, correctedRecommendation}`. `POST` body (unknown or
+duplicate fields rejected, at most 8 KiB):
+`{ "diagnosisVersion": n, "expectedRevision": n, "decision": "CONFIRMED|CORRECTED|REJECTED",
+"comment": "…", "actualCause": "…", "correctedRecommendation": "…" }`. `diagnosisVersion` is
+optional (default: the reviewed version); `comment` is required only for `REJECTED`;
+`actualCause` is required for `CORRECTED` and absent or `null` otherwise;
+`correctedRecommendation` is allowed only with `CORRECTED`; texts are at most 1500
+characters. An optional `Idempotency-Key` (UUID) makes a retry with the same body return the
+same view. The reviewer is the session subject, never a body field. Requires OPERATE
+conditions on the incident's pipeline. `POST` answers `200` with the view. Errors:
+`400 invalid_review` (body or key) or `invalid_request` (path id), `403 forbidden` (no
+OPERATE), `404 not_found`, `409 review_conflict` (revision or version mismatch, or a key
+reused with another body), `413 too_large`, `415 json_required`,
+`503 authority_unavailable`, `503 diagnosis_unavailable`.
+
+Known divergence (audit 2026-11-24): the review history discloses each reviewer's principal
+reference and free-text notes to any caller with VIEW on the pipeline, while the diagnosis
+projection's `reviews` omit them — pending owner decision.
 
 ### GitHub Actions report
 
 Returns `200` with `{ "report": <diagnosis projection without reviews>,
 "markdown": "string" }` once an admitted diagnosis exists, `404 diagnosis_absent`
-while processing (the workflow retries with backoff), `403` if the OIDC repository
-does not match. The report workflow uploads the markdown as a run artifact and links
-the failed run id and attempt.
+while processing (the workflow retries with backoff), `403 repository_mismatch` if the
+OIDC `repository_id` does not match; also `400 invalid_request`, `409 diagnosis_stale`
+and `503 diagnosis_unavailable`. The report workflow uploads the markdown as a run
+artifact and links the failed run id and attempt.
 
 ## Internal: diagnosis summaries (ADR-027)
 
@@ -402,8 +467,9 @@ Request (unknown fields rejected):
 }
 ```
 
-`status` is `PENDING` exactly when `reviewRevision` is `0` (then `reviewedAt` is `null`);
-`probableCause` is at most 1000 characters. `200`:
+`status` is `PENDING` and `reviewedAt` is `null` exactly when `reviewRevision` is `0`;
+`version` is at least 1; `probableCause` is `null` or a non-blank text of at most 1000
+characters. `200`:
 `{"incidentId", "diagnosisId", "version", "reviewRevision", "status", "applied"}`; `applied` is
 `false` when the stored summary is already at the same or a later `(version, reviewRevision)`.
 `404 INCIDENT_NOT_FOUND`; `409 SCOPE_MISMATCH` when the execution is not the incident's ORIGIN
@@ -421,8 +487,13 @@ Request: `{"requestId": "uuid", "correlationId": "string", "pipelineId": "uuid",
 `200`: `{"repositoryId", "workflowId", "pipelineId", "status", "scopeRevision", "revision"}`.
 Repeating the same status returns the same revision. `404 REPOSITORY_NOT_ADMITTED` when the
 repository has no operator admission for the tenant; `409 PIPELINE_MISMATCH` when the scope is
-already bound to another pipeline id; `400` for invalid identifiers; `503` when storage is
-unavailable. Responses set `Cache-Control: no-store`.
+already bound to another pipeline id; `400 INVALID_REQUEST` for invalid identifiers or body;
+`503 CAPTURE_SCOPE_UNAVAILABLE` when storage is unavailable. Responses set
+`Cache-Control: no-store`.
 
-The analysis request (`POST …/analysis`) returns `409 CAPTURE_SCOPE_PENDING` while the workflow
-has no `ACTIVE` scope.
+Known divergence (audit 2026-11-24): this route's own problem bodies carry only `type`,
+`status` and `code`, without `title` or `correlationId` (the request body carries
+`correlationId`) — pending owner decision.
+
+The analysis routes (`POST` and `GET …/analysis`) return `409 CAPTURE_SCOPE_PENDING` while the
+workflow has no `ACTIVE` scope.

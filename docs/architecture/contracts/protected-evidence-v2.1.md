@@ -2,6 +2,8 @@
 
 Status: approved local integration contract for the GitHub aggregate-evidence increment. It extends, and does not reinterpret, protected workflow evidence 2.0.
 
+Current producers emit [protected workflow evidence 2.2](protected-evidence-v2.2.md), which extends this version. These 2.1 rules remain in force for decoding 2.1 messages and for 2.1 locators already emitted or persisted.
+
 ## Compatibility
 
 - Step-attributed evidence remains schema `2.0` and must not contain `evidence.source_locator`.

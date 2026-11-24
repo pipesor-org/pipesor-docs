@@ -46,6 +46,11 @@ su adopción. No se extiende automáticamente el cambio al procesamiento NLP.
 | Región y tipo de deployment | Pendientes de disponibilidad, cuota y aceptación de geografía de procesamiento |
 | Endpoint | URL real de embeddings suministrada por IaC; no deducirla del endpoint genérico del proyecto |
 
+Divergencia conocida (auditoría 2026-11-24): RAG sólo arranca con el endpoint
+`https://ai-pipesor-dev-04f339b7.services.ai.azure.com` y el deployment
+`pipesor-dev-embeddings`, fijados en su código; IaC deriva el endpoint del nombre de la
+cuenta Foundry y admite otros entornos — pendiente de decisión del responsable.
+
 La API ARM `2025-06-01` que usa Terraform administra recursos; no es la versión
 de la API de embeddings. El cliente envía el nombre de deployment como `model`.
 Debe utilizar el mismo modelo, dimensión y versión compatible al importar y
@@ -58,6 +63,12 @@ se requiere inventario de datos existentes y plan revisado de reimportación o
 re-embedding. No borrar ni convertir silenciosamente datos. La adopción de
 `vector(1536)` y del índice exige migración y verificación propias del servicio.
 Este contrato no selecciona todavía algoritmo ni parámetros del índice.
+
+Estado de implementación (auditoría 2026-11-24, informativo; no cierra las preguntas
+abiertas 1-3): `pipesor-rag-retrieval` fija `openai==3.51.0` y `azure-identity==1.27.0`
+con Python 3.14, llama a `<endpoint>/openai/v1/` con los reintentos del SDK
+desactivados y migra a `vector(1536)` con un índice HNSW `vector_cosine_ops`
+(`hnsw_ef_search` configurable, 100 por defecto), compatible con ADR-021.
 
 Se aprueba como intención operativa que RAG invoque embeddings directamente
 para consultas y que el importador los genere para documentos. Esta relación
@@ -78,6 +89,14 @@ No usar claves de API ni permisos administrativos como sustituto.
 
 ### Recommendation → RAG
 
+Desde [ADR-022](../decisions/ADR-022-platform-identity-without-entra-app-registrations.md),
+en el entorno académico sin registros de aplicación, Recommendation presenta un token
+de workload del [contrato de identidad de plataforma v1](platform-identity-v1.md):
+`iss` `urn:pipesor:workload:recommendation`, `aud` `urn:pipesor:api:rag`, rol único
+`Rag.Query` y vida de 300 s como máximo. RAG lo valida en el modo `platform`, que es el
+predeterminado. Las reglas Entra de este apartado siguen siendo la configuración por
+defecto donde existan registros de aplicación (modo `entra`).
+
 - Mantener `POST /internal/v1/retrieval/query`, contrato `1.0`, y Recommendation
   como único consumidor de negocio previsto. Mantener RAG con ingress interno.
 - Usar tokens de acceso Entra de aplicación del tenant del proyecto, con una
@@ -91,8 +110,8 @@ No usar claves de API ni permisos administrativos como sustituto.
   los filtros del contrato: tenant, `github_installation_id`,
   `github_repository_id`, pipeline cuando corresponda y revisión de autorización.
   Un token válido no concede acceso a todo el corpus.
-- El encabezado simulado actual sólo sirve en local/test. Mantener el arranque
-  cerrado fuera de esos entornos hasta implementar el adaptador Entra.
+- El encabezado simulado sólo sirve en pruebas automatizadas (modo `test`); los
+  arranques `local` y `azure` lo rechazan y exigen el modo `platform` o `entra`.
 
 ### PostgreSQL
 
@@ -110,6 +129,11 @@ base, principales Entra y acceso acordado. Deben fijarse el runner, grants SQL,
 privilegios sobre secuencias si aplican, ownership y privilegios futuros, renovación
 de tokens y el mecanismo de recuperación antes de ejecutar en un entorno.
 Permitir `vector` en IaC no instala la extensión ni ejecuta SQL.
+
+Divergencia conocida (auditoría 2026-11-24): en `pipesor-iac` (`modules/workloads`) el
+runtime de RAG y el job `job-rag-migrations` usan la misma identidad `rag`, a la que el
+job de base de datos concede `CONNECT, CREATE` en la base y `USAGE, CREATE` en `public`;
+no existe principal de importación — pendiente de decisión del responsable.
 
 ## Límites operativos y degradación
 
@@ -129,6 +153,12 @@ Permitir `vector` en IaC no instala la extensión ni ejecuta SQL.
   ni fabricar conocimiento. Mantener errores seguros y telemetría sin contenido.
 - Recommendation debe acordar su timeout exterior y decidir si puede continuar
   sin RAG, dejando constancia de la falta de contexto. Esa política sigue abierta.
+
+Divergencia conocida (auditoría 2026-11-24): Recommendation aplica 15 s en total,
+5 s por intento y 2 reintentos, y no continúa sin RAG: el job de diagnóstico se
+reintenta hasta 8 veces, también tras `401`, `403` o `422` de RAG; el presupuesto de
+embeddings de RAG (15 s) supera el intento de 5 s — pendiente de decisión del
+responsable. La pregunta abierta 5 sigue abierta.
 
 ## Corpus autorizado
 
