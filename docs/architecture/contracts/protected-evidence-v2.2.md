@@ -40,6 +40,14 @@ Validation regular expression for the encoded form (the decoded rules above stil
 Implementations must decode the member to apply the decoded rules, and must compare
 locators byte-for-byte in encoded form for replay and conflict detection.
 
+Known divergence (audit 2026-11-24): the services' member validators disagree on cases
+this grammar leaves open. A `.` segment is rejected by Ingestion and Correlation but
+accepted by Log/Event, NLP and Recommendation. An empty segment (`dir/`) is rejected by
+the Java services but accepted by NLP. C1 controls (U+0080–U+009F) are rejected only by
+Log/Event and Recommendation. A non-canonical `%XX` for an unreserved byte (e.g. `%41`)
+is rejected only by Log/Event. Pending owner decision: this document should fix the
+canonical `%XX` form, empty and `.` segments, and what counts as a control character.
+
 ## Ownership of the grammar
 
 This document is the single source of the locator grammar. Services must not
