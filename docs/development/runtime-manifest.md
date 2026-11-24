@@ -75,18 +75,19 @@ Each service README lists its complete settings.
 | `correlation` | internal | 8085 | `evidence` correlation tables | Flyway at startup, history `flyway_history_correlation` | none | pipeline, log-event, recommendation |
 | `recommendation` | external | 8086 | `diagnosis` | Flyway at startup | none | rag, pipeline, Foundry chat |
 | `rag` | internal | 8087 | `knowledge` | Alembic job `job-rag-migrations` (ADR-021 principal split; see the divergence below) | none | Foundry embeddings |
-| dashboard | Static Web Apps (ADR-008; see the divergence below) | 5173 (Vite) | — | — | — | ingestion, pipeline, recommendation |
+| dashboard | external, nginx on 8080 ([ADR-030](../architecture/decisions/ADR-030-dashboard-on-azure-container-apps.md)) | 5173 (Vite) | — | — | — | ingestion, pipeline, recommendation |
 
 Ingress hosts in Azure: `https://<workload>.<env-domain>` (external) and
 `https://<workload>.internal.<env-domain>` (internal). Local hosts: `http://127.0.0.1:<port>`.
 
-**Divergences pending decision (24/11/2026).** These rows describe the decisions; the
-[pipesor-iac `workloads` module](https://github.com/pipesor-org/pipesor-iac/blob/388e5a7252bd70650e6715a4e6591cb5a5f2ab7e/modules/workloads/main.tf) differs and no ADR records the change:
+The dashboard runs as an external Container App (`https://dashboard.<env-domain>`, unprivileged
+nginx on port 8080, identity `id-pipesor-<env>-dashboard`), as recorded by
+[ADR-030](../architecture/decisions/ADR-030-dashboard-on-azure-container-apps.md).
 
-- **Dashboard hosting.** IaC serves the dashboard as an external Container App
-  (`https://dashboard.<env-domain>`, unprivileged nginx on port 8080, identity
-  `id-pipesor-<env>-dashboard`) because Static Web Apps is not offered in the allowed regions;
-  ADR-008 selects Static Web Apps.
+**Divergence pending decision (24/11/2026).** The
+[pipesor-iac `workloads` module](https://github.com/pipesor-org/pipesor-iac/blob/388e5a7252bd70650e6715a4e6591cb5a5f2ab7e/modules/workloads/main.tf)
+differs from ADR-021 and no ADR records the change:
+
 - **RAG database principals.** [ADR-021](../architecture/decisions/ADR-021-rag-runtime-contract-v0.1.md)
   separates runtime read, administrative import write and migration DDL principals and names a
   system-assigned identity. IaC runs `job-rag-migrations` and the RAG app with the same

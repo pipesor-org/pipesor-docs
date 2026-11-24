@@ -147,8 +147,8 @@ otro run fallido (por ejemplo `43054769400`) en lugar de esperar los mensajes ya
 **Actualización 24/11/2026.** El brief se conserva como se entregó. Después, `pipesor-frontend`
 pasó a una sesión de Claude Code (tabla de reparto), el repositorio de escenarios se creó como
 `pipesor-validation-scenarios`, los workflows `deploy` se retiraron ([guía CI/CD](cicd.md)) y la
-IaC de dev sirve el dashboard como Container App en lugar de Static Web Apps; esta última
-divergencia con ADR-008 sigue pendiente de decisión ([manifiesto de runtime](runtime-manifest.md)).
+IaC de dev sirve el dashboard como Container App en lugar de Static Web Apps; [ADR-030](../architecture/decisions/ADR-030-dashboard-on-azure-container-apps.md)
+registra ese cambio de hosting.
 
 ```text
 Trabajas en Pipesor (prototipo AIOps de tesis, multirepo en pipesor-org). Otra sesión
