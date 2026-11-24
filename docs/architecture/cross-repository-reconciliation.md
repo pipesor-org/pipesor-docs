@@ -22,6 +22,133 @@ remite al README del servicio.
 No extrapola la evolución de Pipeline al estado de los otros servicios ni cierra
 XR-004/PD-035. No se reescriben las tablas del corte previo.
 
+## Auditoría documental frente a origin/main — 24/11/2026
+
+Corte independiente de las tablas de 06/11 y 08/11, que se conservan como historia.
+Objetivo: alinear pipesor-docs con lo implementado en `origin/main` de cada repositorio
+y con sus propias decisiones, dentro de la autorización del responsable del 24/11/2026.
+Es un informe documental: no aprueba decisiones, no cierra PD ni `open_questions`, no
+edita ADR Accepted y no acredita despliegue.
+
+Revisiones consultadas (lectura con `git show`/`git archive` de `origin/main`, sin
+modificar checkouts): docs `da552d8`, pipeline `dcaa002`, ingestion `6ecca4c`,
+log-event `31a86e0`, correlation `533fa53`, recommendation `3d53d26`, NLP `73451c3`,
+RAG `4fd400f`, frontend `ad0e135`, IaC `388e5a7`, workspace `038ba20`,
+validation-scenarios `c8cafb4`, pipesor-ci `df3b5fc`.
+
+Método:
+
+- **Base de datos:** se aplicaron todas las migraciones Flyway en PostgreSQL 16.15/pgvector 0.8.7 desechable, y en otra base `schema.sql` + `extras.sql`; después se compararon ambas por introspección. Flyway se emuló con psql, por schema y versión. Las tres revisiones Alembic de RAG se tradujeron a SQL a mano porque Alembic no está instalado.
+- **APIs e interacciones:** se leyeron los controladores, los clientes HTTP y la configuración de seguridad en el código. El OpenAPI vivo del stack local (8081, 8082) solo sirvió de contraste.
+- **Resto:** se revisaron los modelos, ADR, DD, PD, guías y enlaces.
+
+### Matriz resumida
+
+Severidad: A alta, M media, B baja. Acción: el PR que lo corrige, o «decisión» si
+queda en las preguntas siguientes.
+
+| ID | Artefacto | Qué dice | Qué hay en origin/main | Sev. | Acción |
+|---|---|---|---|---|---|
+| A-01 | `domain.yml` `ops.incidents` | Sin `display_number` | pipeline@dcaa002 `V7__add_incident_display_number.sql:4-25` | M | #54 |
+| A-02/03 | `evidence_items`, `correlated_contexts` | Sin localizador | log-event@31a86e0 `V3__retain_aggregate_source_locator.sql:1`; correlation@533fa53 `V5__retain_signal_source_locator.sql:1` | M | #54 |
+| A-04 | `correlated_context_receipts.signals` | Exactamente 6 claves | recommendation@3d53d26 `V4…:14-15`, `V5__relax_signal_locator_to_shape.sql:20-22` (7.ª clave opcional) | M | #54 |
+| A-05/07 | `diagnosis.diagnoses` | Sin `authorization_scope`, `output`, `admission_fingerprint`, `context_id`, `execution_id` | recommendation@3d53d26 `V2…:1-10`, `V3…:1-3`, `V6…:3-23` | A | #54 |
+| A-08, C-01..05 | `diagnoses` y 3 tablas de `diagnosis` | `status`, `probable_cause`… y `recommendations`, `diagnosis_evidence_links`, `diagnosis_source_links`, trigger append-only | Ninguna migración V1–V9 los crea; el contenido va en `diagnoses.output` | A | decisión |
+| A-09/10 | `diagnosis.human_reviews` | Sin `revision` ni `corrected_recommendation` | recommendation@3d53d26 `V2…:15,23-27` | M | #54 |
+| A-11 | `human_reviews.comment` / DD-005 | Comentario opcional | `V8__make_review_comment_optional.sql:3-6` lo exige en REJECTED | M | decisión |
+| A-12 | `knowledge_chunks.document_id` | FK sin acción | rag@4fd400f `20261111_01…py:52-57` `ON DELETE CASCADE` | M | decisión |
+| A-13/14 | `knowledge.*` | `text`, sin CHECK de contenido | rag@4fd400f `01…py:21-30,66`; `02…py:19-25`; `03…py:34-43` (`varchar(n)`) | B | #54 |
+| O-01 | DQ-001, A-005, PD-003 | Severidad sin regla aprobada | pipeline@dcaa002 `V8__seed_incident_severity_from_criticality.sql`; `mvp-http-api-v1.md` «MVP rule» | A | decisión |
+| O-03 | `audit_events` `owner_container: shared` | Owner compartido | pipeline@dcaa002 `V6__create_audit_events_if_absent.sql` (owner MVP: Pipeline) | M | decisión |
+| B-01 | `architecture.yml` | Sin Recommendation → Pipeline (ADR-027) | recommendation@3d53d26 `PipelineDiagnosisSummaryPublisher.java:29-33`; pipeline@dcaa002 `DiagnosisSummaryController.java` | A | #55 |
+| B-02 | `architecture.yml` | Sin la consulta de entitlements | recommendation@3d53d26 `PipelineDiagnosisEntitlements.java:26-40`; pipeline@dcaa002 `DiagnosisEntitlementController.java` | A | #55 |
+| B-03..08, B-14 | Etiquetas y autenticación de 6 relaciones | Previas a ADR-022–028 | Captura por workflow, sign-in, colaboradores, cola e insights, token de plataforma y OIDC | M/B | #55 |
+| B-05 | `rel_dashboard_entra` | Dashboard autentica con Entra | Sin MSAL; login GitHub vía Ingestion (ADR-022) | A | decisión |
+| B-11 | Elementos | Sin Key Vault | Claves de firma y secretos en Key Vault (iac@388e5a7 `modules/workloads/main.tf:46-58`; ADR-022) | M | decisión |
+| B-09/10, B-16/17 | Relaciones de diseño | Dashboard → Log/Event, Monitor → Ingestion, orquestador `in-process sync` | Sin implementación; cola `diagnosis_jobs` con worker; API v1 | M/B | decisión |
+| C1-01 | `mvp-http-api-v1.md` §Conventions | `pageSize`/`pageToken`, 24 por defecto | Listas de Pipeline con `offset`/`limit` (25): pipeline@dcaa002 `PipelineController.java:83-123`, `PageResource.java:5` | A | #56 |
+| C1-02 | `mvp-http-api-v1.md` análisis | Condiciones OPERATE de ADR-020 | Ingestion exige administración GitHub: ingestion@6ecca4c `GitHubAnalysisHandler.java:96-97` | A | decisión |
+| C1-03..24 | `mvp-http-api-v1.md` | Parámetros, errores, CORS, reviews, `activities` | Comportamiento real documentado | M/B | #56 |
+| C1-10/12/21/25 | `mvp-http-api-v1.md` | — | Historial de reviews con `reviewer`; 400 por `X-Correlation-ID`; errores de capture-scope; webhook sin contrato | M/B | decisión |
+| C2-01..10, C2-23 | `platform-identity-v1.md` | Catálogo y login incompletos | Rutas, `returnTo`, sin token, membership/operational checks | M/B | #57 |
+| C2-15 | `rag-integration-v0.1.md` | Tokens Entra | Tokens de plataforma (ADR-022) | M | #56 |
+| C2-17 | ADR-021, `rag-integration-v0.1.md` | Identidades PostgreSQL separadas, sin DDL en runtime | Una sola identidad `rag` con `CREATE` (iac@388e5a7 `main.tf:324,328,402-431`) | A | decisión |
+| C2-05/06/12/16/18/19 | Identidad y RAG | §6, §7, ADR-022 memoria, system-assigned, valores por entorno, timeouts | Sin comprobar `repository_owner_id`; sin solapamiento de claves; `sessionStorage`; user-assigned; endpoint dev fijo; reintentos 401/403/422 | M | decisión |
+| D-01..08 | `decisions/index.md` | 21 ADR; faltan filas y enmiendas | 28 ADR; enmiendas de ADR-019..028 | A | #57 |
+| D-04 | ADR-020 | Accepted | Editado tras su aceptación (PR #32, #34) | M | #57 (registro) / decisión |
+| D-09, E-01 | ADR-008, `runtime-manifest.md` | Dashboard en Static Web Apps | Container App: iac@388e5a7 `modules/workloads/main.tf:30,247-300` | A | decisión |
+| D-22 | `README.md` estado 06/11 | Servicios en readiness, frontend con fixtures | Servicios implementados; frontend con login GitHub y API reales | A | este PR |
+| E-* | `docs/development/*` | Modelo, roles, rutas públicas, demo, CI | ADR-024..028, gpt-6-luna, catálogo real | M | #57 |
+| F-* | `design.yml` | Clases `proposed` | Sin referencias rotas; deriva esperable (JDBC, paquetes, cola asíncrona) | B | informe |
+| G-01 | `pending-decisions.md:248` | Enlace a `docs/local-product-mvp.md` | Borrado en frontend `2c3a851` | B | #57 |
+
+### Corregido
+
+- **#54 — `fix(domain)`:**
+  - [DD-027](../../model/domain_decisions.md#DD-027) y `domain.yml` 1.10.0 reconcilian siete tablas modeladas con sus migraciones;
+  - el validador admite `varchar(n)`;
+  - los registros congelados, las pruebas y `design.yml` (atributos espejo) se actualizan.
+- **#55 — `fix(architecture)`:**
+  - añade las dos relaciones Recommendation → Pipeline;
+  - corrige etiquetas y autenticación de seis relaciones;
+  - registra ADR-022..028 como fuentes;
+  - añade etiquetas y rutas de presentación.
+- **#56 — `docs(contracts)`:** alinea `mvp-http-api-v1.md`, `rag-integration-v0.1.md` y `protected-evidence-v2.1.md` con el comportamiento real. Las divergencias quedan anotadas sin adoptarlas.
+- **#57 — `docs`:** alinea `platform-identity-v1.md`, el índice de ADR, las guías de `docs/development/`, la nota de CI del README y el enlace roto de PD.
+- **Este PR:** este apartado y el estado del README.
+
+### Preguntas para el responsable
+
+**Datos (DD-027):**
+
+1. `diagnosis.diagnoses`: ¿adopta el modelo el snapshot `output` (retirando `status`, `probable_cause`, `explanation`, `limitations`, `confidence` y `diagnosis_ready_at`, y sustituyendo DD-003, DD-010 y el cálculo de TMD de DD-015), o debe Recommendation materializar esas columnas?
+2. ¿Se retiran del modelo `diagnosis.recommendations` (con su marcado `critical`), `diagnosis_evidence_links` y `diagnosis_source_links`, o se implementan?
+3. ¿Se exige a Recommendation el trigger append-only de `diagnoses` (DD-003), o basta la inmutabilidad por aplicación?
+4. ¿Se enmienda DD-005 para exigir comentario en REJECTED (Recommendation V8), o se retira esa regla?
+5. ¿Se amplía `domain.yml` con acciones referenciales (`ON DELETE CASCADE` de RAG)?
+6. `audit.audit_events`: ¿Pipeline como owner MVP (su V6) o `shared` (DD-012, DD-016, PD-035)?
+7. ¿Se cierran DQ-001, A-005 y PD-003 con la regla MVP «severidad inicial = criticidad del pipeline» que ya aplican Pipeline V8 y el contrato?
+
+**Arquitectura:**
+
+8. ¿Se retira o reetiqueta `rel_dashboard_entra` (y la narración de la vista 2B), ya que ADR-022 sustituye el login Entra en el MVP?
+9. ¿Se modela Key Vault como elemento, con relaciones desde las siete cargas? ADR-022 lo nombra.
+10. Dashboard en Container App frente a ADR-008 (Static Web Apps): propongo un ADR nuevo que enmiende ADR-008. ¿Se redacta?
+11. `pretrained_llm_diagnostic_service` dice `model_family: GPT-4` y ADR-026 fija gpt-6-luna solo para dev y OE3-I2. ¿Cómo se refleja? Los generadores y las pruebas tienen «GPT-4 family» fijo en el código.
+12. ¿Se mantienen como diseño `rel_dashboard_log_event_service` y `rel_observability_sources_ingestion`, que no tienen implementación?
+13. ¿Pasa `rel_diagnostic_api_orchestrator` a asíncrona con cola durable, y se promueve `diagnosis_jobs` desde `inferred`?
+
+**API e identidad:**
+
+14. Análisis y captura de verificación: ¿rige OPERATE más lectura GitHub (ADR-020, contrato) o administración GitHub (implementación de Ingestion)?
+15. ¿Debe el historial de reviews ocultar `reviewer` y los textos libres a quien solo tiene VIEW, como hace la proyección de diagnóstico?
+16. Ante un `X-Correlation-ID` inválido, ¿400 (Ingestion) o generar uno nuevo (contrato)?
+17. ¿Qué contrato documenta el webhook `/webhooks/v1/github/workflow-runs`, que IaC activa? ¿Hace falta un ADR?
+18. ¿Se migran las listas antiguas de Pipeline a `pageSize`/`pageToken`, o la convención admite `offset`/`limit`?
+19. RAG: ¿se separan las identidades de consulta, importación y migración, sin DDL en runtime (ADR-021), y se pasa a identidades system-assigned? ¿Cómo se parametrizan endpoint y deployment por entorno?
+20. ¿Se fijan el timeout externo, los reintentos y la no-degradación de Recommendation ante RAG (pregunta abierta 5)? Hoy se reintentan también 401/403/422.
+21. Identidad: comprobación de la cuenta de instalación en OIDC (§6), solapamiento de claves al rotar (§7) y tokens del dashboard en `sessionStorage` frente a ADR-022. ¿Se corrige la implementación o el contrato?
+
+**Decisiones y diseño:**
+
+22. ADR-020 se editó tras su aceptación (PR #32 y #34). ¿Se confirman esas enmiendas o se registran en un ADR nuevo?
+23. PD que parecen resueltos para el MVP: PD-011, PD-028 y PD-036. Parcialmente: PD-007, PD-008, PD-010, PD-015, PD-022/023/024, PD-026, PD-027, PD-031..035. ¿Se cierran o se actualizan?
+24. `design.yml`:
+    - ¿Se actualizan paquetes y persistencia (JPA frente a JDBC) a la convención Java vigente?
+    - DCQ-002 y DCQ-003 están parcialmente contradichas por contratos aprobados.
+    - CD-1 ya tiene 15 nodos, justo el máximo, para añadir la API del informe de Actions.
+
+### Límites de esta auditoría
+
+- No se compilaron los servicios ni se levantó el stack local.
+  - El stack en marcha se arrancó desde checkouts locales, y Pipeline estaba en `local/adr-028`.
+  - Log/Event y Correlation no tienen springdoc, y los servicios Python no sirven `/openapi.json`.
+  - Por eso la comparación de APIs se basa en el código de origin/main.
+- La comparación de base de datos es estructural sobre tablas vacías. Flyway se emuló con psql; Alembic se tradujo a mano.
+- No se ejecutaron operaciones en Azure ni en Terraform, ni pruebas de los servicios. No se verificó despliegue.
+- `make test-postgres` conserva el fallo conocido `test_open_vector_and_review_correction` (3 frente a 1536 dimensiones), que también falla en main.
+- `pipesor-landing` quedó fuera del alcance.
+
 ## Baseline verificable
 
 El checkout de docs comenzó limpio en `main@c0871ac9a62bad62b8c679255fe0a4b9c6574d2e`.

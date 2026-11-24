@@ -6,6 +6,19 @@ Este repositorio mantiene la arquitectura como código: modelos, decisiones, val
 
 El repositorio se mantiene en `pipesor-org/pipesor-docs`. Los nombres e IDs históricos se conservan para mantener la trazabilidad.
 
+## Estado entre repositorios — 24/11/2026
+
+La [auditoría documental del 24/11/2026](docs/architecture/cross-repository-reconciliation.md#auditoría-documental-frente-a-originmain--24112026)
+contrasta este repositorio con `origin/main` de los demás. Estado de esos repositorios:
+
+- Los siete servicios tienen APIs y migraciones propias; NLP no tiene persistencia.
+- El frontend inicia sesión con GitHub a través de Ingestion (ADR-022 y ADR-025) y consume las APIs de Pipeline, Ingestion y Recommendation.
+- IaC define en `modules/workloads` las Container Apps de los servicios y del dashboard, y los jobs de base de datos.
+
+La auditoría corrige modelos, contratos y guías en sus PR, y lista las preguntas que requieren
+decisión del responsable. No verifica despliegue ni recursos Azure. La sección siguiente
+conserva el corte del 06/11/2026.
+
 ## Estado entre repositorios — 06/11/2026
 
 La [reconciliación actual](docs/architecture/cross-repository-reconciliation.md)
