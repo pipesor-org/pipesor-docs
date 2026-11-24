@@ -242,3 +242,15 @@ Recommendation y el tipo `varchar(n)` de RAG. DD-027 enumera las divergencias qu
 quedan para decisión del responsable: columnas de `diagnoses` que la tabla real no
 tiene, tres tablas de `diagnosis` sin implementar, el comentario obligatorio en REJECTED
 y ON DELETE CASCADE. Modelar no acredita despliegue ni migraciones de entorno.
+
+## Registro de consentimiento del inicio de sesión — 24/11/2026
+
+Con la aprobación del responsable, [DD-028](model/domain_decisions.md#DD-028) y
+`domain.yml` 1.11.0 modelan el registro de consentimiento de
+[ADR-029](docs/architecture/decisions/ADR-029-login-consent-record.md) tal como lo crea
+la migración V6 de Ingestion: la columna `consent_version` de
+`ingestion.github_login_attempts`, exigida al insertar por un trigger, y la tabla
+append-only `ingestion.consent_records`, que solo admite una revocación manual. El límite
+persistente/ER pasa de 35 a 40 tablas (36 en uso). La retención es la regla propia de
+ADR-029, documentada y sin purga; no se aplica RET-001. Modelar no acredita despliegue ni
+migraciones de entorno.

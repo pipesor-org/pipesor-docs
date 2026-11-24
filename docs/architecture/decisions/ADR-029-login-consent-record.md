@@ -20,8 +20,8 @@ recording it on the server and requiring it, on 24/11/2026.
 
 - **Consent travels with the start of the login**, before GitHub hands over any data:
   `GET /api/v1/auth/github/start` requires `consent_version` (an ISO date naming the accepted
-  version of both documents). If it is missing, malformed or repeated, Ingestion creates no
-  attempt, does not contact GitHub and redirects to
+  version of both documents). If it is missing, malformed, repeated or later than the next
+  UTC day, Ingestion creates no attempt, does not contact GitHub and redirects to
   `<dashboard>/auth/complete?error=consent_required`. The server does not hold the texts: the
   dashboard owns the documents and decides which version is current.
 - **One record per successful login.** Ingestion stores the version and the acceptance time
@@ -47,7 +47,7 @@ recording it on the server and requiring it, on 24/11/2026.
   before this Ingestion version. The current Ingestion ignores the parameter, so deploying
   the dashboard first breaks nothing. The reverse order makes every login fail with
   `consent_required`.
-- One more table in the `ingestion` schema, modeled in `model/domain.yml` with its DD. The
+- One more table in the `ingestion` schema, modeled in `model/domain.yml` with DD-028. The
   owner authorized raising the validator's table limit from 35 to 40.
 - The privacy policy must declare this record, its purpose (proof of consent) and its
   retention.

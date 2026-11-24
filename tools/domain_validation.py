@@ -13,7 +13,7 @@ from correlation_constraints import validate_correlation
 
 IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 TYPES = {"uuid", "uuid[]", "text", "text[]", "integer", "bigint", "boolean",
-         "timestamptz", "interval", "jsonb", "vector(1536)", "numeric", "bytea"}
+         "timestamptz", "interval", "date", "jsonb", "vector(1536)", "numeric", "bytea"}
 # DD-027: bounded strings exist only where an owner's migration declares them (RAG knowledge schema).
 VARCHAR = re.compile(r"^varchar\(([1-9][0-9]{0,3})\)$")
 EXCLUDED = {"users", "teams", "roles", "workflows", "failure_types",
@@ -108,8 +108,8 @@ def validate_domain(domain, architecture):
         errors.append(f"Missing open questions: {sorted(required_topics - topics)}")
 
     entities = domain["entities"]
-    if len(entities) > 35:
-        errors.append(f"Domain has {len(entities)} tables; maximum is 35")
+    if len(entities) > 40:
+        errors.append(f"Domain has {len(entities)} tables; maximum is 40")
     tables, attributes, declared_refs = {}, {}, set()
     ids = set()
     for entity in entities:
@@ -233,6 +233,9 @@ def validate_domain(domain, architecture):
         "ops.incidents": {"exactly_one_failed_origin", "origin_pipeline_consistency"},
         "ops.incident_runs": {"at_most_one_origin"},
         "diagnosis.diagnoses": {"append_only"},
+        # DD-028: consent required on new login attempts; append-only consent records.
+        "ingestion.github_login_attempts": {"consent_lifecycle"},
+        "ingestion.consent_records": {"consent_lifecycle"},
     }
     for table, required in required_constraints.items():
         actual = set(tables.get(table, {}).get("domain_constraints", []))

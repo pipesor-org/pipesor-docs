@@ -33,9 +33,9 @@ class DomainGenerationTests(unittest.TestCase):
         errors = validate_domain(self.model, self.architecture)
         self.assertTrue(any(fragment in error for error in errors), errors)
 
-    def test_approved_model_has_thirty_five_valid_tables(self):
+    def test_approved_model_has_thirty_six_valid_tables(self):
         self.assertEqual(validate_domain(self.model, self.architecture), [])
-        self.assertEqual(len(self.model["entities"]), 35)
+        self.assertEqual(len(self.model["entities"]), 36)
 
     def test_owners_cannot_write_another_schema(self):
         self.entity("incidents")["owner_container"] = "recommendation_service"
@@ -102,9 +102,9 @@ class DomainGenerationTests(unittest.TestCase):
         self.rejected("must remain IA-only/inferred")
 
     def test_er_limit_is_enforced(self):
-        self.model["entities"].extend([deepcopy(self.model["entities"][0]) for _ in range(2)])
-        self.rejected("maximum is 35")
-        with self.assertRaisesRegex(ValueError, "exceeds 35"):
+        self.model["entities"].extend([deepcopy(self.model["entities"][0]) for _ in range(5)])
+        self.rejected("maximum is 40")
+        with self.assertRaisesRegex(ValueError, "exceeds 40"):
             generate_er(self.model)
 
     def test_recommendation_receipt_preserves_idempotency_and_scope(self):
@@ -130,7 +130,7 @@ class DomainGenerationTests(unittest.TestCase):
     def test_dbml_refs_are_only_physical_intra_schema(self):
         dbml = generate_dbml(self.model)
         refs = re.findall(r"^Ref \w+: (\w+)\.\w+\.\w+ > (\w+)\.\w+\.\w+$", dbml, re.M)
-        self.assertEqual(len(refs), 17)
+        self.assertEqual(len(refs), 18)
         self.assertTrue(all(source == target for source, target in refs))
         self.assertIn("Referencia lógica a knowledge.knowledge_chunks.id", dbml)
         self.assertIn("embedding vector(1536)", dbml)
@@ -148,8 +148,37 @@ class DomainGenerationTests(unittest.TestCase):
         attr["fk"] = attr.pop("logical_ref")
         self.rejected("physical cross-schema FK is prohibited")
 
+    def test_dd028_models_the_login_consent_record(self):
+        record = self.entity("consent_records")
+        self.assertEqual((record["scope_basis"], record["status"]), ("approved_domain", "confirmed"))
+        self.assertIsNone(record["retention_policy"])
+        self.assertEqual(self.column("consent_records", "login_attempt_id")["fk"], "ingestion.github_login_attempts.id")
+        self.assertEqual(self.column("consent_records", "documents_version")["type"], "date")
+        version = self.column("github_login_attempts", "consent_version")
+        self.assertEqual((version["type"], version["nullable"]), ("date", True))
+        extras = generate_extras(self.model)
+        self.assertIn("CONSTRAINT = 'github_login_attempts_consent_required_ck'", extras)
+        self.assertIn("BEFORE UPDATE OR DELETE ON ingestion.consent_records", extras)
+        self.assertIn("BEFORE TRUNCATE ON ingestion.consent_records", extras)
+        record["domain_constraints"] = []
+        self.rejected("ingestion.consent_records: missing approved domain constraints")
+
+    def test_consent_record_constraints_are_frozen(self):
+        original = deepcopy(self.model)
+        for weaken, fragment in [
+            (lambda: self.entity("consent_records")["checks"].pop(), "consent_records: missing approved CHECK"),
+            (lambda: self.entity("github_login_attempts")["checks"].pop(), "github_login_attempts: missing approved CHECK"),
+            (lambda: self.entity("consent_records").update(unique_constraints=[]), "consent_records: missing approved uniqueness"),
+            (lambda: self.column("consent_records", "login_attempt_id").pop("fk"),
+             "ingestion.consent_records.login_attempt_id: required fk"),
+        ]:
+            with self.subTest(fragment=fragment):
+                self.model = deepcopy(original)
+                weaken()
+                self.rejected(fragment)
+
     def test_dd027_reconciles_implemented_columns_without_physical_cross_schema_refs(self):
-        self.assertEqual(self.model["model_version"], "1.10.0")
+        self.assertEqual(self.model["model_version"], "1.11.0")
         self.assertTrue(self.column("incidents", "display_number")["unique"])
         self.assertTrue(self.column("evidence_items", "source_locator")["nullable"])
         self.assertTrue(self.column("correlated_contexts", "signal_source_locator")["nullable"])

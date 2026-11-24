@@ -89,8 +89,9 @@ def validate_capture(domain):
     tables = {e['table']: e for e in domain['entities'] if e['schema'] == 'ingestion'}
     if set(tables) != set(TABLES) | {'github_connections', 'github_connection_generations',
                                     'github_authorization_attempts', 'github_credential_operations',
-                                    'github_login_attempts', 'repository_admissions', 'capture_workflow_scopes'}:
-        errors.append('ingestion requires only the four DD-020, four DD-021 and three DD-026 tables')
+                                    'github_login_attempts', 'repository_admissions', 'capture_workflow_scopes',
+                                    'consent_records'}:
+        errors.append('ingestion requires only the four DD-020, four DD-021, three DD-026 and one DD-028 tables')
     for name in TABLES:
         entity = tables.get(name, {})
         if entity.get('owner_container') != 'ingestion_normalization_service':
