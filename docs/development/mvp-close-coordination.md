@@ -101,8 +101,8 @@ La demostración paso a paso, con la evidencia que se debe registrar en cada tra
    `~/.local/state/pipesor-local/`.
 
 **Actualización 24/11/2026.** El modelo de diagnóstico de dev es gpt-6-luna
-(`pipesor-dev-diagnostics-luna`, ADR-026); `local_stack.py init` aún escribe
-`pipesor-dev-diagnostics` (gpt-4o) en `env/recommendation.env`. Cualquier usuario de GitHub puede
+(`pipesor-dev-diagnostics-luna`, ADR-026), y `local_stack.py init` también lo escribe en
+`env/recommendation.env` (un archivo generado antes conserva gpt-4o y hay que editarlo). Cualquier usuario de GitHub puede
 iniciar sesión (ADR-025) y los repositorios que administra se admiten al seleccionarlos en la
 instalación de la App (ADR-024): `authority.json` solo hace falta para importar admisiones del
 operador (`PIPESOR_GITHUB_AUTHORITY_FILE`, comando de importación de Ingestion). Registrar un
