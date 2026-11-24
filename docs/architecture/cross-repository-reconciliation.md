@@ -77,7 +77,7 @@ queda en las preguntas siguientes.
 | D-01..08 | `decisions/index.md` | 21 ADR; faltan filas y enmiendas | 28 ADR; enmiendas de ADR-019..028 | A | #57 |
 | D-04 | ADR-020 | Accepted | Editado tras su aceptación (PR #32, #34) | M | #57 (registro) / decisión |
 | D-09, E-01 | ADR-008, `runtime-manifest.md` | Dashboard en Static Web Apps | Container App: iac@388e5a7 `modules/workloads/main.tf:30,247-300` | A | decisión |
-| D-22 | `README.md` estado 06/11 | Servicios en readiness, frontend con fixtures | Servicios implementados; frontend con login GitHub y API reales | A | este PR |
+| D-22 | `README.md` estado 06/11 | Servicios en readiness, frontend con fixtures | Servicios implementados; frontend con login GitHub y API reales | A | #58 |
 | E-* | `docs/development/*` | Modelo, roles, rutas públicas, demo, CI | ADR-024..028, gpt-6-luna, catálogo real | M | #57 |
 | F-* | `design.yml` | Clases `proposed` | Sin referencias rotas; deriva esperable (JDBC, paquetes, cola asíncrona) | B | informe |
 | G-01 | `pending-decisions.md:248` | Enlace a `docs/local-product-mvp.md` | Borrado en frontend `2c3a851` | B | #57 |
@@ -95,7 +95,7 @@ queda en las preguntas siguientes.
   - añade etiquetas y rutas de presentación.
 - **#56 — `docs(contracts)`:** alinea `mvp-http-api-v1.md`, `rag-integration-v0.1.md` y `protected-evidence-v2.1.md` con el comportamiento real. Las divergencias quedan anotadas sin adoptarlas.
 - **#57 — `docs`:** alinea `platform-identity-v1.md`, el índice de ADR, las guías de `docs/development/`, la nota de CI del README y el enlace roto de PD.
-- **Este PR:** este apartado y el estado del README.
+- **#58 — `docs(reconciliation)`:** este apartado y el estado del README.
 
 ### Preguntas para el responsable
 
