@@ -137,10 +137,20 @@ queue order (`createdAt` descending, then `id`) does not change.
 | `diagnosis` | `PENDING`, `CONFIRMED`, `CORRECTED`, `REJECTED`, `ABSENT` (no admitted diagnosis projected) |
 | `q` | single value, normalized (NFKC, trimmed, inner whitespace collapsed), at most 100 characters. `INC-123` or `123` (case-insensitive prefix, digits only, from one digit) matches `displayNumber` exactly. Any other text needs at least 2 characters and is split into words: an incident matches when **every** word is a case-insensitive substring of the repository `fullName` or of the workflow name (each word may match a different field; `%` and `_` are literal) |
 
+With `state=RESOLVED` two more single-value parameters apply:
+
+| Parameter | Values |
+|---|---|
+| `resolvedFrom`, `resolvedTo` | RFC 3339 instants, inclusive bounds of `resolvedAt` (list and summary); `resolvedFrom` may not follow `resolvedTo` |
+| `sort` (list only) | `createdAt` (default) or `resolvedAt`: newest resolution first, then `id` (History) |
+
+`sort=resolvedAt` with `state=OPEN`, or another `sort` value, is `400 INVALID_REQUEST`; the
+resolution bounds with `state=OPEN` are `400 INVALID_FILTER`.
+
 At most 100 values per filter. A value outside these sets, an empty value, a malformed UUID or
 repository id, a `status` not valid for `state`, or a `q` out of bounds is
 `400 INVALID_FILTER` (`problem+json` with `code`). `state`/`pageSize` errors keep
-`400 INVALID_REQUEST`. A `pageToken` is bound to the normalized `state` and filters: reusing it
+`400 INVALID_REQUEST`. A `pageToken` is bound to the normalized `state`, filters and `sort`: reusing it
 with other values, or sending a malformed token, is `400 INVALID_PAGE_TOKEN`.
 
 `GET /api/v1/incidents` response:
@@ -154,7 +164,7 @@ with other values, or sending a malformed token, is `400 INVALID_PAGE_TOKEN`.
     "state": "RESOLVED",
     "pipelineId": [], "repositoryId": ["825001"], "severity": ["CRITICAL", "HIGH"],
     "stage": [], "status": [], "diagnosis": ["PENDING"],
-    "q": null, "qMatch": null
+    "q": null, "qMatch": null, "resolvedFrom": null, "resolvedTo": null, "sort": "createdAt"
   }
 }
 ```
@@ -162,7 +172,7 @@ with other values, or sending a malformed token, is `400 INVALID_PAGE_TOKEN`.
 - `total`: exact number of incidents that match and the caller may view (independent of the
   page). It is computed on every request, so it can change between pages if incidents change.
 - `appliedFilters`: normalized echo (deduplicated, sorted arrays; `[]` when absent; `q` normalized
-  or `null`; `qMatch` is `DISPLAY_NUMBER`, `TEXT` or `null`). Spring ignores unknown query
+  or `null`; `qMatch` is `DISPLAY_NUMBER`, `TEXT` or `null`; `sort` only on the list). Spring ignores unknown query
   parameters, so clients use its presence to know that the server applied the filters.
 
 Every incident read (`/incidents`, `/incidents/{id}`, `/pipelines/{id}/incidents`) adds, without
