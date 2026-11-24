@@ -43,6 +43,89 @@ Las filas y fuentes anteriores conservan su corte histórico; los modelos canón
 y artefactos generados no se modifican en este PR documental. El contrato enumera
 las preguntas y entregas necesarias antes de activar Azure o datos reales.
 
+## Seguimiento para el próximo semestre — 24/11/2026
+
+Registro pedido por el responsable el 24/11/2026: documentar el seguimiento sin implementar nada.
+El MVP **no aprende de forma automática, a propósito**. El ciclo de aprendizaje se abordará el
+próximo semestre, en el entorno real y con datos reales.
+
+| ID y asunto | Fuente y referencia | Estado actual y evidencia | Acción necesaria para cierre | Autoridad documentada, dependencias e impacto |
+|---|---|---|---|---|
+| PD-037 — Aprendizaje curado a partir de revisiones de diagnóstico (humano en el ciclo) | PD-006 (importador administrativo «sin API pública ni aprendizaje automático»), PD-023, PD-030; [ADR-021](decisions/ADR-021-rag-runtime-contract-v0.1.md) (solo corpus sintético); [DD-007, DD-009 y DD-022][DD]; [protocolo de evaluación OE3](../research/protocolo-evaluacion-oe3.md) §5. | **Diferido al próximo semestre (entorno real).** Hoy una revisión (`decision`, `comment`, `actual_cause` si es `CORRECTED`) se guarda en `diagnosis.human_reviews` de Recommendation. Su único destino es el resumen proyectado a Pipeline (ADR-027). Ningún servicio la envía al RAG: el corpus admite `reviewed_incidents`, pero solo por importación curada. | Aprobar el flujo y su gobierno; cerrar antes PD-023 (inventario y separación) y la acción de retención indicada abajo; definir la medición. | Aprobación del responsable **pendiente**. Depende de PD-006, PD-023 y PD-030. Afecta a la validez de la evaluación (CTRL-006, INV-010) y a la privacidad de las notas de revisión. |
+
+### PD-037: flujo propuesto (borrador, no es una decisión)
+
+**Objetivo:** que el RAG mejore con el feedback humano sin contaminar la evaluación ni propagar
+errores del modelo.
+
+1. Una revisión `CORRECTED` con `actualCause` genera un **candidato** de conocimiento. Un `REJECTED`
+   sin causa real no aporta señal suficiente por sí solo.
+2. Un aprobador responsable **acepta o descarta** el candidato. Se exige saneamiento de logs,
+   procedencia (incidente, diagnóstico y revisión de origen), versión y hash. La referencia del
+   revisor y el texto libre no entran en el corpus sin saneamiento.
+3. Se **excluye** todo lo que pertenezca a un conjunto de evaluación; los criterios están más abajo.
+4. Lo aprobado entra al corpus `reviewed_incidents` por el **importador administrativo** existente
+   (PD-006). No se añade una API pública.
+5. Los diagnósticos posteriores lo recuperan como evidencia, citable en el Workspace como «basado en un
+   incidente revisado».
+
+**Por qué no en el MVP:** hay pocas revisiones reales; el corpus es solo sintético (ADR-021); hay
+riesgo de contaminar la evaluación de la tesis; y el entorno real tiene requisitos de gobierno propios.
+
+**Medición prevista:** antes y después, sobre un conjunto de evaluación reservado: tasa de
+confirmación de diagnósticos y calidad de la evidencia recuperada.
+
+**Preguntas abiertas:**
+- Si un `CONFIRMED` debe generar candidato o solo reforzar una fuente ya recuperable.
+- Quién aprueba los candidatos.
+- Cómo se sanea el comentario libre.
+- Cómo se retira del corpus un candidato aprobado por error.
+
+### PD-037: identificación del conjunto de evaluación de este semestre
+
+Los incidentes evaluados en noviembre de 2026 proceden del repositorio dedicado
+[`pipesor-org/pipesor-validation-scenarios`](https://github.com/pipesor-org/pipesor-validation-scenarios).
+Cada corrida, oficial o piloto, guarda sus casos en `results/<fecha>-<etiqueta>/cases.jsonl` con
+`run.id`, `report.incident_id` y `report.diagnosis_id`. La base de datos **no marca** esos
+incidentes. Requisito para cerrar PD-037: el generador de candidatos excluye
+
+- todo incidente de ese repositorio (regla por repositorio, la más robusta), y
+- los identificadores listados en todas las corridas de `results/`, como lista explícita de defensa
+  en profundidad.
+
+Una prueba debe demostrar ambas exclusiones. Esto incluye las revisiones humanas que se hagan sobre
+esos incidentes.
+
+### PD-037: comprobación de retención de las revisiones (24/11/2026)
+
+RET-001 ([ADR-013](decisions/ADR-013-retention-365-days.md), DD-015) fija 365 días para logs,
+diagnósticos y evidencias. Está **solo documentada**: no hay tareas de purga en ningún servicio
+(«sin purge jobs», DD-015; mecanismo pendiente en PD-030).
+
+| Dato | Dónde vive | Política | Resultado |
+|---|---|---|---|
+| Revisión: `decision`, `comment`, `actual_cause`, `corrected_recommendation`, `reviewer_ref`, `revision`, `timestamp` y `created_at` | `diagnosis.human_reviews` (Recommendation) | RET-001 | **Cumple.** Lo más antiguo (noviembre de 2026) cumple 365 días en noviembre de 2027, después del próximo semestre. Es append-only por aplicación, sin trigger de base de datos. |
+| Diagnóstico, recomendación y vínculos a evidencia y fuentes | `diagnosis.diagnoses`, `recommendations`, `diagnosis_evidence_links` y `diagnosis_source_links` | RET-001 | **Cumple**, por el mismo motivo. |
+| Evidencia saneada y contexto | `evidence.evidence_items` y `correlated_contexts` | RET-001 | **Cumple.** |
+| Incidente, ejecución, pipeline y repositorio | `ops.*` (Pipeline) | Sin plazo; no se infiere | **Cumple:** nada los borra. |
+| Logs originales de GitHub Actions | GitHub (DD-018) | Retención de GitHub: 90 días por defecto; hay que verificar el ajuste de cada repositorio | **En riesgo:** los de noviembre pueden expirar antes del próximo semestre. Quedan los extractos saneados y las líneas registradas en `cases.jsonl`. |
+
+**Resultado global: requiere acción.** La política no borra nada antes del próximo semestre, pero
+todos estos datos viven en un único servidor PostgreSQL del entorno `dev`, y ese entorno puede
+perderse por tres vías:
+- Backups: solo 7 días de restauración a un punto en el tiempo, sin redundancia geográfica
+  (`pipesor-iac`, `modules/postgresql`).
+- Recreación: el servidor se recrea si cambia su subred (`replace_triggered_by`) y no tiene
+  `prevent_destroy`.
+- Suscripción: es de tipo *Azure for Students*, que Azure deshabilita al agotar el crédito o al
+  vencer.
+
+**Acción propuesta, que aprueba el responsable:** antes de cerrar el semestre, exportar (volcado
+lógico con hash) las tablas anteriores de `diagnosis`, `evidence` y `ops` a un almacenamiento con
+acceso restringido. Alternativa: confirmar que el entorno y la suscripción seguirán activos el
+próximo semestre. El volcado contiene evidencia saneada y referencias de revisores, así que hereda
+sus controles de acceso y privacidad.
+
 ## Uso y referencias
 
 No existía un registro agregado independiente. La [reconciliación][R] conserva la matriz histórica de 50 resoluciones y sus pendientes; el [índice de decisiones][I] conserva la evolución de los 18 ADRs; el [registro de fuentes][S] conserva procedencia, hashes y límites de aprobación. Este archivo centraliza el seguimiento sin copiar esos registros ni sustituir a los propietarios. Los IDs `PD-*` son localizadores documentales de este agregado, no nuevos IDs de modelos o ADRs.
@@ -124,7 +207,7 @@ Estas entradas no convierten opciones en tecnologías aprobadas ni obligan a res
 | PD-027 — Almacenamiento de secretos | ADR-005, Constraint; ADR-020; arquitectura: `deployment.github_authentication`; [DD-020, revisión `github-connector-draft-0.2`](../../model/domain_decisions.md#github-connector-draft-0.2). | **Detalle no especificado**, con selección local puntual del 06/11/2026: «Para PD-027 usaremos Key Vault». ADR-005 se conserva como antecedente histórico por trazabilidad; la elección explícita de Key Vault ya está autorizada localmente y no se reabre. El 07/11/2026 «Propuesta aprobada» adopta schema/metadata y modo Secrets en DD-020; no acredita implementación ni detalles operativos. | Consumir DD-020 y el [contrato semántico de Ingestion](https://github.com/pipesor-org/pipesor-ingestion-normalization-service/blob/main/docs/deployment-contract.md#connector-contract-proposal-for-decision), con DD-020 pendiente de integración y contrato de Ingestion aún local/no publicado; completar custodia operativa, restore, revocación/borrado y responsables sin reabrir modelo/principios de exclusión/recuperación aceptados. Persistir metadata local no implica guardar tokens ni desplegar. | Autoridad continua **no identificada**; la selección puntual del usuario no la asigna. Coordinar PD-034/035 sin inferir una autoridad distinta de sus CODEOWNERS ni autorizar recursos/permisos. |
 | PD-028 — Formato del artifact diagnóstico | ADR-009, Decision; ADR-016, Decision; arquitectura: `github_actions.diagnostic_artifact`, output `github_actions_diagnostic_artifact`. | **Detalle no especificado** de implementación: consulta/publicación por workflow definidas, formato concreto diferido. | Documentar formato y contrato compatible al implementar el consumo, con aceptación verificable correspondiente. | Aprobador **no identificado**. ADR-016 asigna producción a recommendation_service y publicación a github_actions, sin darles autoridad decisoria. Relacionado con PD-010/011 según el contrato afectado. |
 | PD-029 — Mantenimiento ante degradación operacional | D§41; R: matriz fila 41. | **Detalle no especificado** del mecanismo operativo: principio de monitoreo, versionado y actualización controlada sin política operativa equivalente identificada en ADRs/modelos. | Aclarar mecanismo y evidencia de aplicación dentro del alcance existente cuando corresponda; no convertirlo en entrenamiento ni proceso nuevo sin autorización. | **No identificada**. Relacionado con PD-006/026; no reactiva detector ni LogBERT. |
-| PD-030 — Aplicación operativa de retención | ADR-018, Consequences and reversibility; DD-015; dominio: RET-001 y `retention_policy`. | **Detalle no especificado** del mecanismo operativo, no implementado por estas fuentes: 365 días declarados para logs/diagnósticos/evidencias, sin tareas de purga; no extender duración a corpus, configuración o auditoría. | Documentar mecanismo y evidencia de aplicación cuando se autorice implementación, conforme a política verificable. | Aprobador **no identificado**. Depende de PD-017; afecta ciclo de vida de datos sin cambiar duración/alcance. |
+| PD-030 — Aplicación operativa de retención | ADR-018, Consequences and reversibility; DD-015; dominio: RET-001 y `retention_policy`. | **Detalle no especificado** del mecanismo operativo, no implementado por estas fuentes: 365 días declarados para logs/diagnósticos/evidencias, sin tareas de purga; no extender duración a corpus, configuración o auditoría. Comprobación del 24/11/2026 (PD-037): sigue sin purga en código; las revisiones se conservan, pero dependen de un único entorno `dev` con 7 días de backup. | Documentar mecanismo y evidencia de aplicación cuando se autorice implementación, conforme a política verificable. | Aprobador **no identificado**. Depende de PD-017; afecta ciclo de vida de datos sin cambiar duración/alcance. |
 | PD-031 — Consistencia de referencias lógicas | ADR-018, Consequences and reversibility; DD-014; dominio A-006/A-010. | **Detalle no especificado** del mecanismo adicional: owners validan referencias por contratos existentes; ADR no elige consistencia distribuida adicional. | Precisar contratos y evidencia de validación de referencias al implementar, dentro de los límites actuales; elevar cualquier necesidad de arquitectura nueva. | Owners responsables de implementación según ADR-018; aprobación del contrato por los CODEOWNERS Jhon Galvez y Ramiro Guzman, según indicación del usuario registrada en la ampliación de etapa 5. Impacta integridad entre contextos; no autoriza FK cross-schema ni escritura ajena. |
 | PD-032 — Algoritmos de identidad/hash y versiones de aplicación | DD-013, impacto; dominio: `evidence_items.content_hash`, A-001; ADR-018, Decision. | **Detalle no especificado** (algoritmos y versiones): DD-013 no selecciona algoritmo UUID/hash ni versiones Java/Spring/Python. No confundirlos con SHA-256 de archivo documental o versiones de herramientas de generación. | Precisar solo lo requerido por la implementación autorizada y registrar su respaldo sin presentarlo como decisión ya tomada. | **No identificada**. Afecta compatibilidad/reproducibilidad del backend; no amplía tecnologías aprobadas ni modifica dependencias aquí. |
 
@@ -315,7 +398,7 @@ Estos localizadores no renumeran PD/DQ ni crean decisiones arquitectónicas.
 
 ### Cobertura histórica y ampliación local
 
-- **36 entradas actuales:** las 32 de etapa 3 (2 discrepancias, 9 preguntas únicas, 13 asuntos de evidencia/procedencia, 1 referencia desactualizada y 7 detalles explícitamente diferidos) más 4 detalles de contratos identificados en etapa 5 (PD-033–036).
+- **37 entradas actuales:** las 32 de etapa 3 (2 discrepancias, 9 preguntas únicas, 13 asuntos de evidencia/procedencia, 1 referencia desactualizada y 7 detalles explícitamente diferidos), 4 detalles de contratos identificados en etapa 5 (PD-033–036) y el seguimiento del 24/11/2026 (PD-037).
 - **Modelos:** DQ-001–006 → PD-003–008; DCQ-001–003 → PD-009–011; DQ-002 de diseño → PD-004. CF-001 → PD-002; TMD → PD-001. A-001–012 y DA-001–006 conservan su condición de supuestos; su inclusión como evidencia no los aprueba ni exige convertir cada supuesto en otra pregunta.
 - **Etapa 2:** aprobación Charter → PD-012; procedencia/aceptación drift → PD-013; los 18 ADRs → PD-014; topología → PD-015; Blob → PD-016; retención → PD-017; prompts → PD-018; TI/Excel → PD-019; localizadores → PD-020; revisión/matriz → PD-021; protocolo/rúbrica → PD-022; corpus → PD-023; cobertura de evaluación → PD-024; A-011/DD/Overview → PD-025; mecanismos/preguntas → PD-003–011/029. Se conserva la matriz de las 50 resoluciones en R.
 - **Pendientes históricos que no se reabren:** orquestador OQ-004 → ADR-001; observabilidad OQ-005 → ADR-002; identidad OQ-006 → ADR-003; dashboard → ADR-008; parser → ADR-007. Detector/OQ-001/LogBERT y F1 asociado quedan fuera del MVP por ADR-010. Notificaciones y APIs directas de scanners no son decisiones actuales pendientes: ADR-012/014 delimitan su exclusión. Reporting/audit como servicios no se restauran: ADR-009/011. Consultar I para la evolución completa de los 18 ADRs.
