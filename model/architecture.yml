@@ -126,6 +126,34 @@ sources:
     file: docs/architecture/decisions/ADR-021-rag-runtime-contract-v0.1.md
     role: approved_architectural_decision
 
+  - id: SRC_ADR_022
+    file: docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md
+    role: approved_architectural_decision
+
+  - id: SRC_ADR_023
+    file: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md
+    role: approved_architectural_decision
+
+  - id: SRC_ADR_024
+    file: docs/architecture/decisions/ADR-024-repository-administrator-admission.md
+    role: approved_architectural_decision
+
+  - id: SRC_ADR_025
+    file: docs/architecture/decisions/ADR-025-open-sign-in.md
+    role: approved_architectural_decision
+
+  - id: SRC_ADR_026
+    file: docs/architecture/decisions/ADR-026-diagnosis-model-gpt-6-luna.md
+    role: approved_architectural_decision
+
+  - id: SRC_ADR_027
+    file: docs/architecture/decisions/ADR-027-incident-queue-read-model.md
+    role: approved_architectural_decision
+
+  - id: SRC_ADR_028
+    file: docs/architecture/decisions/ADR-028-people-from-github-collaborators.md
+    role: approved_architectural_decision
+
 layers:
   - id: L1
     name: "Presentation and Operational Consumption"
@@ -982,7 +1010,7 @@ relationships:
     label: "Requests authorized contextual knowledge for the incident"
     protocol: REST/HTTPS
     style: sync
-    authentication: Microsoft Entra ID
+    authentication: "Pipesor platform workload token with Entra-compatible claims (ADR-022); Entra ID by configuration"
     token_type: app_only
     audience: exclusive_rag_audience
     required_role: Rag.Query
@@ -990,6 +1018,9 @@ relationships:
     status: confirmed
     source:
     - SRC_ADR_015
+    - SRC_ADR_021
+    - SRC_ADR_022
+    - "docs/architecture/contracts/platform-identity-v1.md#route-catalog"
 
   - id: rel_recommendation_llm
     from: recommendation_service
@@ -1016,7 +1047,7 @@ relationships:
   - id: rel_dashboard_pipeline_service
     from: web_dashboard
     to: pipeline_service
-    label: Routes pipeline and execution queries
+    label: "Routes pipeline, execution, incident queue and insights queries, registration, grants and incident lifecycle commands"
     protocol: REST/HTTPS
     style: sync
     status: confirmed
@@ -1025,6 +1056,10 @@ relationships:
     - SRC_ADR_006
     - SRC_ADR_016
     - SRC_ADR_019
+    - SRC_ADR_020
+    - SRC_ADR_027
+    - SRC_ADR_028
+    - "docs/architecture/contracts/mvp-http-api-v1.md#pipeline--operations-external-ingress"
 
   - id: rel_dashboard_log_event_service
     from: web_dashboard
@@ -1081,11 +1116,14 @@ relationships:
     label: Queries diagnostic_output to publish the workflow artifact
     protocol: REST/HTTPS
     style: sync
+    authentication: GitHub Actions OIDC token (ADR-022)
     status: confirmed
     source:
     - SRC_ADR_009
     - SRC_ADR_016
     - SRC_ADR_019
+    - SRC_ADR_022
+    - "docs/architecture/contracts/platform-identity-v1.md#6-github-actions-oidc-tokens"
 
   - id: rel_dashboard_diagnostic_api
     from: web_dashboard
@@ -1198,30 +1236,39 @@ relationships:
   - id: rel_dashboard_ingestion_github_connection
     from: web_dashboard
     to: ingestion_normalization_service
-    label: "Connects GitHub identity and selects authorized repositories/workflows"
+    label: "Signs in with GitHub, connects GitHub identity, discovers repositories, workflows and collaborators, and requests run analysis"
     protocol: REST/HTTPS
     style: sync
     status: confirmed
-    source: [SRC_ADR_020]
+    source:
+      - SRC_ADR_020
+      - SRC_ADR_022
+      - SRC_ADR_024
+      - SRC_ADR_025
+      - SRC_ADR_028
+      - "docs/architecture/contracts/mvp-http-api-v1.md#ingestion--authentication-and-github-discovery-external-ingress"
 
   - id: rel_ingestion_github_connection
     from: ingestion_normalization_service
     to: github
-    label: "Authorizes users and verifies GitHub identity, installations and repository access"
+    label: "Authorizes users and verifies GitHub identity, installations, repository access and collaborators"
     protocol: OAuth/HTTPS + REST/HTTPS
     access: read_only
     style: sync
     status: confirmed
-    source: [SRC_ADR_020]
+    source: [SRC_ADR_020, SRC_ADR_028]
 
   - id: rel_pipeline_ingestion_github_access
     from: pipeline_service
     to: ingestion_normalization_service
-    label: "Requests verified user access and workflow metadata without GitHub credentials"
+    label: "Requests verified user access and workflow metadata without GitHub credentials; synchronizes workflow capture scopes"
     protocol: REST/HTTPS
     style: sync
     status: confirmed
-    source: [SRC_ADR_020]
+    source:
+      - SRC_ADR_020
+      - SRC_ADR_023
+      - "docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023"
 
   - id: rel_log_event_pipeline_operational_evidence
     from: log_event_service
@@ -1266,6 +1313,33 @@ relationships:
     status: confirmed
     source:
       - "model/domain_decisions.md#DD-025"
+
+  # ADR-027 and MVP HTTP API v1: Recommendation keeps ownership of diagnoses and reviews;
+  # Pipeline only stores a read-only projection and resolves diagnosis read entitlements.
+  - id: rel_recommendation_pipeline_diagnosis_entitlement
+    from: recommendation_service
+    to: pipeline_service
+    label: "Resolves the user's diagnosis read entitlement and the incident's ORIGIN execution"
+    protocol: REST/HTTPS
+    access: read_only
+    style: sync
+    status: confirmed
+    source:
+      - SRC_ADR_020
+      - SRC_ADR_022
+      - "docs/architecture/contracts/mvp-http-api-v1.md#diagnosis-by-incident"
+      - "docs/architecture/contracts/platform-identity-v1.md#4-subject-tokens"
+
+  - id: rel_recommendation_pipeline_diagnosis_summary
+    from: recommendation_service
+    to: pipeline_service
+    label: "Projects the incident diagnosis summary into Pipeline's incident queue read model"
+    protocol: REST/HTTPS
+    style: sync
+    status: confirmed
+    source:
+      - SRC_ADR_027
+      - "docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027"
 
 outputs:
   - id: diagnostic_hypothesis

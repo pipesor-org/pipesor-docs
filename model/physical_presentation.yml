@@ -19,6 +19,8 @@ relationship_labels:
   rel_log_event_pipeline_operational_evidence: "Checks ORIGIN membership"
   rel_correlation_pipeline_operational_references: "Verifies ORIGIN"
   rel_correlation_log_event_evidence_membership: "Verifies scoped evidence"
+  rel_recommendation_pipeline_diagnosis_entitlement: "Resolves diagnosis access"
+  rel_recommendation_pipeline_diagnosis_summary: "Projects diagnosis summary"
   rel_dashboard_ingestion_github_connection: "Connects GitHub and selects workflows"
   rel_github_github_actions: "Repository and workflows"
   rel_github_actions_ingestion_event: "Workflow events"

@@ -93,7 +93,7 @@
 <!-- web_dashboard&#45;&gt;pipeline_service -->
 <g id="rel_dashboard_pipeline_service" class="edge">
 <title>web_dashboard&#45;&gt;pipeline_service</title>
-<g id="a_rel_dashboard_pipeline_service"><a xlink:title="Routes pipeline and execution queries (REST/HTTPS)">
+<g id="a_rel_dashboard_pipeline_service"><a xlink:title="Routes pipeline, execution, incident queue and insights queries, registration, grants and incident lifecycle commands (REST/HTTPS)">
 <path fill="none" stroke="#475569" d="M234.94,-269.9C296.58,-274.98 375.78,-281.5 434.27,-286.32"/>
 <polygon fill="#475569" stroke="#475569" points="434.06,-288.76 441.24,-286.9 434.46,-283.88 434.06,-288.76"/>
 </a>
@@ -198,6 +198,28 @@
 </a>
 </g>
 <text xml:space="preserve" text-anchor="middle" x="706.79" y="-187.84" font-family="DejaVu Sans" font-size="11.00">Evidence references</text>
+</g>
+<!-- recommendation_service&#45;&gt;pipeline_service -->
+<g id="rel_recommendation_pipeline_diagnosis_entitlement" class="edge">
+<title>recommendation_service&#45;&gt;pipeline_service</title>
+<g id="a_rel_recommendation_pipeline_diagnosis_entitlement"><a xlink:title="Resolves the user&#39;s diagnosis read entitlement and the incident&#39;s ORIGIN execution (REST/HTTPS)">
+<path fill="none" stroke="#475569" d="M407.11,-128.3C383,-136.34 360.19,-149.21 345.17,-169.67 311.76,-215.15 380.57,-250.56 440.66,-271.55"/>
+<polygon fill="#475569" stroke="#475569" points="439.84,-273.86 447.26,-273.8 441.43,-269.22 439.84,-273.86"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="455.36" y="-246.09" font-family="DejaVu Sans" font-size="11.00">Resolves diagnosis</text>
+<text xml:space="preserve" text-anchor="middle" x="455.36" y="-232.59" font-family="DejaVu Sans" font-size="11.00">access</text>
+</g>
+<!-- recommendation_service&#45;&gt;pipeline_service -->
+<g id="rel_recommendation_pipeline_diagnosis_summary" class="edge">
+<title>recommendation_service&#45;&gt;pipeline_service</title>
+<g id="a_rel_recommendation_pipeline_diagnosis_summary"><a xlink:title="Projects the incident diagnosis summary into Pipeline&#39;s incident queue read model (REST/HTTPS)">
+<path fill="none" stroke="#475569" d="M407.27,-121.99C367.17,-130.14 325.52,-146.88 300.58,-180.33 259.59,-235.33 357.34,-265.88 434.36,-280.88"/>
+<polygon fill="#475569" stroke="#475569" points="433.87,-283.28 441.2,-282.17 434.78,-278.46 433.87,-283.28"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="358.21" y="-264.83" font-family="DejaVu Sans" font-size="11.00">Projects diagnosis</text>
+<text xml:space="preserve" text-anchor="middle" x="358.21" y="-251.33" font-family="DejaVu Sans" font-size="11.00">summary</text>
 </g>
 <!-- recommendation_service&#45;&gt;postgresql_operational_store -->
 <g id="rel_recommendation_service_postgresql" class="edge">

@@ -57,20 +57,22 @@ Las cajas de agrupación organizan la lectura; no son nuevos elementos arquitect
 | Requests authorized contextual knowledge for the incident | REST/HTTPS | logica_expo_02 |
 | Requests diagnostic inference with sanitized evidence and RAG context | Azure OpenAI API/HTTPS | logica_expo_02 |
 | Authenticates corporate users | OIDC/OAuth2/HTTPS | logica_expo_03 |
-| Routes pipeline and execution queries | REST/HTTPS | logica_expo_03 |
+| Routes pipeline, execution, incident queue and insights queries, registration, grants and incident lifecycle commands | REST/HTTPS | logica_expo_03 |
 | Routes log, event and evidence queries | REST/HTTPS | logica_expo_03 |
 | Routes diagnosis and review queries and operations | REST/HTTPS | logica_expo_03 |
 | Persists human review decisions and traceability | PostgreSQL | logica_expo_03 |
 | Queries diagnostic_output to publish the workflow artifact | REST/HTTPS | logica_expo_03 |
-| Authorizes users and verifies GitHub identity, installations and repository access | OAuth/HTTPS + REST/HTTPS | logica_expo_01 |
-| Requests verified user access and workflow metadata without GitHub credentials | REST/HTTPS | logica_expo_01 |
+| Authorizes users and verifies GitHub identity, installations, repository access and collaborators | OAuth/HTTPS + REST/HTTPS | logica_expo_01 |
+| Requests verified user access and workflow metadata without GitHub credentials; synchronizes workflow capture scopes | REST/HTTPS | logica_expo_01 |
 | Checks committed operational membership before evidence registration | REST/HTTPS | logica_expo_01, logica_expo_03 |
 | Verifies current machine permission for an exact protected evidence capture scope | REST/HTTPS | logica_expo_01 |
+| Resolves the user's diagnosis read entitlement and the incident's ORIGIN execution | REST/HTTPS | logica_expo_03 |
+| Projects the incident diagnosis summary into Pipeline's incident queue read model | REST/HTTPS | logica_expo_03 |
 
 ## Relaciones entre vistas
 
 - `rel_ingestion_postgresql_connector_metadata`: Ingestion and Normalization Service → PostgreSQL: Persists connector metadata and durable capture/publication ledger with temporary protected output bytes; no credential values (PostgreSQL).
 - `rel_correlation_postgresql`: Evidence Correlation Service → PostgreSQL: Records correlated context and traceability (PostgreSQL).
-- `rel_dashboard_ingestion_github_connection`: AIOps Web Dashboard → Ingestion and Normalization Service: Connects GitHub identity and selects authorized repositories/workflows (REST/HTTPS).
+- `rel_dashboard_ingestion_github_connection`: AIOps Web Dashboard → Ingestion and Normalization Service: Signs in with GitHub, connects GitHub identity, discovers repositories, workflows and collaborators, and requests run analysis (REST/HTTPS).
 - `rel_correlation_pipeline_operational_references`: Evidence Correlation Service → Pipeline Service: Checks current scope and committed ORIGIN membership before correlation (REST/HTTPS).
 - `rel_correlation_log_event_evidence_membership`: Evidence Correlation Service → Log/Event Service: Verifies committed evidence membership in the authorized capture and attempt (REST/HTTPS).
