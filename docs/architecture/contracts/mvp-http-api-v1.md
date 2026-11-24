@@ -77,7 +77,8 @@ current read) — pending owner decision.
 
 Known divergence (audit 2026-11-24): Ingestion also serves
 `POST /webhooks/v1/github/workflow-runs` without a platform token, disabled by default
-(`pipesor.github.webhook-enabled: false`); no contract documents it — pending owner decision.
+(`pipesor.github.webhook-enabled: false`; IaC enables it); no contract documents its request,
+response or errors — pending owner decision.
 
 `GET /api/v1/github/installations` returns `200`:
 
