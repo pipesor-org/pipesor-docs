@@ -122,6 +122,17 @@ def node_label(element, presentation, projection):
     return '<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="3">' + "".join(rows) + '</TABLE>>'
 
 
+SCOPES = {"dev_and_oe3_i2_evaluation": "dev and the OE3-I2 evaluation"}
+
+
+def llm_note(architecture):
+    """State the diagnosis model and its scope only as the canonical element declares them."""
+    llm = next(e for e in architecture["elements"] if e["id"] == "pretrained_llm_diagnostic_service")
+    if not llm.get("model"):
+        return f"{llm['model_family']} family, model/deployment unspecified"
+    return f"{llm['model']} in {SCOPES[llm['model_scope']]}"
+
+
 def route_geometry(view, relation):
     route = view["routes"][relation["id"]]
     def port(eid, side, offset):
@@ -209,7 +220,9 @@ def generate_dot(presentation, architecture, view, projection):
     graph.node("relation_legend", legend, pos="1700,560!", width="5.5", height="12.0", shape="plaintext", style="", fixedsize="false")
     footer = "Blue: prototype · Gray: actors/external systems · Green: persistence | Solid: synchronous · Dashed: asynchronous · Dotted: event"
     graph.node("slide_footer", footer, pos="960,85!", shape="plaintext", style="", width="25", height="0.4", fontsize="14")
-    note = "PostgreSQL/pgvector: one physical instance. Managed AI: Foundry foundation; GPT-4 family, model/deployment unspecified." if projection.combined_postgres else "Human review within Diagnostic & Recommendation Service. Actions publishes the artifact through its own workflow."
+    note = (f"PostgreSQL/pgvector: one physical instance. Managed AI: Foundry foundation; {llm_note(architecture)}."
+            if projection.combined_postgres else
+            "Human review within Diagnostic & Recommendation Service. Actions publishes the artifact through its own workflow.")
     graph.node("slide_note", note, pos="960,45!", shape="plaintext", style="", width="25", height="0.4", fontsize="15")
     return graph.source
 

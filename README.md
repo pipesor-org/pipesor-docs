@@ -254,3 +254,21 @@ append-only `ingestion.consent_records`, que solo admite una revocación manual.
 persistente/ER pasa de 35 a 40 tablas (36 en uso). La retención es la regla propia de
 ADR-029, documentada y sin purga; no se aplica RET-001. Modelar no acredita despliegue ni
 migraciones de entorno.
+
+## Dashboard, inicio de sesión y Key Vault en el modelo — 24/11/2026
+
+[ADR-030](docs/architecture/decisions/ADR-030-dashboard-on-azure-container-apps.md) registra,
+con la confirmación del responsable, que el dashboard se sirve desde Azure Container Apps:
+Static Web Apps no se ofrece en las regiones permitidas de la suscripción. `architecture.yml`
+0.9.0 aplica además decisiones ya aceptadas:
+
+- retira Entra ID como autenticación de personas. El inicio de sesión es con GitHub (OAuth
+  con PKCE S256 mediante Ingesta, ADR-022 y ADR-029), y Entra queda solo como identidad
+  administrada frente a recursos Azure;
+- añade Azure Key Vault con las claves de firma no exportables de seis servicios y la
+  custodia de credenciales GitHub de Ingesta;
+- fija gpt-6-luna como modelo de diagnóstico solo en dev y en la evaluación OE3-I2 (ADR-026).
+
+Las vistas C4, lógicas y físicas se regeneraron. El C4 de componentes ya no recorta
+descripciones y muestra los elementos externos con texto oscuro. Modelar no acredita
+despliegue.

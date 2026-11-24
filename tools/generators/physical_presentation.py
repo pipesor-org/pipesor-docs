@@ -42,7 +42,9 @@ def technology_lines(element):
     parser = element.get("parser") or {}
     if parser.get("decision_status") == "closed" and parser.get("selected"):
         lines.append(parser["selected"])
-    if element.get("model_family"):
+    if element.get("model"):
+        lines.append(" ".join(v for v in (element["model"], element.get("model_version")) if v))
+    elif element.get("model_family"):
         lines.append(element["model_family"] + " family")
     if element.get("foundation", {}).get("technology"):
         lines.append(element["foundation"]["technology"] + " account/project")
@@ -122,7 +124,8 @@ def main():
                 and collapse.get(r["from"], r["from"]) != collapse.get(r["to"], r["to"])):
             guide.append(f"- `{r['id']}`: {elements[r['from']]['name']} → {elements[r['to']]['name']}: {r['label']} ({r['protocol']}).")
     guide.extend(["", "## Advertencias", "", "Iconos de fallback: " + str(sorted(fallback_icons)), "",
-                  "Modelo concreto GPT-4 y modelo de embeddings sin fijar en el SSOT. No se introduce una selección.", ""])
+                  "Modelo de diagnóstico gpt-6-luna solo para dev y la evaluación OE3-I2 (ADR-026); PD-026 sigue abierta "
+                  "para otros entornos. No se introduce otra selección.", ""])
     (ROOT / "out/fisica_expo_guia.md").write_text("\n".join(guide), encoding="utf-8")
 
 

@@ -31,12 +31,13 @@ class C4GenerationTests(unittest.TestCase):
         projections, warnings = c4.prepare(model or self.model)
         return next(p for p in projections if p.view["id"] == vid), warnings
 
-    def test_description_precedence_truncation_and_missing_basis(self):
+    def test_description_precedence_full_text_and_missing_basis(self):
         warnings = set()
         element = {"id": "test", "description": "A" * 100, "responsibility": "B",
                    "responsibilities": ["C"], "capabilities": ["D"], "layer": "layer"}
         layers = {"layer": {"purpose": "E"}}
-        self.assertEqual(len(c4.description(element, layers, warnings)), 90)
+        # Descriptions are never cut: a truncated label hid text in printed figures.
+        self.assertEqual(c4.description(element, layers, warnings), "A" * 100)
         for field, expected in [("description", "B"), ("responsibility", "C"),
                                 ("responsibilities", "D"), ("capabilities", "E")]:
             del element[field]
@@ -57,9 +58,9 @@ class C4GenerationTests(unittest.TestCase):
         self.assertEqual(c4.technology(element, warnings), "")
         self.assertTrue(warnings)
         self.assertEqual(c4.technology(self.elements["web_dashboard"], warnings),
-                         "React SPA / Azure Static Web Apps")
+                         "React SPA / Azure Container Apps")
         self.assertEqual(c4.technology(self.elements["pretrained_llm_diagnostic_service"],
-                                      warnings), "Azure OpenAI Service / GPT-4 family / Microsoft Foundry")
+                                      warnings), "Azure OpenAI Service / gpt-6-luna / Microsoft Foundry")
 
     def test_context_lifts_and_merges_by_direction(self):
         model = deepcopy(self.model)
@@ -67,7 +68,7 @@ class C4GenerationTests(unittest.TestCase):
         extra.update(id="extra", label="Third unique label", protocol="Additional protocol")
         model["relationships"].append(extra)
         projection, warnings = self.projection("c4_context", model)
-        self.assertEqual(projection.count, 7)
+        self.assertEqual(projection.count, 6)
         self.assertEqual([e["id"] for e in projection.inside], ["aiops"])
         outgoing = [r for r in projection.relationships
                     if (r["from"], r["to"]) == ("github_actions", "aiops")]
@@ -131,8 +132,8 @@ class C4GenerationTests(unittest.TestCase):
 
     def test_projection_limit_includes_context_neighbours(self):
         model = deepcopy(self.model)
-        model["architecture"]["view_constraints"]["max_nodes_per_view"] = 6
-        with self.assertRaisesRegex(ValueError, "7 nodes including stubs exceeds 6"):
+        model["architecture"]["view_constraints"]["max_nodes_per_view"] = 5
+        with self.assertRaisesRegex(ValueError, "6 nodes including stubs exceeds 5"):
             c4.prepare(model)
 
     def test_external_inclusion_and_final_context_are_enforced(self):

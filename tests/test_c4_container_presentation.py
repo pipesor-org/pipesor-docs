@@ -21,7 +21,7 @@ class C4ContainerPresentationTests(unittest.TestCase):
         originals, _ = renderer.c4.prepare(self.architecture)
         originals = {p.view["id"]: p for p in originals}
         self.assertEqual(self.architecture, before)
-        self.assertEqual([(p.count, len(p.relationships)) for _, p in adapted], [(12, 27), (8, 13)])
+        self.assertEqual([(p.count, len(p.relationships)) for _, p in adapted], [(12, 27), (8, 14)])
         for view, projected in adapted:
             source = originals[view["source_view"]]
             self.assertEqual(projected.inside, source.inside)
@@ -29,7 +29,7 @@ class C4ContainerPresentationTests(unittest.TestCase):
             self.assertEqual(projected.relationships, source.relationships)
 
     def test_no_undeclared_members_or_missing_routes(self):
-        self.presentation["views"][0]["elements"].append("entra_id")
+        self.presentation["views"][0]["elements"].append("github")
         with self.assertRaisesRegex(ValueError, "membership must exactly match"):
             renderer.prepare(self.presentation, self.architecture)
         self.presentation, _ = renderer.load_models(renderer.MODEL)
@@ -56,7 +56,7 @@ class C4ContainerPresentationTests(unittest.TestCase):
         self.assertTrue(projected.combined_postgres)
         self.assertNotIn("pgvector_knowledge_store", {e["id"] for e in projected.inside})
         llm = next(e for e in projected.outside if e["id"] == "pretrained_llm_diagnostic_service")
-        self.assertIsNone(llm["model"])
+        self.assertEqual(llm["model"], "gpt-6-luna")  # ADR-026, dev and OE3-I2 only
         self.assertNotIn("host", llm)
         for r in projected.relationships:
             if r["id"] == "rel_rag_pgvector":

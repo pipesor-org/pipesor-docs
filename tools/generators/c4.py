@@ -50,8 +50,8 @@ def description(element, layers, warnings):
     candidates.append((layers.get(element.get("layer")) or {}).get("purpose"))
     for candidate in candidates:
         if value := text(candidate):
-            # Only whitespace and truncation change; no translation or invention.
-            return value if len(value) <= 90 else value[:89].rstrip() + "…"
+            # Only whitespace changes; no truncation, translation or invention.
+            return value
     warnings.add(f"{element['id']}: no description basis; using empty string")
     return ""
 
@@ -290,6 +290,9 @@ def generate_puml(model, projection, warnings):
         "skinparam defaultFontName DejaVu Sans",
         "skinparam nodesep 35",
         "skinparam ranksep 45",
+        # Dark text on light gray: C4-PlantUML's default white on gray is unreadable in print.
+        'UpdateElementStyle("external_system", $bgColor="#E2E8F0", $fontColor="#0F172A", $borderColor="#64748B")',
+        'UpdateElementStyle("external_container", $bgColor="#E2E8F0", $fontColor="#0F172A", $borderColor="#64748B")',
         f"title {text(view['title'])}",
     ]
     for style, line_style in STYLES.items():

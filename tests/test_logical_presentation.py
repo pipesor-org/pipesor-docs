@@ -44,7 +44,7 @@ class LogicalPresentationTests(unittest.TestCase):
             renderer.prepare(self.presentation, self.architecture)
 
     def test_rejects_hidden_membership_and_external_conflict(self):
-        self.presentation["views"][0]["groups"][0]["elements"].append("entra_id")
+        self.presentation["views"][0]["groups"][0]["elements"].append("web_dashboard")
         with self.assertRaisesRegex(ValueError, "partition declared membership"):
             renderer.prepare(self.presentation, self.architecture)
         self.presentation, _ = renderer.load_models()
