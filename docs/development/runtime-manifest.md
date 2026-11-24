@@ -52,7 +52,8 @@ Container port is `8080` for every service. Java health: `/actuator/health/liven
 a bearer token: health, `/.well-known/jwks.json`, Ingestion's sign-in flow
 (`GET /api/v1/auth/github/start`, `GET /api/v1/auth/github/callback`,
 `POST /api/v1/auth/session`) and, when enabled, the GitHub webhook
-`POST /webhooks/v1/github/workflow-runs`, authenticated by its HMAC signature.
+`POST /webhooks/v1/github/workflow-runs`, authenticated by its HMAC signature
+([webhook contract](../architecture/contracts/github-workflow-webhook-v1.md)).
 
 ## Service-specific settings
 
