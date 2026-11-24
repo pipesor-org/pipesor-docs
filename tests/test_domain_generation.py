@@ -33,9 +33,9 @@ class DomainGenerationTests(unittest.TestCase):
         errors = validate_domain(self.model, self.architecture)
         self.assertTrue(any(fragment in error for error in errors), errors)
 
-    def test_approved_model_has_twenty_eight_valid_tables(self):
+    def test_approved_model_has_thirty_five_valid_tables(self):
         self.assertEqual(validate_domain(self.model, self.architecture), [])
-        self.assertEqual(len(self.model["entities"]), 28)
+        self.assertEqual(len(self.model["entities"]), 35)
 
     def test_owners_cannot_write_another_schema(self):
         self.entity("incidents")["owner_container"] = "recommendation_service"
@@ -103,8 +103,8 @@ class DomainGenerationTests(unittest.TestCase):
 
     def test_er_limit_is_enforced(self):
         self.model["entities"].extend([deepcopy(self.model["entities"][0]) for _ in range(2)])
-        self.rejected("maximum is 28")
-        with self.assertRaisesRegex(ValueError, "exceeds 28"):
+        self.rejected("maximum is 35")
+        with self.assertRaisesRegex(ValueError, "exceeds 35"):
             generate_er(self.model)
 
     def test_recommendation_receipt_preserves_idempotency_and_scope(self):
@@ -130,12 +130,32 @@ class DomainGenerationTests(unittest.TestCase):
     def test_dbml_refs_are_only_physical_intra_schema(self):
         dbml = generate_dbml(self.model)
         refs = re.findall(r"^Ref \w+: (\w+)\.\w+\.\w+ > (\w+)\.\w+\.\w+$", dbml, re.M)
-        self.assertEqual(len(refs), 14)
+        self.assertEqual(len(refs), 17)
         self.assertTrue(all(source == target for source, target in refs))
         self.assertIn("Referencia lógica a knowledge.knowledge_chunks.id", dbml)
         self.assertIn("embedding vector(1536)", dbml)
         self.assertIn("embedding_model text", dbml)
         self.assertIn("embedding_model_version text", dbml)
+
+    def test_mvp_tables_keep_their_qualification_and_logical_references(self):
+        tables = ("execution_event_receipts", "incident_diagnoses", "diagnosis_jobs", "incident_summary_outbox",
+                  "github_login_attempts", "repository_admissions", "capture_workflow_scopes")
+        self.assertTrue(all(self.entity(name)["scope_basis"] == "approved_domain" for name in tables))
+        self.assertEqual({name for name in tables if self.entity(name)["status"] == "inferred"},
+                         {"execution_event_receipts", "diagnosis_jobs"})
+        self.assertEqual(self.column("incident_summary_outbox", "incident_id")["logical_ref"], "ops.incidents.id")
+        attr = self.column("incident_diagnoses", "diagnosis_id")
+        attr["fk"] = attr.pop("logical_ref")
+        self.rejected("physical cross-schema FK is prohibited")
+
+    def test_non_deferred_composite_fk_is_not_described_as_deferred(self):
+        self.assertIn("Composite FK capture_workflow_scopes_admitted_fk.", generate_dbml(self.model))
+        self.assertIn("FK compuesta `capture_workflow_scopes_admitted_fk`: (tenant_id, repository_id) → "
+                      "ingestion.repository_admissions (tenant_id, repository_id).", generate_dictionary(self.model))
+        self.assertIn('"composite FK: tenant_id, repository_id → tenant_id, repository_id"', generate_er(self.model))
+        self.assertNotIn("ALTER CONSTRAINT capture_workflow_scopes_admitted_fk", generate_extras(self.model))
+        self.entity("capture_workflow_scopes")["foreign_keys"] = []
+        self.rejected("missing approved composite FK")
 
     def test_extras_protect_origin_and_append_only_diagnoses(self):
         sql = generate_extras(self.model)

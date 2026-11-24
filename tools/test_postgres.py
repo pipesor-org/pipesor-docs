@@ -51,8 +51,9 @@ class PersistenceTests(unittest.TestCase):
         enums = {e['id']: e['values'][0] for e in model['enums']}
         inserts = []
         for entity in model['entities']:
-            if entity['schema'] == 'ingestion' or entity['table'] in ('correlation_groups', 'correlated_contexts', 'correlation_receipts', 'correlated_context_receipts'):
-                continue  # DD-020 needs coherent lifecycle metadata, not generic scalar values.
+            if entity['schema'] == 'ingestion' or entity['table'] in ('correlation_groups', 'correlated_contexts', 'correlation_receipts', 'correlated_context_receipts',
+                                                                      'execution_event_receipts', 'incident_diagnoses', 'diagnosis_jobs', 'incident_summary_outbox'):
+                continue  # DD-020/DD-026 need coherent lifecycle metadata, not generic scalar values.
             cols, values = [], []
             for c in entity['attributes']:
                 if c['nullable'] and c['name'] != 'reviewed_incident_id':
@@ -71,6 +72,7 @@ class PersistenceTests(unittest.TestCase):
         inserts.append(cls.connector_fixture())
         inserts.append(cls.correlation_fixture())
         inserts.append(cls.recommendation_receipt_fixture())
+        inserts.append(cls.mvp_tables_fixture())
         result = cls.sql('BEGIN;\n' + '\n'.join(inserts) + '\nCOMMIT;')
         if result.returncode:
             raise RuntimeError(result.stderr)
@@ -99,6 +101,53 @@ VALUES ('{ONE}','{ONE}','v1:sha256:'||repeat('a',64),'{ONE}','123','456','scope-
  '[{{"evidence_id":"{ONE}","origin_context_id":"{ONE}","correlation_id":"synthetic-correlation","stage":"BUILD","summary":"protected summary","content":"protected content"}}]'::jsonb,now());
 """
 
+    @classmethod
+    def mvp_tables_fixture(cls):
+        return f"""
+INSERT INTO ops.execution_event_receipts(event_id,execution_id,message_digest,content_digest,source_updated_at,source_submicro_nanos,disposition,correlation_id,created_at)
+VALUES ('{ONE}','{TWO}',repeat('a',64),repeat('b',64),now(),0,'APPLIED','synthetic',now());
+INSERT INTO ops.incident_diagnoses(incident_id,diagnosis_id,diagnosis_version,execution_id,status,review_revision,reviewed_at,probable_cause,diagnosis_created_at,correlation_id,projected_at)
+VALUES ('{ONE}','{TWO}',1,'{ONE}','PENDING',0,NULL,'synthetic cause',now(),'synthetic',now());
+INSERT INTO diagnosis.diagnosis_jobs(context_id,state,attempts,next_attempt_at,lease_until,last_failure,created_at)
+VALUES ('{ONE}','PENDING',0,now(),NULL,NULL,now());
+INSERT INTO diagnosis.incident_summary_outbox(incident_id,execution_id,generation,attempts,next_attempt_at,lease_until,last_failure,created_at)
+VALUES ('{TWO}','{TWO}',1,0,now(),NULL,NULL,now());
+INSERT INTO ingestion.github_login_attempts(id,state_digest,pkce_secret_object_ref,pkce_secret_version_ref,return_path,phase,expires_at,correlation_id,created_at,updated_at)
+VALUES ('{ONE}',decode('01','hex'),'pkce:{ONE}','v1','/pipelines','READY',now()+interval '10 minutes','synthetic',now(),now());
+INSERT INTO ingestion.repository_admissions(tenant_id,app_id,account_id,installation_id,repository_id,admitted_at,admitted_by,source)
+VALUES ('{ONE}','1','2','3','456',now(),'synthetic-operator','operator');
+INSERT INTO ingestion.capture_workflow_scopes(capture_domain,tenant_id,app_id,account_id,installation_id,repository_id,workflow_id,pipeline_id,status,allowed_actions,replay_window,revision,scope_revision,updated_at)
+VALUES ('synthetic','{ONE}','1','2','3','456','789','{TWO}','ACTIVE',ARRAY['completed'],interval '1 day',1,'scope-r1',now());
+"""
+
+    def test_mvp_tables_keep_implemented_constraints(self):
+        # DD-026: generated DDL keeps the owners' checks, keys and intra-schema FKs; cross-schema IDs stay logical.
+        for statement, code in [
+            ("UPDATE ops.execution_event_receipts SET disposition='UNKNOWN'", '23514'),
+            ("UPDATE ops.execution_event_receipts SET source_submicro_nanos=1000", '23514'),
+            ("UPDATE ops.incident_diagnoses SET review_revision=1", '23514'),
+            ("UPDATE ops.incident_diagnoses SET probable_cause=repeat('x',1001)", '23514'),
+            (f"UPDATE ops.incident_diagnoses SET execution_id='{TWO}'", '23503'),
+            (f"UPDATE diagnosis.diagnosis_jobs SET context_id='{TWO}'", '23503'),
+            ("UPDATE diagnosis.diagnosis_jobs SET state='DONE', lease_until=now()", '23514'),
+            ("UPDATE diagnosis.diagnosis_jobs SET last_failure='Provider said: no'", '23514'),
+            ("UPDATE diagnosis.incident_summary_outbox SET generation=0", '23514'),
+            (f"UPDATE ingestion.github_login_attempts SET pkce_secret_object_ref='pkce:{TWO}'", '23514'),
+            ("UPDATE ingestion.github_login_attempts SET pkce_secret_version_ref='latest'", '23514'),
+            ("UPDATE ingestion.github_login_attempts SET phase='HANDOFF_READY'", '23514'),
+            ("UPDATE ingestion.repository_admissions SET revoked_at=now()", '23514'),
+            ("UPDATE ingestion.repository_admissions SET source='self'", '23514'),
+            ("UPDATE ingestion.capture_workflow_scopes SET repository_id='457'", '23503'),
+            ("UPDATE ingestion.capture_workflow_scopes SET allowed_actions=ARRAY[]::text[]", '23514'),
+            ("UPDATE ingestion.capture_workflow_scopes SET replay_window=interval '0'", '23514'),
+        ]:
+            with self.subTest(statement=statement):
+                self.rejected(statement, code)
+        self.rejected(f"INSERT INTO ingestion.github_login_attempts(id,state_digest,pkce_secret_object_ref,pkce_secret_version_ref,return_path,phase,expires_at,correlation_id,created_at,updated_at) SELECT '{TWO}',state_digest,'pkce:{TWO}',pkce_secret_version_ref,return_path,phase,expires_at,correlation_id,created_at,updated_at FROM ingestion.github_login_attempts", '23505')
+        self.accepted(f"UPDATE ops.incident_diagnoses SET diagnosis_id='{ONE}'")
+        self.accepted(f"UPDATE ops.execution_event_receipts SET execution_id='{ONE}'")
+        self.accepted("UPDATE ingestion.repository_admissions SET revoked_at=now(), revoked_by='synthetic-administrator', source='repository_administrator'")
+
     def test_recommendation_receipt_signals_are_typed_exact_and_immutable(self):
         base = f"SELECT diagnosis.valid_correlated_signals(signals, evidence_ids) FROM diagnosis.correlated_context_receipts"
         self.assertEqual(self.sql(base).returncode, 0)
@@ -112,7 +161,8 @@ VALUES ('{ONE}','{ONE}','v1:sha256:'||repeat('a',64),'{ONE}','123','456','scope-
                 self.rejected(fixture.replace(old,new), constraint='correlated_context_receipts_signals_membership_ck')
         for statement in ('UPDATE diagnosis.correlated_context_receipts SET summary=summary',
                           'DELETE FROM diagnosis.correlated_context_receipts',
-                          'TRUNCATE diagnosis.correlated_context_receipts'):
+                          # DD-026 diagnosis_jobs references receipts; truncate both so the guard, not the FK, decides.
+                          'TRUNCATE diagnosis.correlated_context_receipts, diagnosis.diagnosis_jobs'):
             self.rejected(statement)
         for value in ("'{}'::jsonb", "'[]'::jsonb", "'[null]'::jsonb"):
             self.rejected(fixture[:fixture.index(" '[{")] + f" {value},now());")

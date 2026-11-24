@@ -1,7 +1,7 @@
 <!-- GENERATED — DO NOT EDIT. SSOT: model/domain.yml -->
 # Diccionario de datos
 
-Modelo: `1.8.0`. Una instancia PostgreSQL; 28 tablas.
+Modelo: `1.9.0`. Una instancia PostgreSQL; 35 tablas.
 
 Los tipos enum se materializan en el schema propietario de cada tabla.
 FK significa constraint físico intra-schema; logical_ref significa ID sin FK física.
@@ -167,6 +167,52 @@ Claves únicas compuestas: `(pipeline_id, principal_ref, capability)`.
 | capability | ops.AccessCapability | No | — | — | No | Compuesto: (pipeline_id, principal_ref, capability) | AccessCapability | Capacidad funcional propuesta por arquitectura de información. | docs/research/arquitectura-informacion.md; SRC_ADR_003; DD-017 | — |
 | correlation_id | text | No | — | — | No | No | — | Identificador de correlación end-to-end; no contiene información sensible. | architecture.yml#CTRL-003 | — |
 | created_at | timestamptz | No | — | — | No | No | — | Instante de persistencia; permite aplicar retención cuando corresponde. | SRC_ADR_013; DD-015 | A-002 |
+
+### `ops.execution_event_receipts`
+
+Recibo técnico durable de cada evento execution.snapshot consumido; identidad, digests y disposición para deduplicar y ordenar entregas, sin payload ni logs.
+
+Owner: `pipeline_service`. scope_basis: `approved_domain`. status: `inferred`.
+
+Fuentes: architecture.yml#pipeline_service, architecture.yml#rel_service_bus_pipeline_service, pipesor-pipeline-service@dcaa002: docs/architecture.md#contrato-de-evento-normalizado-v1-aprobado-en-sesion, V5__create_execution_event_receipts.sql, DD-026.
+
+Checks: `message_digest ~ '^[0-9a-f]{64}$'`; `content_digest ~ '^[0-9a-f]{64}$'`; `source_submicro_nanos BETWEEN 0 AND 999`; `disposition IN ('APPLIED','DUPLICATE','IGNORED_STALE','IGNORED_PAUSED')`.
+
+| Columna | Tipo | PK | FK | logical_ref | Nullable | Unique | Enum | Descripción | Fuente | Assumption |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| event_id | uuid | Sí | — | — | No | No | — | Identidad del evento entregado (eventId); asignada por el productor, no por Pipeline. | architecture.yml#pipeline_service; architecture.yml#rel_service_bus_pipeline_service; pipesor-pipeline-service@dcaa002: docs/architecture.md#contrato-de-evento-normalizado-v1-aprobado-en-sesion, V5__create_execution_event_receipts.sql; DD-026 | — |
+| execution_id | uuid | No | — | ops.pipeline_executions.id | No | No | — | Ejecución descrita por el evento; sin FK porque un evento pausado puede preceder a la fila de la ejecución. | architecture.yml#pipeline_service; architecture.yml#rel_service_bus_pipeline_service; pipesor-pipeline-service@dcaa002: docs/architecture.md#contrato-de-evento-normalizado-v1-aprobado-en-sesion, V5__create_execution_event_receipts.sql; DD-026 | — |
+| message_digest | text | No | — | — | No | No | — | SHA-256 hexadecimal del mensaje canónico; detecta reutilización conflictiva del eventId. | architecture.yml#pipeline_service; architecture.yml#rel_service_bus_pipeline_service; pipesor-pipeline-service@dcaa002: docs/architecture.md#contrato-de-evento-normalizado-v1-aprobado-en-sesion, V5__create_execution_event_receipts.sql; DD-026 | — |
+| content_digest | text | No | — | — | No | No | — | SHA-256 hexadecimal del contenido canónico del snapshot; distingue snapshots idénticos de conflictivos. | architecture.yml#pipeline_service; architecture.yml#rel_service_bus_pipeline_service; pipesor-pipeline-service@dcaa002: docs/architecture.md#contrato-de-evento-normalizado-v1-aprobado-en-sesion, V5__create_execution_event_receipts.sql; DD-026 | — |
+| source_updated_at | timestamptz | No | — | — | No | No | — | Instante upstream del snapshot truncado a microsegundos; ordena versiones de la fuente. | architecture.yml#pipeline_service; architecture.yml#rel_service_bus_pipeline_service; pipesor-pipeline-service@dcaa002: docs/architecture.md#contrato-de-evento-normalizado-v1-aprobado-en-sesion, V5__create_execution_event_receipts.sql; DD-026 | — |
+| source_submicro_nanos | integer | No | — | — | No | No | — | Nanosegundos restantes (0..999) para reconstruir el instante exacto de la fuente. | architecture.yml#pipeline_service; architecture.yml#rel_service_bus_pipeline_service; pipesor-pipeline-service@dcaa002: docs/architecture.md#contrato-de-evento-normalizado-v1-aprobado-en-sesion, V5__create_execution_event_receipts.sql; DD-026 | — |
+| disposition | text | No | — | — | No | No | — | Resultado registrado: APPLIED, DUPLICATE, IGNORED_STALE o IGNORED_PAUSED. | architecture.yml#pipeline_service; architecture.yml#rel_service_bus_pipeline_service; pipesor-pipeline-service@dcaa002: docs/architecture.md#contrato-de-evento-normalizado-v1-aprobado-en-sesion, V5__create_execution_event_receipts.sql; DD-026 | — |
+| correlation_id | text | No | — | — | No | No | — | Identificador de correlación del evento; no contiene información sensible. | architecture.yml#pipeline_service; architecture.yml#rel_service_bus_pipeline_service; pipesor-pipeline-service@dcaa002: docs/architecture.md#contrato-de-evento-normalizado-v1-aprobado-en-sesion, V5__create_execution_event_receipts.sql; DD-026 | — |
+| created_at | timestamptz | No | — | — | No | No | — | Instante de persistencia del recibo; sin política de purga. | architecture.yml#pipeline_service; architecture.yml#rel_service_bus_pipeline_service; pipesor-pipeline-service@dcaa002: docs/architecture.md#contrato-de-evento-normalizado-v1-aprobado-en-sesion, V5__create_execution_event_receipts.sql; DD-026 | A-002 |
+
+### `ops.incident_diagnoses`
+
+Proyección de solo lectura del resumen diagnóstico por incidente, alimentada por Recommendation; no es autoridad del diagnóstico ni de sus revisiones.
+
+Owner: `pipeline_service`. scope_basis: `approved_domain`. status: `confirmed`.
+
+Fuentes: docs/architecture/decisions/ADR-027-incident-queue-read-model.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027, SRC_ADR_018, DD-026.
+
+Checks: `diagnosis_version > 0`; `status IN ('PENDING','CONFIRMED','CORRECTED','REJECTED')`; `review_revision >= 0 AND (status = 'PENDING') = (review_revision = 0) AND (reviewed_at IS NULL) = (review_revision = 0)`; `probable_cause IS NULL OR char_length(probable_cause) BETWEEN 1 AND 1000`.
+
+| Columna | Tipo | PK | FK | logical_ref | Nullable | Unique | Enum | Descripción | Fuente | Assumption |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| incident_id | uuid | Sí | ops.incidents.id | — | No | No | — | Incidente proyectado; como máximo una fila por incidente y su ausencia equivale a ABSENT. | docs/architecture/decisions/ADR-027-incident-queue-read-model.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027; SRC_ADR_018; DD-026 | — |
+| diagnosis_id | uuid | No | — | diagnosis.diagnoses.id | No | No | — | Diagnóstico de Recommendation por referencia lógica; sin FK cross-schema. | docs/architecture/decisions/ADR-027-incident-queue-read-model.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027; SRC_ADR_018; DD-026 | — |
+| diagnosis_version | integer | No | — | — | No | No | — | Versión admitida proyectada; positiva y monótona junto con review_revision. | docs/architecture/decisions/ADR-027-incident-queue-read-model.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027; SRC_ADR_018; DD-026 | — |
+| execution_id | uuid | No | ops.pipeline_executions.id | — | No | No | — | Ejecución ORIGIN fallida del incidente a la que corresponde el diagnóstico. | docs/architecture/decisions/ADR-027-incident-queue-read-model.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027; SRC_ADR_018; DD-026 | — |
+| status | text | No | — | — | No | No | — | Estado de revisión proyectado: PENDING, CONFIRMED, CORRECTED o REJECTED; PENDING representa la ausencia de revisión. | docs/architecture/decisions/ADR-027-incident-queue-read-model.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027; SRC_ADR_018; DD-026 | — |
+| review_revision | integer | No | — | — | No | No | — | Revisiones aplicadas; 0 exactamente cuando el estado es PENDING. | docs/architecture/decisions/ADR-027-incident-queue-read-model.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027; SRC_ADR_018; DD-026 | — |
+| reviewed_at | timestamptz | No | — | — | Sí | No | — | Instante de la última revisión; nulo sin revisión. | docs/architecture/decisions/ADR-027-incident-queue-read-model.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027; SRC_ADR_018; DD-026 | — |
+| probable_cause | text | No | — | — | Sí | No | — | Causa probable inferida por el modelo, copiada solo para mostrar; hasta 1000 caracteres. | docs/architecture/decisions/ADR-027-incident-queue-read-model.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027; SRC_ADR_018; DD-026 | — |
+| diagnosis_created_at | timestamptz | No | — | — | No | No | — | Instante de creación de la versión diagnóstica proyectada. | docs/architecture/decisions/ADR-027-incident-queue-read-model.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027; SRC_ADR_018; DD-026 | — |
+| correlation_id | text | No | — | — | No | No | — | Correlación del diagnóstico recibida en X-Correlation-ID; no contiene información sensible. | docs/architecture/decisions/ADR-027-incident-queue-read-model.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027; SRC_ADR_018; DD-026 | — |
+| projected_at | timestamptz | No | — | — | No | No | — | Instante en que Pipeline aplicó la proyección. | docs/architecture/decisions/ADR-027-incident-queue-read-model.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027; SRC_ADR_018; DD-026 | — |
 
 ## Schema `evidence`
 
@@ -444,6 +490,47 @@ Checks: `decision <> 'CORRECTED' OR (actual_cause IS NOT NULL AND btrim(actual_c
 | comment | text | No | — | — | Sí | No | — | Comentario saneado del revisor. | SRC_ADR_011; SRC_ADR_016; architecture.yml#INV-006; SRC_ADR_013; DD-005 | — |
 | created_at | timestamptz | No | — | — | No | No | — | Instante de persistencia; permite aplicar retención cuando corresponde. | SRC_ADR_013; DD-015 | A-002 |
 
+### `diagnosis.diagnosis_jobs`
+
+Cola técnica durable del diagnóstico automático; un trabajo por recepción de contexto, con lease y reintentos, sin evidencia ni payloads.
+
+Owner: `recommendation_service`. scope_basis: `approved_domain`. status: `inferred`.
+
+Fuentes: architecture.yml#recommendation_service, SRC_ADR_015, pipesor-recommendation-service@3d53d26: docs/diagnosis-worker.md, V7__create_diagnosis_jobs.sql, DD-026.
+
+Checks: `state IN ('PENDING','DONE','FAILED')`; `attempts >= 0`; `last_failure IS NULL OR last_failure ~ '^[a-z][a-z0-9_]{0,63}$'`; `state = 'PENDING' OR lease_until IS NULL`.
+
+| Columna | Tipo | PK | FK | logical_ref | Nullable | Unique | Enum | Descripción | Fuente | Assumption |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| context_id | uuid | Sí | diagnosis.correlated_context_receipts.context_id | — | No | No | — | Recepción de contexto a diagnosticar; FK intra-schema a su recibo. | architecture.yml#recommendation_service; SRC_ADR_015; pipesor-recommendation-service@3d53d26: docs/diagnosis-worker.md, V7__create_diagnosis_jobs.sql; DD-026 | — |
+| state | text | No | — | — | No | No | — | Estado del trabajo: PENDING, DONE o FAILED. | architecture.yml#recommendation_service; SRC_ADR_015; pipesor-recommendation-service@3d53d26: docs/diagnosis-worker.md, V7__create_diagnosis_jobs.sql; DD-026 | — |
+| attempts | integer | No | — | — | No | No | — | Intentos reclamados; no negativo. | architecture.yml#recommendation_service; SRC_ADR_015; pipesor-recommendation-service@3d53d26: docs/diagnosis-worker.md, V7__create_diagnosis_jobs.sql; DD-026 | — |
+| next_attempt_at | timestamptz | No | — | — | No | No | — | Instante desde el que el trabajo puede reclamarse. | architecture.yml#recommendation_service; SRC_ADR_015; pipesor-recommendation-service@3d53d26: docs/diagnosis-worker.md, V7__create_diagnosis_jobs.sql; DD-026 | — |
+| lease_until | timestamptz | No | — | — | Sí | No | — | Fin del lease del worker que lo reclamó; solo en PENDING. | architecture.yml#recommendation_service; SRC_ADR_015; pipesor-recommendation-service@3d53d26: docs/diagnosis-worker.md, V7__create_diagnosis_jobs.sql; DD-026 | — |
+| last_failure | text | No | — | — | Sí | No | — | Código corto del último fallo; sin mensajes, evidencia ni respuestas del proveedor. | architecture.yml#recommendation_service; SRC_ADR_015; pipesor-recommendation-service@3d53d26: docs/diagnosis-worker.md, V7__create_diagnosis_jobs.sql; DD-026 | — |
+| created_at | timestamptz | No | — | — | No | No | — | Instante de creación del trabajo; sin política de purga. | architecture.yml#recommendation_service; SRC_ADR_015; pipesor-recommendation-service@3d53d26: docs/diagnosis-worker.md, V7__create_diagnosis_jobs.sql; DD-026 | A-002 |
+
+### `diagnosis.incident_summary_outbox`
+
+Outbox transaccional del resumen diagnóstico hacia Pipeline; una fila pendiente por incidente y ejecución hasta que Pipeline confirma la generación leída.
+
+Owner: `recommendation_service`. scope_basis: `approved_domain`. status: `confirmed`.
+
+Fuentes: docs/architecture/decisions/ADR-027-incident-queue-read-model.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027, architecture.yml#recommendation_service, DD-026.
+
+Checks: `generation > 0`; `attempts >= 0`; `last_failure IS NULL OR last_failure ~ '^[a-z][a-z0-9_]{0,63}$'`.
+
+| Columna | Tipo | PK | FK | logical_ref | Nullable | Unique | Enum | Descripción | Fuente | Assumption |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| incident_id | uuid | Sí | — | ops.incidents.id | No | No | — | Incidente cuyo resumen debe proyectarse; referencia lógica sin FK cross-schema. | docs/architecture/decisions/ADR-027-incident-queue-read-model.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027; architecture.yml#recommendation_service; DD-026 | — |
+| execution_id | uuid | Sí | — | ops.pipeline_executions.id | No | No | — | Ejecución del diagnóstico; referencia lógica sin FK cross-schema. | docs/architecture/decisions/ADR-027-incident-queue-read-model.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027; architecture.yml#recommendation_service; DD-026 | — |
+| generation | bigint | No | — | — | No | No | — | Generación de cambios pendientes; positiva y creciente con cada admisión o revisión. | docs/architecture/decisions/ADR-027-incident-queue-read-model.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027; architecture.yml#recommendation_service; DD-026 | — |
+| attempts | integer | No | — | — | No | No | — | Intentos de envío desde el último cambio; no negativo. | docs/architecture/decisions/ADR-027-incident-queue-read-model.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027; architecture.yml#recommendation_service; DD-026 | — |
+| next_attempt_at | timestamptz | No | — | — | No | No | — | Instante desde el que la fila puede reclamarse. | docs/architecture/decisions/ADR-027-incident-queue-read-model.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027; architecture.yml#recommendation_service; DD-026 | — |
+| lease_until | timestamptz | No | — | — | Sí | No | — | Fin del lease del publicador que la reclamó. | docs/architecture/decisions/ADR-027-incident-queue-read-model.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027; architecture.yml#recommendation_service; DD-026 | — |
+| last_failure | text | No | — | — | Sí | No | — | Código corto del último fallo; sin cuerpo del resumen ni tokens. | docs/architecture/decisions/ADR-027-incident-queue-read-model.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027; architecture.yml#recommendation_service; DD-026 | — |
+| created_at | timestamptz | No | — | — | No | No | — | Instante de creación de la fila pendiente. | docs/architecture/decisions/ADR-027-incident-queue-read-model.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027; architecture.yml#recommendation_service; DD-026 | A-002 |
+
 ## Schema `knowledge`
 
 Corpus autorizado recuperable.
@@ -537,7 +624,7 @@ Fuentes: SRC_ADR_011, architecture.yml#audit_trail, architecture.yml#CTRL-002, D
 
 ## Schema `ingestion`
 
-Metadata de conector GitHub (DD-020), ledger de captura/publicación y buffer temporal de bytes protegidos (DD-021); sin credenciales ni entradas crudas.
+Metadata de conector GitHub (DD-020), ledger de captura/publicación y buffer temporal de bytes protegidos (DD-021), intentos de inicio de sesión, admisiones de repositorios y alcances de captura por workflow (DD-026); sin credenciales ni entradas crudas.
 
 Owners permitidos: ingestion_normalization_service.
 
@@ -830,6 +917,91 @@ Constraints complementarias: capture_lifecycle.
 | created_at | timestamptz | No | — | — | No | No | — | created at | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
 | updated_at | timestamptz | No | — | — | No | No | — | updated at | DD-021; capture-publication-draft-0.1 — adopción local 2026-11-08: Vamos a por ello | — |
 
+### `ingestion.github_login_attempts`
+
+Intento de inicio de sesión GitHub de un solo uso y su handoff al dashboard; solo digests y referencias de custodia, nunca state, verifier, código, handoff ni tokens.
+
+Owner: `ingestion_normalization_service`. scope_basis: `approved_domain`. status: `confirmed`.
+
+Fuentes: docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md, docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion, docs/architecture/decisions/ADR-025-open-sign-in.md, DD-026.
+
+Claves únicas compuestas: `(state_digest)`.
+
+Unicidad parcial `github_login_attempts_handoff_uq`: (handoff_digest) WHERE `handoff_digest IS NOT NULL`; extras.sql.
+
+Checks: `phase IN ('READY','CLAIMED','HANDOFF_READY','COMPLETED','FAILED')`; `pkce_secret_object_ref = 'pkce:' || id::text`; `btrim(pkce_secret_version_ref) <> '' AND lower(btrim(pkce_secret_version_ref)) <> 'latest'`; `return_path ~ '^/'`; `btrim(correlation_id) <> ''`; `expires_at > created_at`; `updated_at >= created_at`; `(phase IN ('HANDOFF_READY','COMPLETED')) = (handoff_digest IS NOT NULL) AND (handoff_digest IS NULL OR (handoff_expires_at IS NOT NULL AND connection_id IS NOT NULL AND generation_id IS NOT NULL AND github_user_id ~ '^[1-9][0-9]*$' AND btrim(github_login) <> ''))`.
+
+| Columna | Tipo | PK | FK | logical_ref | Nullable | Unique | Enum | Descripción | Fuente | Assumption |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| id | uuid | Sí | — | — | No | No | — | Identificador del intento asignado por Ingestion. | docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md; docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion; docs/architecture/decisions/ADR-025-open-sign-in.md; DD-026 | — |
+| state_digest | bytea | No | — | — | No | Compuesto: (state_digest) | — | SHA-256 del state OAuth de un solo uso; nunca el valor crudo. | docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md; docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion; docs/architecture/decisions/ADR-025-open-sign-in.md; DD-026 | — |
+| pkce_secret_object_ref | text | No | — | — | No | No | — | Referencia lógica pkce:<id> al objeto de custodia del verifier; no contiene el secreto. | docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md; docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion; docs/architecture/decisions/ADR-025-open-sign-in.md; DD-026 | — |
+| pkce_secret_version_ref | text | No | — | — | No | No | — | Versión exacta custodiada del verifier; nunca el alias latest. | docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md; docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion; docs/architecture/decisions/ADR-025-open-sign-in.md; DD-026 | — |
+| return_path | text | No | — | — | No | No | — | Ruta relativa del dashboard a la que se vuelve tras el inicio de sesión. | docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md; docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion; docs/architecture/decisions/ADR-025-open-sign-in.md; DD-026 | — |
+| phase | text | No | — | — | No | No | — | Fase del intento: READY, CLAIMED, HANDOFF_READY, COMPLETED o FAILED. | docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md; docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion; docs/architecture/decisions/ADR-025-open-sign-in.md; DD-026 | — |
+| expires_at | timestamptz | No | — | — | No | No | — | Expiración del intento; posterior a created_at. | docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md; docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion; docs/architecture/decisions/ADR-025-open-sign-in.md; DD-026 | — |
+| correlation_id | text | No | — | — | No | No | — | Identificador de correlación no vacío; no contiene información sensible. | docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md; docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion; docs/architecture/decisions/ADR-025-open-sign-in.md; DD-026 | — |
+| connection_id | uuid | No | — | ingestion.github_connections.id | Sí | No | — | Conexión DD-020 resultante del inicio de sesión; presente con el handoff, sin FK física. | docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md; docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion; docs/architecture/decisions/ADR-025-open-sign-in.md; DD-026 | — |
+| generation_id | uuid | No | — | ingestion.github_connection_generations.id | Sí | No | — | Generación DD-020 resultante del inicio de sesión; presente con el handoff, sin FK física. | docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md; docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion; docs/architecture/decisions/ADR-025-open-sign-in.md; DD-026 | — |
+| github_user_id | text | No | — | — | Sí | No | — | ID numérico del usuario GitHub verificado; presente con el handoff. | docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md; docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion; docs/architecture/decisions/ADR-025-open-sign-in.md; DD-026 | — |
+| github_login | text | No | — | — | Sí | No | — | Login GitHub verificado para presentación; presente con el handoff. | docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md; docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion; docs/architecture/decisions/ADR-025-open-sign-in.md; DD-026 | — |
+| handoff_digest | bytea | No | — | — | Sí | No | — | SHA-256 del handoff de un solo uso; único cuando existe y nunca el valor crudo. | docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md; docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion; docs/architecture/decisions/ADR-025-open-sign-in.md; DD-026 | — |
+| handoff_expires_at | timestamptz | No | — | — | Sí | No | — | Expiración del handoff. | docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md; docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion; docs/architecture/decisions/ADR-025-open-sign-in.md; DD-026 | — |
+| created_at | timestamptz | No | — | — | No | No | — | Instante de creación del intento. | docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md; docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion; docs/architecture/decisions/ADR-025-open-sign-in.md; DD-026 | — |
+| updated_at | timestamptz | No | — | — | No | No | — | Instante del último cambio de fase. | docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md; docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion; docs/architecture/decisions/ADR-025-open-sign-in.md; DD-026 | — |
+
+### `ingestion.repository_admissions`
+
+Admisión de un repositorio GitHub por tenant, importada por el operador o reconciliada desde su administrador; las revocadas se conservan.
+
+Owner: `ingestion_normalization_service`. scope_basis: `approved_domain`. status: `confirmed`.
+
+Fuentes: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, SRC_ADR_020, DD-026.
+
+Checks: `app_id ~ '^[1-9][0-9]*$' AND account_id ~ '^[1-9][0-9]*$' AND installation_id ~ '^[1-9][0-9]*$' AND repository_id ~ '^[1-9][0-9]*$'`; `btrim(admitted_by) <> ''`; `source IN ('operator','repository_administrator')`; `(revoked_at IS NULL) = (revoked_by IS NULL) AND (revoked_by IS NULL OR btrim(revoked_by) <> '')`.
+
+| Columna | Tipo | PK | FK | logical_ref | Nullable | Unique | Enum | Descripción | Fuente | Assumption |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| tenant_id | uuid | Sí | — | — | No | No | — | Tenant de plataforma de la admisión. | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; SRC_ADR_020; DD-026 | — |
+| app_id | text | No | — | — | No | No | — | ID numérico de la GitHub App pipesor. | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; SRC_ADR_020; DD-026 | — |
+| account_id | text | No | — | — | No | No | — | ID numérico de la cuenta propietaria de la instalación. | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; SRC_ADR_020; DD-026 | — |
+| installation_id | text | No | — | — | No | No | — | ID numérico de la instalación de la App. | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; SRC_ADR_020; DD-026 | — |
+| repository_id | text | Sí | — | — | No | No | — | ID numérico del repositorio GitHub admitido. | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; SRC_ADR_020; DD-026 | — |
+| admitted_at | timestamptz | No | — | — | No | No | — | Instante de la admisión o de su reactivación. | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; SRC_ADR_020; DD-026 | — |
+| admitted_by | text | No | — | — | No | No | — | Referencia no vacía del sujeto que admitió (operador o administrador del repositorio). | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; SRC_ADR_020; DD-026 | — |
+| source | text | No | — | — | No | No | — | Origen de la admisión: operator o repository_administrator. | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; SRC_ADR_020; DD-026 | — |
+| revoked_at | timestamptz | No | — | — | Sí | No | — | Instante de revocación cuando GitHub deja de listar el repositorio en la instalación. | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; SRC_ADR_020; DD-026 | — |
+| revoked_by | text | No | — | — | Sí | No | — | Referencia del sujeto cuya reconciliación revocó; presente junto con revoked_at. | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; SRC_ADR_020; DD-026 | — |
+
+### `ingestion.capture_workflow_scopes`
+
+Alcance de captura máquina por workflow, sincronizado por Pipeline desde sus registros; cada cambio de estado incrementa la revisión y revoca la autoridad anterior.
+
+Owner: `ingestion_normalization_service`. scope_basis: `approved_domain`. status: `confirmed`.
+
+Fuentes: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, DD-026.
+
+FK compuesta `capture_workflow_scopes_admitted_fk`: (tenant_id, repository_id) → ingestion.repository_admissions (tenant_id, repository_id).
+
+Checks: `status IN ('ACTIVE','PAUSED')`; `app_id ~ '^[1-9][0-9]*$' AND account_id ~ '^[1-9][0-9]*$' AND installation_id ~ '^[1-9][0-9]*$' AND repository_id ~ '^[1-9][0-9]*$' AND workflow_id ~ '^[1-9][0-9]*$'`; `cardinality(allowed_actions) > 0 AND allowed_actions <@ ARRAY['requested','in_progress','completed']::text[]`; `replay_window > interval '0'`; `revision > 0 AND scope_revision ~ '^[A-Za-z0-9._:-]{1,128}$'`.
+
+| Columna | Tipo | PK | FK | logical_ref | Nullable | Unique | Enum | Descripción | Fuente | Assumption |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| capture_domain | text | Sí | — | — | No | No | — | Partición confiable de autorización máquina (DD-021). | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; DD-026 | — |
+| tenant_id | uuid | Sí | — | — | No | No | — | Tenant de plataforma del alcance. | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; DD-026 | — |
+| app_id | text | Sí | — | — | No | No | — | ID numérico de la GitHub App pipesor. | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; DD-026 | — |
+| account_id | text | No | — | — | No | No | — | ID numérico de la cuenta propietaria de la instalación. | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; DD-026 | — |
+| installation_id | text | No | — | — | No | No | — | ID numérico de la instalación de la App. | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; DD-026 | — |
+| repository_id | text | Sí | — | — | No | No | — | ID numérico del repositorio GitHub; debe estar admitido. | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; DD-026 | — |
+| workflow_id | text | Sí | — | — | No | No | — | ID numérico del workflow GitHub. | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; DD-026 | — |
+| pipeline_id | uuid | No | — | ops.pipelines.id | Sí | No | — | Pipeline registrado por referencia lógica; nulo en alcances importados sin registro. | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; DD-026 | — |
+| status | text | No | — | — | No | No | — | Estado de monitorización sincronizado desde Pipeline: ACTIVE o PAUSED. | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; DD-026 | — |
+| allowed_actions | text[] | No | — | — | No | No | — | Acciones workflow_run admitidas; subconjunto no vacío de requested, in_progress y completed. | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; DD-026 | — |
+| replay_window | interval | No | — | — | No | No | — | Ventana de replay positiva. | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; DD-026 | — |
+| revision | bigint | No | — | — | No | No | — | Revisión numérica positiva; aumenta con cada cambio de estado. | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; DD-026 | — |
+| scope_revision | text | No | — | — | No | No | — | Revisión opaca derivada que comparan capturas, replays y comprobaciones de Pipeline. | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; DD-026 | — |
+| updated_at | timestamptz | No | — | — | No | No | — | Instante de la última sincronización. | docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md; docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023; docs/architecture/decisions/ADR-024-repository-administrator-admission.md; DD-026 | — |
+
 ## Enums
 
 - `IncidentStatus`: OPEN, IN_REMEDIATION, VERIFICATION, RESOLVED.
@@ -1008,6 +1180,7 @@ Nota de evolución: representación histórica de Blob sustituida parcialmente p
 - decisión: pipeline_access_grants conserva scope_basis: ia_only y status: inferred; referencia principal Entra ID sin users/roles internos. Es representación provisional, no implementación final RBAC ni requisito core.
 - fuentes: arquitectura-informacion.md; SRC_ADR_003; Prompt §7; DQ-005/DQ-006.
 - impacto: Se muestra con borde punteado y etiqueta IA-only / inferred; la política de alta de workflows y RBAC seguían abiertas en este corte. DD-019/ADR-020 aprueban después la política MVP; representación física y contratos pendientes conservan su estado.
+- enmienda ADR-028 (23/11/2026): quien concede un grant elige al destinatario entre los colaboradores GitHub del repositorio; el grant sigue siendo explícito y se rechaza revocar el último CONFIGURE de un pipeline (`409 LAST_CONFIGURE_GRANT`). No cambia la representación ni el estado ia_only/inferred.
 - reversibilidad: Puede retirarse o cambiarse cuando se apruebe implementación definitiva; nunca promoverla automáticamente.
 
 ### DD-018 — Evidencia MVP sin almacenamiento Blob de workload
@@ -1024,6 +1197,7 @@ Nota de evolución: representación histórica de Blob sustituida parcialmente p
 - decisión: Pipeline crea/reutiliza Repository y registra Pipeline con datos GitHub verificados por el conector de Ingestion. Grants AIOps no conceden acceso fuera del alcance GitHub vigente; VIEW/OPERATE requieren lectura y CONFIGURE/alta administración efectiva. CONFIGURE incluye VIEW, no OPERATE. El creador recibe CONFIGURE con auditoría atómica; un duplicado no concede grants.
 - impacto: complementa DD-001/DD-017 y acota DQ-005/006 a detalles pendientes. Se conserva pipeline_access_grants como ia_only/inferred; no se aprueban columnas, tablas, users/roles/teams, pipeline owners ni asociaciones ORM nuevas. Credenciales/vinculaciones pertenecen lógicamente a Ingestion, nunca a ops ni a audit; su schema y custodia siguen pendientes.
 - límites: las APIs humanas de evidencia y diagnóstico requieren contrato para aplicar la restricción sin accesos cross-context. No hay grants automáticos por rol GitHub ni reescritura de IDs/filas históricas. Política aprobada no equivale a implementación ni modifica la retención.
+- enmienda ADR-028 (23/11/2026): los candidatos a recibir grants salen de los colaboradores del repositorio, leídos por Ingestion con el token del administrador que concede (permiso Metadata: read ya existente) y sin almacenarse. GitHub decide quién puede ser candidato; Pipesor decide qué puede hacer cada persona mediante grants explícitos, verificados al concederlos y al usarlos. Un pipeline conserva siempre al menos un grant CONFIGURE. Se descarta derivar VIEW de la lectura GitHub (ADR-025 permite iniciar sesión a cualquiera) y se difieren los equipos; no se aprueban tablas nuevas en esta fase.
 
 
 <a id="DD-020"></a>
@@ -1435,6 +1609,32 @@ Ausencia y fila fuera de la consulta acotada se devuelven como `NOT_READY`.
 Log/Event conserva su propiedad y sus referencias lógicas. El modelo
 conserva únicamente la representación protegida y su política de retención.
 
+<a id="DD-026"></a>
+
+### DD-026 — Reconciliación de siete tablas MVP implementadas
+
+- autoridad: solicitud explícita del responsable del 23/11/2026 de modelar ahora las siete tablas que los servicios ya crean y de elevar el límite del modelo persistente/ER de 28 a 35 tablas. Es el único cambio de gobernanza autorizado; no aprueba por sí misma arquitectura, contratos, integración ni despliegue.
+- contexto: ADR-023 y ADR-027 dejaron pendiente que `model/domain.yml` añadiera sus tablas («must add … tables», junto con las demás tablas MVP). Esta decisión cumple esas notas sin editar los ADR.
+- decisión: `domain.yml` 1.9.0 añade siete tablas (35 en total). Las migraciones Flyway son la fuente de columnas, nulabilidad, claves, CHECK y FK intra-schema. Revisiones consultadas, main remoto de cada servicio: Recommendation `3d53d26`, Ingestion `6ecca4c`, Pipeline `dcaa002`.
+
+| Tabla | Migración | Base documental | scope_basis / status |
+|---|---|---|---|
+| `ops.execution_event_receipts` | Pipeline V5 | Política de recepción durable y orden aprobada en sesión y registrada en `docs/architecture.md` del servicio; el contrato conjunto sigue en PD-031/033. | approved_domain / inferred |
+| `ops.incident_diagnoses` | Pipeline V9 | ADR-027; MVP HTTP API v1, «Internal: diagnosis summaries». | approved_domain / confirmed |
+| `diagnosis.diagnosis_jobs` | Recommendation V7 | Implementación (`docs/diagnosis-worker.md`) dentro de la orquestación de ADR-015; ningún ADR ni DD aprueba la tabla. | approved_domain / inferred |
+| `diagnosis.incident_summary_outbox` | Recommendation V9 | ADR-027; MVP HTTP API v1, «Internal: diagnosis summaries». | approved_domain / confirmed |
+| `ingestion.github_login_attempts` | Ingestion V3 | ADR-022 (state/PKCE y canje de un solo uso en Ingestion), contrato de identidad de plataforma v1 §5 y ADR-025. | approved_domain / confirmed |
+| `ingestion.repository_admissions` | Ingestion V4 y V5 | ADR-023 y ADR-024. | approved_domain / confirmed |
+| `ingestion.capture_workflow_scopes` | Ingestion V4 | ADR-023; MVP HTTP API v1, «Internal: capture workflow scopes». | approved_domain / confirmed |
+
+- calificación: `approved_domain` indica que las siete pertenecen a capacidades ya aprobadas de su owner, sin ampliar alcance ni ownership de schema. `confirmed` se usa solo cuando un ADR Accepted decide la tabla o su concepto persistente. `diagnosis_jobs` y `execution_event_receipts` quedan `inferred`: derivan de la implementación y, para los recibos, de una aprobación de sesión registrada fuera de este repositorio. No se usa `ia_only`, reservado a derivaciones de arquitectura de información. Promoverlas exige una decisión explícita.
+- referencias: FK físicas solo intra-schema: `incident_diagnoses.incident_id`/`execution_id` hacia `ops.incidents`/`ops.pipeline_executions`, `diagnosis_jobs.context_id` hacia `correlated_context_receipts.context_id` y la FK compuesta `capture_workflow_scopes_admitted_fk` hacia `repository_admissions`. Referencias lógicas cross-schema (ADR-018, DD-008): `incident_diagnoses.diagnosis_id`, `incident_summary_outbox.incident_id`/`execution_id` y `capture_workflow_scopes.pipeline_id`. Dentro de su schema y sin FK, como en las migraciones: `execution_event_receipts.execution_id` (un evento pausado puede preceder a la ejecución) y `github_login_attempts.connection_id`/`generation_id` hacia las tablas DD-020.
+- representación: `incident_diagnoses.status` es text con CHECK y su PENDING proyecta la ausencia de revisión; no es el enum `HumanReviewDecision` ni modifica A-012. Los demás estados técnicos (`state`, `phase`, `disposition`, `source`) siguen como text con CHECK, igual que en las migraciones. Los tipos admitidos incorporan `text[]` e `interval` solo para representar `allowed_actions` y `replay_window`. El cierre de tablas de `ingestion` y el registro de constraints congeladas incorporan las tablas nuevas, como en DD-020, DD-021 y DD-023.
+- no representado: DEFAULT de columnas, índices no únicos (colas, estado, instalación, orden) y backfills de las migraciones; el modelo no expresa esos elementos y no cambian las restricciones. dbml2sql exporta toda FK como DEFERRABLE INITIALLY IMMEDIATE, mientras `diagnosis_jobs_context_id_fkey` y `capture_workflow_scopes_admitted_fk` son NOT DEFERRABLE en las migraciones; sin SET CONSTRAINTS el comportamiento coincide. Los generadores ya no describen como diferida una FK compuesta que no lo es.
+- límites: no hay retención ni purga decididas para estas tablas (`retention_policy` nulo); `incident_diagnoses.probable_cause` copia salida inferida del modelo solo para mostrarla y no extiende RET-001 por analogía. `github_login_attempts` usa el prefijo `pkce:` de `github_authorization_attempts`; la no reutilización entre ambas clases depende de UUID distintos asignados por Ingestion, sin guardia SQL común. La llamada Recommendation → Pipeline de ADR-027 no tiene relación en `architecture.yml`; se reporta y no se modela aquí. No se modifican ADR, `architecture.yml`, presupuestos ni membresías de vistas, ni se ejecutan migraciones de servicios.
+- límite del modelo: el límite persistente/ER pasa de 28 a 35 tablas exclusivamente por estas siete.
+- reversibilidad: retirar o reclasificar una tabla requiere decisión explícita; un `inferred` nunca se promueve automáticamente.
+
 ## Assumptions
 
 - **A-001** (assumption): UUID asignados por cada servicio; no default ni extensión generadora de UUID.
@@ -1460,3 +1660,5 @@ conserva únicamente la representación protegida y su política de retención.
 ## IA-only / inferred
 
 - `ops.pipeline_access_grants`: ia_only / inferred. Representación provisional de capacidades por pipeline; no requisito core ni implementación definitiva RBAC. Fuentes: docs/research/arquitectura-informacion.md, SRC_ADR_003, DD-017.
+- `ops.execution_event_receipts`: approved_domain / inferred. Recibo técnico durable de cada evento execution.snapshot consumido; identidad, digests y disposición para deduplicar y ordenar entregas, sin payload ni logs. Fuentes: architecture.yml#pipeline_service, architecture.yml#rel_service_bus_pipeline_service, pipesor-pipeline-service@dcaa002: docs/architecture.md#contrato-de-evento-normalizado-v1-aprobado-en-sesion, V5__create_execution_event_receipts.sql, DD-026.
+- `diagnosis.diagnosis_jobs`: approved_domain / inferred. Cola técnica durable del diagnóstico automático; un trabajo por recepción de contexto, con lease y reintentos, sin evidencia ni payloads. Fuentes: architecture.yml#recommendation_service, SRC_ADR_015, pipesor-recommendation-service@3d53d26: docs/diagnosis-worker.md, V7__create_diagnosis_jobs.sql, DD-026.

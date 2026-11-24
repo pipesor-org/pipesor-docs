@@ -42,7 +42,11 @@ def generate_dbml(model):
         for index in entity.get('partial_unique_constraints', []):
             note += f" Partial unique {index['name']} ({', '.join(index['columns'])}) WHERE {index['where']}; extras.sql."
         for fk in entity.get('foreign_keys', []):
-            note += f" Composite FK {fk['name']}; DEFERRABLE INITIALLY DEFERRED in extras.sql."
+            if fk.get('deferrable'):
+                mode = 'DEFERRED' if fk.get('initially_deferred') else 'IMMEDIATE'
+                note += f" Composite FK {fk['name']}; DEFERRABLE INITIALLY {mode} in extras.sql."
+            else:
+                note += f" Composite FK {fk['name']}."
         if entity.get("domain_constraints"):
             note += " Constraints complementarias en extras.sql: " + ", ".join(entity["domain_constraints"]) + "."
         lines.extend(["  Note: " + dbml_string(note), "}", ""])

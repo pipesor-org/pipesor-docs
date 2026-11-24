@@ -205,3 +205,15 @@ Son resultados locales y acotados. No se repitieron las suites globales con los
 fallos previos de presentación RAG y fixture vectorial descritos arriba; no se
 modificaron esos contratos ni se declara una suite global verde. No se ejerció
 integración real, permisos, saneamiento, migración de entorno o despliegue.
+
+## Tablas MVP implementadas — 23/11/2026
+
+A solicitud explícita del responsable, [DD-026](model/domain_decisions.md#DD-026) y
+`domain.yml` 1.9.0 modelan siete tablas que Pipeline, Recommendation e Ingestion ya
+crean: `ops.execution_event_receipts`, `ops.incident_diagnoses`,
+`diagnosis.diagnosis_jobs`, `diagnosis.incident_summary_outbox`,
+`ingestion.github_login_attempts`, `ingestion.repository_admissions` e
+`ingestion.capture_workflow_scopes`. El límite persistente/ER pasa de 28 a 35 tablas.
+Cumple las notas pendientes de ADR-023 y ADR-027. Los recibos de eventos y la cola de
+diagnóstico quedan `inferred` porque ningún ADR aprueba esas tablas; las referencias
+entre schemas siguen siendo lógicas. Modelar no acredita despliegue ni migraciones de entorno.

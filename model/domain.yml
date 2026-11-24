@@ -1,5 +1,5 @@
 # SSOT del dominio persistente. DBML/SQL/ER/diccionario se generan; no editar derivados.
-model_version: 1.8.0
+model_version: 1.9.0
 source_authority:
   scope: SRC_CHARTER
   architecture:
@@ -36,7 +36,7 @@ schemas:
 - id: ingestion
   owner_containers:
   - ingestion_normalization_service
-  description_es: Metadata de conector GitHub (DD-020), ledger de captura/publicación y buffer temporal de bytes protegidos (DD-021); sin credenciales ni entradas crudas.
+  description_es: Metadata de conector GitHub (DD-020), ledger de captura/publicación y buffer temporal de bytes protegidos (DD-021), intentos de inicio de sesión, admisiones de repositorios y alcances de captura por workflow (DD-026); sin credenciales ni entradas crudas.
 entities:
 - id: repositories
   table: repositories
@@ -732,6 +732,229 @@ entities:
     - principal_ref
     - capability
     name: pipeline_access_grants_pipeline_id_principal_ref_capability_uq
+- id: execution_event_receipts
+  table: execution_event_receipts
+  schema: ops
+  owner_container: pipeline_service
+  description_es: Recibo técnico durable de cada evento execution.snapshot consumido; identidad, digests
+    y disposición para deduplicar y ordenar entregas, sin payload ni logs.
+  scope_basis: approved_domain
+  status: inferred
+  source:
+  - architecture.yml#pipeline_service
+  - architecture.yml#rel_service_bus_pipeline_service
+  - 'pipesor-pipeline-service@dcaa002: docs/architecture.md#contrato-de-evento-normalizado-v1-aprobado-en-sesion,
+    V5__create_execution_event_receipts.sql'
+  - DD-026
+  attributes:
+  - name: event_id
+    type: uuid
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Identidad del evento entregado (eventId); asignada por el productor, no por Pipeline.
+  - name: execution_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Ejecución descrita por el evento; sin FK porque un evento pausado puede preceder
+      a la fila de la ejecución.
+    logical_ref: ops.pipeline_executions.id
+  - name: message_digest
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: SHA-256 hexadecimal del mensaje canónico; detecta reutilización conflictiva del
+      eventId.
+  - name: content_digest
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: SHA-256 hexadecimal del contenido canónico del snapshot; distingue snapshots idénticos
+      de conflictivos.
+  - name: source_updated_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Instante upstream del snapshot truncado a microsegundos; ordena versiones de la
+      fuente.
+  - name: source_submicro_nanos
+    type: integer
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Nanosegundos restantes (0..999) para reconstruir el instante exacto de la fuente.
+  - name: disposition
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: 'Resultado registrado: APPLIED, DUPLICATE, IGNORED_STALE o IGNORED_PAUSED.'
+  - name: correlation_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Identificador de correlación del evento; no contiene información sensible.
+  - name: created_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: A-002
+    description_es: Instante de persistencia del recibo; sin política de purga.
+  traceability_required: true
+  retention_policy: null
+  checks:
+  - name: execution_event_receipts_message_digest_check
+    expression: message_digest ~ '^[0-9a-f]{64}$'
+  - name: execution_event_receipts_content_digest_check
+    expression: content_digest ~ '^[0-9a-f]{64}$'
+  - name: execution_event_receipts_source_submicro_nanos_check
+    expression: source_submicro_nanos BETWEEN 0 AND 999
+  - name: execution_event_receipts_disposition_check
+    expression: disposition IN ('APPLIED','DUPLICATE','IGNORED_STALE','IGNORED_PAUSED')
+- id: incident_diagnoses
+  table: incident_diagnoses
+  schema: ops
+  owner_container: pipeline_service
+  description_es: Proyección de solo lectura del resumen diagnóstico por incidente, alimentada por
+    Recommendation; no es autoridad del diagnóstico ni de sus revisiones.
+  scope_basis: approved_domain
+  status: confirmed
+  source:
+  - docs/architecture/decisions/ADR-027-incident-queue-read-model.md
+  - docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027
+  - SRC_ADR_018
+  - DD-026
+  attributes:
+  - name: incident_id
+    type: uuid
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Incidente proyectado; como máximo una fila por incidente y su ausencia equivale a
+      ABSENT.
+    fk: ops.incidents.id
+  - name: diagnosis_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Diagnóstico de Recommendation por referencia lógica; sin FK cross-schema.
+    logical_ref: diagnosis.diagnoses.id
+  - name: diagnosis_version
+    type: integer
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Versión admitida proyectada; positiva y monótona junto con review_revision.
+  - name: execution_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Ejecución ORIGIN fallida del incidente a la que corresponde el diagnóstico.
+    fk: ops.pipeline_executions.id
+  - name: status
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: 'Estado de revisión proyectado: PENDING, CONFIRMED, CORRECTED o REJECTED; PENDING
+      representa la ausencia de revisión.'
+  - name: review_revision
+    type: integer
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Revisiones aplicadas; 0 exactamente cuando el estado es PENDING.
+  - name: reviewed_at
+    type: timestamptz
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Instante de la última revisión; nulo sin revisión.
+  - name: probable_cause
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Causa probable inferida por el modelo, copiada solo para mostrar; hasta 1000 caracteres.
+  - name: diagnosis_created_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Instante de creación de la versión diagnóstica proyectada.
+  - name: correlation_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Correlación del diagnóstico recibida en X-Correlation-ID; no contiene información
+      sensible.
+  - name: projected_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Instante en que Pipeline aplicó la proyección.
+  traceability_required: true
+  retention_policy: null
+  checks:
+  - name: incident_diagnoses_version_ck
+    expression: diagnosis_version > 0
+  - name: incident_diagnoses_status_ck
+    expression: status IN ('PENDING','CONFIRMED','CORRECTED','REJECTED')
+  - name: incident_diagnoses_review_ck
+    expression: review_revision >= 0 AND (status = 'PENDING') = (review_revision = 0) AND (reviewed_at
+      IS NULL) = (review_revision = 0)
+  - name: incident_diagnoses_cause_ck
+    expression: probable_cause IS NULL OR char_length(probable_cause) BETWEEN 1 AND 1000
 - id: evidence_items
   table: evidence_items
   schema: evidence
@@ -1888,6 +2111,177 @@ entities:
   checks:
   - name: human_reviews_check_1
     expression: decision <> 'CORRECTED' OR (actual_cause IS NOT NULL AND btrim(actual_cause) <> '')
+- id: diagnosis_jobs
+  table: diagnosis_jobs
+  schema: diagnosis
+  owner_container: recommendation_service
+  description_es: Cola técnica durable del diagnóstico automático; un trabajo por recepción de contexto,
+    con lease y reintentos, sin evidencia ni payloads.
+  scope_basis: approved_domain
+  status: inferred
+  source:
+  - architecture.yml#recommendation_service
+  - SRC_ADR_015
+  - 'pipesor-recommendation-service@3d53d26: docs/diagnosis-worker.md, V7__create_diagnosis_jobs.sql'
+  - DD-026
+  attributes:
+  - name: context_id
+    type: uuid
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Recepción de contexto a diagnosticar; FK intra-schema a su recibo.
+    fk: diagnosis.correlated_context_receipts.context_id
+  - name: state
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: 'Estado del trabajo: PENDING, DONE o FAILED.'
+  - name: attempts
+    type: integer
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Intentos reclamados; no negativo.
+  - name: next_attempt_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Instante desde el que el trabajo puede reclamarse.
+  - name: lease_until
+    type: timestamptz
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Fin del lease del worker que lo reclamó; solo en PENDING.
+  - name: last_failure
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Código corto del último fallo; sin mensajes, evidencia ni respuestas del proveedor.
+  - name: created_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: A-002
+    description_es: Instante de creación del trabajo; sin política de purga.
+  traceability_required: false
+  retention_policy: null
+  checks:
+  - name: diagnosis_jobs_state_check
+    expression: state IN ('PENDING','DONE','FAILED')
+  - name: diagnosis_jobs_attempts_check
+    expression: attempts >= 0
+  - name: diagnosis_jobs_last_failure_check
+    expression: last_failure IS NULL OR last_failure ~ '^[a-z][a-z0-9_]{0,63}$'
+  - name: diagnosis_jobs_check
+    expression: state = 'PENDING' OR lease_until IS NULL
+- id: incident_summary_outbox
+  table: incident_summary_outbox
+  schema: diagnosis
+  owner_container: recommendation_service
+  description_es: Outbox transaccional del resumen diagnóstico hacia Pipeline; una fila pendiente por
+    incidente y ejecución hasta que Pipeline confirma la generación leída.
+  scope_basis: approved_domain
+  status: confirmed
+  source:
+  - docs/architecture/decisions/ADR-027-incident-queue-read-model.md
+  - docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027
+  - architecture.yml#recommendation_service
+  - DD-026
+  attributes:
+  - name: incident_id
+    type: uuid
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Incidente cuyo resumen debe proyectarse; referencia lógica sin FK cross-schema.
+    logical_ref: ops.incidents.id
+  - name: execution_id
+    type: uuid
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Ejecución del diagnóstico; referencia lógica sin FK cross-schema.
+    logical_ref: ops.pipeline_executions.id
+  - name: generation
+    type: bigint
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Generación de cambios pendientes; positiva y creciente con cada admisión o revisión.
+  - name: attempts
+    type: integer
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Intentos de envío desde el último cambio; no negativo.
+  - name: next_attempt_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Instante desde el que la fila puede reclamarse.
+  - name: lease_until
+    type: timestamptz
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Fin del lease del publicador que la reclamó.
+  - name: last_failure
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Código corto del último fallo; sin cuerpo del resumen ni tokens.
+  - name: created_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: A-002
+    description_es: Instante de creación de la fila pendiente.
+  traceability_required: false
+  retention_policy: null
+  checks:
+  - name: incident_summary_outbox_generation_check
+    expression: generation > 0
+  - name: incident_summary_outbox_attempts_check
+    expression: attempts >= 0
+  - name: incident_summary_outbox_last_failure_check
+    expression: last_failure IS NULL OR last_failure ~ '^[a-z][a-z0-9_]{0,63}$'
 - id: knowledge_documents
   table: knowledge_documents
   schema: knowledge
@@ -3883,6 +4277,441 @@ entities:
   - capture_lifecycle
   traceability_required: false
   retention_policy: null
+- id: github_login_attempts
+  table: github_login_attempts
+  schema: ingestion
+  owner_container: ingestion_normalization_service
+  description_es: Intento de inicio de sesión GitHub de un solo uso y su handoff al dashboard; solo
+    digests y referencias de custodia, nunca state, verifier, código, handoff ni tokens.
+  scope_basis: approved_domain
+  status: confirmed
+  source:
+  - docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md
+  - docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion
+  - docs/architecture/decisions/ADR-025-open-sign-in.md
+  - DD-026
+  attributes:
+  - name: id
+    type: uuid
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Identificador del intento asignado por Ingestion.
+  - name: state_digest
+    type: bytea
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: SHA-256 del state OAuth de un solo uso; nunca el valor crudo.
+  - name: pkce_secret_object_ref
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Referencia lógica pkce:<id> al objeto de custodia del verifier; no contiene el secreto.
+  - name: pkce_secret_version_ref
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Versión exacta custodiada del verifier; nunca el alias latest.
+  - name: return_path
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Ruta relativa del dashboard a la que se vuelve tras el inicio de sesión.
+  - name: phase
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: 'Fase del intento: READY, CLAIMED, HANDOFF_READY, COMPLETED o FAILED.'
+  - name: expires_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Expiración del intento; posterior a created_at.
+  - name: correlation_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Identificador de correlación no vacío; no contiene información sensible.
+  - name: connection_id
+    type: uuid
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Conexión DD-020 resultante del inicio de sesión; presente con el handoff, sin FK
+      física.
+    logical_ref: ingestion.github_connections.id
+  - name: generation_id
+    type: uuid
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Generación DD-020 resultante del inicio de sesión; presente con el handoff, sin FK
+      física.
+    logical_ref: ingestion.github_connection_generations.id
+  - name: github_user_id
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: ID numérico del usuario GitHub verificado; presente con el handoff.
+  - name: github_login
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Login GitHub verificado para presentación; presente con el handoff.
+  - name: handoff_digest
+    type: bytea
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: SHA-256 del handoff de un solo uso; único cuando existe y nunca el valor crudo.
+  - name: handoff_expires_at
+    type: timestamptz
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Expiración del handoff.
+  - name: created_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Instante de creación del intento.
+  - name: updated_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Instante del último cambio de fase.
+  unique_constraints:
+  - name: github_login_attempts_state_uq
+    columns:
+    - state_digest
+  partial_unique_constraints:
+  - name: github_login_attempts_handoff_uq
+    columns:
+    - handoff_digest
+    where: handoff_digest IS NOT NULL
+  checks:
+  - name: github_login_attempts_phase_ck
+    expression: phase IN ('READY','CLAIMED','HANDOFF_READY','COMPLETED','FAILED')
+  - name: github_login_attempts_pkce_owner_ck
+    expression: pkce_secret_object_ref = 'pkce:' || id::text
+  - name: github_login_attempts_version_ck
+    expression: btrim(pkce_secret_version_ref) <> '' AND lower(btrim(pkce_secret_version_ref)) <> 'latest'
+  - name: github_login_attempts_return_ck
+    expression: return_path ~ '^/'
+  - name: github_login_attempts_correlation_ck
+    expression: btrim(correlation_id) <> ''
+  - name: github_login_attempts_expiry_ck
+    expression: expires_at > created_at
+  - name: github_login_attempts_timestamps_ck
+    expression: updated_at >= created_at
+  - name: github_login_attempts_handoff_ck
+    expression: (phase IN ('HANDOFF_READY','COMPLETED')) = (handoff_digest IS NOT NULL) AND (handoff_digest
+      IS NULL OR (handoff_expires_at IS NOT NULL AND connection_id IS NOT NULL AND generation_id IS NOT
+      NULL AND github_user_id ~ '^[1-9][0-9]*$' AND btrim(github_login) <> ''))
+  traceability_required: false
+  retention_policy: null
+- id: repository_admissions
+  table: repository_admissions
+  schema: ingestion
+  owner_container: ingestion_normalization_service
+  description_es: Admisión de un repositorio GitHub por tenant, importada por el operador o reconciliada
+    desde su administrador; las revocadas se conservan.
+  scope_basis: approved_domain
+  status: confirmed
+  source:
+  - docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md
+  - docs/architecture/decisions/ADR-024-repository-administrator-admission.md
+  - SRC_ADR_020
+  - DD-026
+  attributes:
+  - name: tenant_id
+    type: uuid
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Tenant de plataforma de la admisión.
+  - name: app_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: ID numérico de la GitHub App pipesor.
+  - name: account_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: ID numérico de la cuenta propietaria de la instalación.
+  - name: installation_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: ID numérico de la instalación de la App.
+  - name: repository_id
+    type: text
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: ID numérico del repositorio GitHub admitido.
+  - name: admitted_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Instante de la admisión o de su reactivación.
+  - name: admitted_by
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Referencia no vacía del sujeto que admitió (operador o administrador del repositorio).
+  - name: source
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: 'Origen de la admisión: operator o repository_administrator.'
+  - name: revoked_at
+    type: timestamptz
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Instante de revocación cuando GitHub deja de listar el repositorio en la instalación.
+  - name: revoked_by
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Referencia del sujeto cuya reconciliación revocó; presente junto con revoked_at.
+  checks:
+  - name: repository_admissions_ids_ck
+    expression: app_id ~ '^[1-9][0-9]*$' AND account_id ~ '^[1-9][0-9]*$' AND installation_id ~ '^[1-9][0-9]*$'
+      AND repository_id ~ '^[1-9][0-9]*$'
+  - name: repository_admissions_by_ck
+    expression: btrim(admitted_by) <> ''
+  - name: repository_admissions_source_ck
+    expression: source IN ('operator','repository_administrator')
+  - name: repository_admissions_revoked_ck
+    expression: (revoked_at IS NULL) = (revoked_by IS NULL) AND (revoked_by IS NULL OR btrim(revoked_by)
+      <> '')
+  traceability_required: false
+  retention_policy: null
+- id: capture_workflow_scopes
+  table: capture_workflow_scopes
+  schema: ingestion
+  owner_container: ingestion_normalization_service
+  description_es: Alcance de captura máquina por workflow, sincronizado por Pipeline desde sus registros;
+    cada cambio de estado incrementa la revisión y revoca la autoridad anterior.
+  scope_basis: approved_domain
+  status: confirmed
+  source:
+  - docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md
+  - docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023
+  - docs/architecture/decisions/ADR-024-repository-administrator-admission.md
+  - DD-026
+  attributes:
+  - name: capture_domain
+    type: text
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Partición confiable de autorización máquina (DD-021).
+  - name: tenant_id
+    type: uuid
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Tenant de plataforma del alcance.
+  - name: app_id
+    type: text
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: ID numérico de la GitHub App pipesor.
+  - name: account_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: ID numérico de la cuenta propietaria de la instalación.
+  - name: installation_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: ID numérico de la instalación de la App.
+  - name: repository_id
+    type: text
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: ID numérico del repositorio GitHub; debe estar admitido.
+  - name: workflow_id
+    type: text
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: ID numérico del workflow GitHub.
+  - name: pipeline_id
+    type: uuid
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Pipeline registrado por referencia lógica; nulo en alcances importados sin registro.
+    logical_ref: ops.pipelines.id
+  - name: status
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: 'Estado de monitorización sincronizado desde Pipeline: ACTIVE o PAUSED.'
+  - name: allowed_actions
+    type: text[]
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Acciones workflow_run admitidas; subconjunto no vacío de requested, in_progress y
+      completed.
+  - name: replay_window
+    type: interval
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Ventana de replay positiva.
+  - name: revision
+    type: bigint
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Revisión numérica positiva; aumenta con cada cambio de estado.
+  - name: scope_revision
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Revisión opaca derivada que comparan capturas, replays y comprobaciones de Pipeline.
+  - name: updated_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Instante de la última sincronización.
+  checks:
+  - name: capture_workflow_scopes_status_ck
+    expression: status IN ('ACTIVE','PAUSED')
+  - name: capture_workflow_scopes_ids_ck
+    expression: app_id ~ '^[1-9][0-9]*$' AND account_id ~ '^[1-9][0-9]*$' AND installation_id ~ '^[1-9][0-9]*$'
+      AND repository_id ~ '^[1-9][0-9]*$' AND workflow_id ~ '^[1-9][0-9]*$'
+  - name: capture_workflow_scopes_actions_ck
+    expression: cardinality(allowed_actions) > 0 AND allowed_actions <@ ARRAY['requested','in_progress','completed']::text[]
+  - name: capture_workflow_scopes_replay_ck
+    expression: replay_window > interval '0'
+  - name: capture_workflow_scopes_revision_ck
+    expression: revision > 0 AND scope_revision ~ '^[A-Za-z0-9._:-]{1,128}$'
+  foreign_keys:
+  - name: capture_workflow_scopes_admitted_fk
+    columns:
+    - tenant_id
+    - repository_id
+    references:
+      table: ingestion.repository_admissions
+      columns:
+      - tenant_id
+      - repository_id
+  traceability_required: false
+  retention_policy: null
 relationships:
 - id: correlation_groups_execution_id
   from: evidence.correlation_groups.execution_id
@@ -4092,6 +4921,82 @@ relationships:
   kind: fk
   cardinality: many_to_one
   source: *id015
+- id: execution_event_receipts_execution_id
+  from: ops.execution_event_receipts.execution_id
+  to: ops.pipeline_executions.id
+  kind: logical_ref
+  cardinality: many_to_one
+  source:
+  - DD-026
+- id: incident_diagnoses_incident_id
+  from: ops.incident_diagnoses.incident_id
+  to: ops.incidents.id
+  kind: fk
+  cardinality: one_to_one
+  source:
+  - docs/architecture/decisions/ADR-027-incident-queue-read-model.md
+  - DD-026
+- id: incident_diagnoses_execution_id
+  from: ops.incident_diagnoses.execution_id
+  to: ops.pipeline_executions.id
+  kind: fk
+  cardinality: many_to_one
+  source:
+  - docs/architecture/decisions/ADR-027-incident-queue-read-model.md
+  - DD-026
+- id: incident_diagnoses_diagnosis_id
+  from: ops.incident_diagnoses.diagnosis_id
+  to: diagnosis.diagnoses.id
+  kind: logical_ref
+  cardinality: many_to_one
+  source:
+  - docs/architecture/decisions/ADR-027-incident-queue-read-model.md
+  - DD-026
+- id: diagnosis_jobs_context_id_fkey
+  from: diagnosis.diagnosis_jobs.context_id
+  to: diagnosis.correlated_context_receipts.context_id
+  kind: fk
+  cardinality: one_to_one
+  source:
+  - DD-026
+- id: incident_summary_outbox_incident_id
+  from: diagnosis.incident_summary_outbox.incident_id
+  to: ops.incidents.id
+  kind: logical_ref
+  cardinality: many_to_one
+  source:
+  - docs/architecture/decisions/ADR-027-incident-queue-read-model.md
+  - DD-026
+- id: incident_summary_outbox_execution_id
+  from: diagnosis.incident_summary_outbox.execution_id
+  to: ops.pipeline_executions.id
+  kind: logical_ref
+  cardinality: many_to_one
+  source:
+  - docs/architecture/decisions/ADR-027-incident-queue-read-model.md
+  - DD-026
+- id: github_login_attempts_connection_id
+  from: ingestion.github_login_attempts.connection_id
+  to: ingestion.github_connections.id
+  kind: logical_ref
+  cardinality: many_to_one
+  source:
+  - DD-026
+- id: github_login_attempts_generation_id
+  from: ingestion.github_login_attempts.generation_id
+  to: ingestion.github_connection_generations.id
+  kind: logical_ref
+  cardinality: many_to_one
+  source:
+  - DD-026
+- id: capture_workflow_scopes_pipeline_id
+  from: ingestion.capture_workflow_scopes.pipeline_id
+  to: ops.pipelines.id
+  kind: logical_ref
+  cardinality: many_to_one
+  source:
+  - docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md
+  - DD-026
 enums:
 - id: IncidentStatus
   schema: ops

@@ -12,8 +12,8 @@ from correlation_constraints import validate_correlation
 
 
 IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-TYPES = {"uuid", "uuid[]", "text", "integer", "bigint", "boolean",
-         "timestamptz", "jsonb", "vector(1536)", "numeric", "bytea"}
+TYPES = {"uuid", "uuid[]", "text", "text[]", "integer", "bigint", "boolean",
+         "timestamptz", "interval", "jsonb", "vector(1536)", "numeric", "bytea"}
 EXCLUDED = {"users", "teams", "roles", "workflows", "failure_types",
             "root_causes", "reporting_service", "audit_service",
             "anomaly_detector", "anomaly_detection_engine", "logbert",
@@ -106,8 +106,8 @@ def validate_domain(domain, architecture):
         errors.append(f"Missing open questions: {sorted(required_topics - topics)}")
 
     entities = domain["entities"]
-    if len(entities) > 28:
-        errors.append(f"Domain has {len(entities)} tables; maximum is 28")
+    if len(entities) > 35:
+        errors.append(f"Domain has {len(entities)} tables; maximum is 35")
     tables, attributes, declared_refs = {}, {}, set()
     ids = set()
     for entity in entities:
