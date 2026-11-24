@@ -53,11 +53,13 @@ Las fuentes externas entregan evidencia a ingesta, que la protege antes del topi
 | 18 | Diagnostic & Recommendation Service → Azure OpenAI Service | Requests diagnostic inference with sanitized evidence and RAG context | Azure OpenAI API/HTTPS | sync |
 | 19 | Diagnostic & Recommendation Service → PostgreSQL | Persists human review decisions and traceability | PostgreSQL | sync |
 | 20 | GitHub Actions → Diagnostic & Recommendation Service | Queries diagnostic_output to publish the workflow artifact | REST/HTTPS | sync |
-| 21 | Pipeline Service → Ingestion and Normalization Service | Requests verified user access and workflow metadata without GitHub credentials | REST/HTTPS | sync |
+| 21 | Pipeline Service → Ingestion and Normalization Service | Requests verified user access and workflow metadata without GitHub credentials; synchronizes workflow capture scopes | REST/HTTPS | sync |
 | 22 | Log/Event Service → Pipeline Service | Checks committed operational membership before evidence registration | REST/HTTPS | sync |
 | 23 | Pipeline Service → Ingestion and Normalization Service | Verifies current machine permission for an exact protected evidence capture scope | REST/HTTPS | sync |
 | 24 | Evidence Correlation Service → Pipeline Service | Checks current scope and committed ORIGIN membership before correlation | REST/HTTPS | sync |
 | 25 | Evidence Correlation Service → Log/Event Service | Verifies committed evidence membership in the authorized capture and attempt | REST/HTTPS | sync |
+| 26 | Diagnostic & Recommendation Service → Pipeline Service | Resolves the user's diagnosis read entitlement and the incident's ORIGIN execution | REST/HTTPS | sync |
+| 27 | Diagnostic & Recommendation Service → Pipeline Service | Projects the incident diagnosis summary into Pipeline's incident queue read model | REST/HTTPS | sync |
 
 ## C4 Level 2B — Consumption, Governance and Persistence
 
@@ -87,9 +89,11 @@ El usuario accede al dashboard, se autentica con Entra ID y consume APIs mediant
 | 03 | Diagnostic & Recommendation Service → PostgreSQL | Persists diagnosis, recommendations and evidence links | PostgreSQL | sync |
 | 04 | Technical Users → AIOps Web Dashboard | Queries results and records human review | HTTPS | sync |
 | 05 | AIOps Web Dashboard → Microsoft Entra ID | Authenticates corporate users | OIDC/OAuth2/HTTPS | sync |
-| 06 | AIOps Web Dashboard → Pipeline Service | Routes pipeline and execution queries | REST/HTTPS | sync |
+| 06 | AIOps Web Dashboard → Pipeline Service | Routes pipeline, execution, incident queue and insights queries, registration, grants and incident lifecycle commands | REST/HTTPS | sync |
 | 07 | AIOps Web Dashboard → Log/Event Service | Routes log, event and evidence queries | REST/HTTPS | sync |
 | 08 | AIOps Web Dashboard → Diagnostic & Recommendation Service | Routes diagnosis and review queries and operations | REST/HTTPS | sync |
 | 09 | Diagnostic & Recommendation Service → PostgreSQL | Persists human review decisions and traceability | PostgreSQL | sync |
 | 10 | GitHub Actions → Diagnostic & Recommendation Service | Queries diagnostic_output to publish the workflow artifact | REST/HTTPS | sync |
 | 11 | Log/Event Service → Pipeline Service | Checks committed operational membership before evidence registration | REST/HTTPS | sync |
+| 12 | Diagnostic & Recommendation Service → Pipeline Service | Resolves the user's diagnosis read entitlement and the incident's ORIGIN execution | REST/HTTPS | sync |
+| 13 | Diagnostic & Recommendation Service → Pipeline Service | Projects the incident diagnosis summary into Pipeline's incident queue read model | REST/HTTPS | sync |

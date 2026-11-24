@@ -34,6 +34,8 @@ relationship_labels:
   rel_log_event_pipeline_operational_evidence: "Checks ORIGIN membership"
   rel_correlation_pipeline_operational_references: "Verifies ORIGIN"
   rel_correlation_log_event_evidence_membership: "Verifies scoped evidence"
+  rel_recommendation_pipeline_diagnosis_entitlement: "Resolves diagnosis access"
+  rel_recommendation_pipeline_diagnosis_summary: "Projects diagnosis summary"
   rel_github_actions_ingestion_event: "Workflow events"
   rel_service_bus_pipeline_service: "Execution context"
   rel_service_bus_log_event_service: "Normalized evidence"
@@ -99,6 +101,8 @@ views:
       rel_log_event_pipeline_operational_evidence: {from: w, to: e, via: [], label: [1125, 815]}
       rel_correlation_pipeline_operational_references: {from: n, to: s, via: [], label: [950, 665]}
       rel_correlation_log_event_evidence_membership: {from: n, to: s, from_offset: 50, to_offset: 25, via: [[1040, 695], [1285, 695]], label: [1180, 695]}
+      rel_recommendation_pipeline_diagnosis_entitlement: {from: n, to: s, from_offset: -60, to_offset: 25, via: [[1200, 665], [1015, 665]], label: [1160, 665]}
+      rel_recommendation_pipeline_diagnosis_summary: {from: n, to: s, from_offset: -30, to_offset: 40, via: [[1230, 680], [1030, 680]], label: [1080, 680]}
       rel_github_actions_ingestion_event: {from: e, to: w, via: [], label: [300, 810]}
       rel_service_bus_pipeline_service: {from: e, to: w, via: [], label: [855, 810]}
       rel_service_bus_log_event_service: {from: n, to: n, via: [[720, 904], [1260, 904]], label: [1150, 904]}
@@ -159,6 +163,8 @@ views:
       rel_dashboard_recommendation_service: {from: s, to: w, via: [[450, 400], [720, 400], [720, 245]], label: [720, 350]}
       rel_human_review_postgresql: {from: n, to: s, via: [[990, 390], [1215, 390], [1215, 435], [1260, 435]], label: [1140, 390]}
       rel_github_actions_diagnostic: {from: e, to: s, via: [[300, 535], [300, 135], [990, 135]], label: [720, 150]}
+      rel_recommendation_pipeline_diagnosis_entitlement: {from: w, to: w, from_offset: 50, to_offset: -50, via: [[820, 295], [820, 745]], label: [820, 450]}
+      rel_recommendation_pipeline_diagnosis_summary: {from: w, to: w, from_offset: 25, to_offset: -25, via: [[845, 270], [845, 770]], label: [845, 630]}
     narration: >
       El usuario accede al dashboard, se autentica con Entra ID y consume APIs
       mediante ingress nativo de ACA. Pipeline, Log/Event y diagnóstico conservan los datos

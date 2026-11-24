@@ -101,7 +101,7 @@
 
 <g id="rel_ingestion_github_connection" class="edge">
 <title>ingestion_normalization_service-&gt;github</title>
-<g id="a_rel_ingestion_github_connection"><a xlink:title="Authorizes users and verifies GitHub identity, installations and repository access (OAuth/HTTPS + REST/HTTPS)">
+<g id="a_rel_ingestion_github_connection"><a xlink:title="Authorizes users and verifies GitHub identity, installations, repository access and collaborators (OAuth/HTTPS + REST/HTTPS)">
 <path fill="none" stroke="#475569" d="M469.03,-111.32C460.49,-109.04 451.97,-106.91 443.67,-105 376.86,-89.64 299.82,-78.28 243.4,-71.1" />
 <polygon fill="#475569" stroke="#475569" points="243.98,-68.7 236.73,-70.26 243.37,-73.56 243.98,-68.7" />
 </a>
@@ -187,7 +187,7 @@
 
 <g id="rel_pipeline_ingestion_github_access" class="edge">
 <title>pipeline_service-&gt;ingestion_normalization_service</title>
-<g id="a_rel_pipeline_ingestion_github_access"><a xlink:title="Requests verified user access and workflow metadata without GitHub credentials (REST/HTTPS)">
+<g id="a_rel_pipeline_ingestion_github_access"><a xlink:title="Requests verified user access and workflow metadata without GitHub credentials; synchronizes workflow capture scopes (REST/HTTPS)">
 <path fill="none" stroke="#475569" d="M897.05,-165.93C845.25,-163.37 781.85,-160.24 726.49,-157.51" />
 <polygon fill="#475569" stroke="#475569" points="726.66,-155.07 719.54,-157.17 726.42,-159.96 726.66,-155.07" />
 </a>
