@@ -76,11 +76,9 @@ requires an active GitHub link and current GitHub administration of the admitted
 repository (otherwise `403 DENIED`), unlike ADR-020's OPERATE conditions (AIOps OPERATE plus
 current read) — pending owner decision.
 
-Known divergence (audit 2026-11-24): Ingestion also serves
-`POST /webhooks/v1/github/workflow-runs` without a platform token, disabled by default
-(`pipesor.github.webhook-enabled: false`; IaC enables it when a webhook secret version is
-set); no contract documents its request,
-response or errors — pending owner decision.
+Ingestion also serves `POST /webhooks/v1/github/workflow-runs`, authenticated by GitHub's
+signature instead of a platform token and disabled by default. Its request, responses and
+limits are in the [GitHub workflow webhook contract v1](github-workflow-webhook-v1.md).
 
 `GET /api/v1/github/installations` returns `200`:
 
@@ -438,9 +436,14 @@ OPERATE), `404 not_found`, `409 review_conflict` (revision or version mismatch, 
 reused with another body), `413 too_large`, `415 json_required`,
 `503 authority_unavailable`, `503 diagnosis_unavailable`.
 
-Known divergence (audit 2026-11-24): the review history discloses each reviewer's principal
-reference and free-text notes to any caller with VIEW on the pipeline, while the diagnosis
-projection's `reviews` omit them — pending owner decision.
+Known divergence (audit 2026-11-24, verified the same day at the owner's request): the
+review history discloses each reviewer's principal reference and free-text notes to any
+caller with VIEW on the pipeline, while the diagnosis projection's `reviews` omit them.
+Recommendation (`c3ce559`) checks OPERATE only for the `POST`; the `GET` returns every
+`history[]` entry with `reviewer` (the platform subject, a UUIDv5 of the GitHub user ID, not
+the login), `comment`, `actualCause` and `correctedRecommendation`. The dashboard
+(`2806ae1`) drops `reviewer` but shows the actual cause and the comment to VIEW users. No
+test covers a VIEW-only read after a review exists. Pending owner decision.
 
 ### GitHub Actions report
 

@@ -287,5 +287,6 @@ steps 1–3 of §5, CORS preflight requests on `/api/v1/**` and, in the `local` 
 only, the OpenAPI document. Spring's `/.well-known/oauth-protected-resource` metadata is
 not exposed. Ingestion's `POST /webhooks/v1/github/workflow-runs` is authenticated with
 GitHub's webhook signature (`X-Hub-Signature-256`), not with platform tokens, and exists
-only when the webhook is enabled (`PIPESOR_GITHUB_WEBHOOK_ENABLED`). Every other route is
+only when the webhook is enabled (`PIPESOR_GITHUB_WEBHOOK_ENABLED`); see the
+[GitHub workflow webhook contract v1](github-workflow-webhook-v1.md). Every other route is
 denied unless this contract allows it.
