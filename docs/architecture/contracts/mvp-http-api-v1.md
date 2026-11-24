@@ -31,9 +31,9 @@ guarantees recorded in [pending decisions](../pending-decisions.md).
 | `POST /api/v1/auth/logout` | `GitHub.Self` | new | 204 |
 | `GET /api/v1/github/connection` | `GitHub.Self` | existing | |
 | `DELETE /api/v1/github/connection` | `GitHub.Self` | existing | |
-| `GET /api/v1/github/repositories?limit=&cursor=` | `GitHub.Self` | existing | admitted + readable only; `limit` required; reconciles admissions first (ADR-024) |
+| `GET /api/v1/github/repositories?pageSize=&pageToken=&q=` | `GitHub.Self` | extended | admitted + readable only; reconciles admissions first (ADR-024); paged form below. The legacy `?limit=` form is unchanged (503 above `limit`) |
 | `GET /api/v1/github/installations` | `GitHub.Self` | new | pipesor installations visible to the user, reconciled (ADR-024); shape below |
-| `GET /api/v1/github/repositories/{repositoryId}/workflows?limit=&cursor=` | `GitHub.Self` | existing | `limit` required |
+| `GET /api/v1/github/repositories/{repositoryId}/workflows?pageSize=&pageToken=&q=` | `GitHub.Self` | extended | paged form below; the legacy `?limit=` form is unchanged |
 | `GET /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs?conclusion=failure|success` | `GitHub.Self` | new | `items[]: {runId, attempt, conclusion, headBranch, headSha, createdAt, htmlUrl}`; `failure` (default) lists runs to analyse, `success` runs to record as verification; other values 400 |
 | `POST /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs/{runId}/attempts/{attempt}/analysis` | `GitHub.Self` | generalized | replaces the configured single run; requires OPERATE conditions of ADR-020; returns `202 {analysisId, phase}` and only records durable intent; accepts failed runs (analysis) and successful runs (verification capture) |
 | `GET /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs/{runId}/attempts/{attempt}/analysis` | `GitHub.Self` | existing (pilot) | `{analysisId, phase: ACCEPTED|PREPARING|PUBLISHED|BLOCKED, blockedReason?: SCOPE_CHANGED|SOURCE_EXPIRED, executionId?, incidentId?}`. `BLOCKED` is terminal; `SOURCE_EXPIRED` means GitHub no longer retains the run's logs (410 Gone). |
@@ -62,6 +62,26 @@ administers in a pipesor installation and revokes admissions the installation no
 (ADR-024); browser-supplied installation data is never used. Errors are `problem+json` with
 `code` (`CONNECTION_REQUIRED`, `UNAVAILABLE`, …) as for the other GitHub routes.
 
+### Paged discovery
+
+`GET /api/v1/github/repositories` and `GET /api/v1/github/repositories/{repositoryId}/workflows`
+accept exactly one of two forms:
+
+- **Paged (new):** `pageSize` (1–100, required for this form), `pageToken` (opaque, optional) and
+  `q` (optional, 2–100 characters after trimming; case-insensitive partial match on the
+  repository `fullName`, or on the workflow `name` or `file`). The response is the existing body
+  plus `nextPageToken` (string or `null`); more results than `pageSize` produce a page and a
+  token, never a 503. Order: repositories by `fullName` (case-insensitive), then `repositoryId`;
+  workflows by `name` (case-insensitive), then `workflowId`. Every page carries the same
+  `context` object (`tenantId`, `subjectObjectId`, …) and repeats the ADR-024 reconciliation.
+- **Legacy:** `limit` (1–100) with no `pageSize`/`pageToken`/`q`: unchanged, including
+  `503 VERIFICATION_UNAVAILABLE` when the user sees more than `limit` items.
+
+Sending both forms, neither form, or `cursor` is `400 INVALID_REQUEST`. A `pageToken` that is
+malformed or was issued for another route, repository or `q` is `400 INVALID_PAGE_TOKEN`.
+Ingestion still reads at most 500 repositories per user from GitHub
+(`pipesor.github.limits.user-max-items`); beyond that the read is `503` in both forms.
+
 `executionId` and `incidentId` are the deterministic Pipeline identifiers derived from
 the same repository, workflow, run and attempt, so the dashboard can navigate without
 asking for internal UUIDs. Both appear once the phase is `PUBLISHED`; `incidentId` only
@@ -79,7 +99,9 @@ New:
 
 | Method and route | Notes |
 |---|---|
-| `GET /api/v1/incidents?state=OPEN|RESOLVED` | cross-pipeline lifecycle queue, filtered by VIEW grants and current GitHub access before paging; removes the per-pipeline N+1 fan-out. `OPEN` is every active incident (`OPEN`, `IN_REMEDIATION`, `VERIFICATION`) |
+| `GET /api/v1/incidents?state=OPEN|RESOLVED` | cross-pipeline lifecycle queue, filtered by VIEW grants and current GitHub access before paging; removes the per-pipeline N+1 fan-out. `OPEN` is every active incident (`OPEN`, `IN_REMEDIATION`, `VERIFICATION`). Filters, `total` and enriched items below (ADR-027) |
+| `GET /api/v1/incidents/summary?state=OPEN|RESOLVED` | counts of the same filtered, visible set per severity, status and diagnosis (ADR-027) |
+| `GET /api/v1/insights?from=&to=` | History Insights over visible resolved incidents (ADR-027) |
 
 Incident `severity` (nullable) is seeded when the incident is opened from its pipeline's
 criticality at that moment (same `CRITICAL|HIGH|MEDIUM|LOW` scale, MVP rule); criticality
@@ -92,9 +114,122 @@ Incident reads (`/incidents`, `/incidents/{id}`, `/pipelines/{id}/incidents`) in
 routes and contracts keep the UUID as identity.
 
 Diagnosis validation is not a lifecycle state, so Pipeline has no validation queue. The
-dashboard's *Needs validation* view is the `RESOLVED` queue joined with each incident's
-diagnosis `status = PENDING` from Recommendation (decision D03); with diagnoses read per
-visible row, a page may show fewer items than `pageSize`, which is accepted for the MVP.
+dashboard's *Needs validation* view is `GET /api/v1/incidents?state=RESOLVED&diagnosis=PENDING`:
+Pipeline filters on its diagnosis projection (ADR-027), which replaces the browser-side join of
+decision D03.
+
+### Incident queue filters
+
+`GET /api/v1/incidents` and `GET /api/v1/incidents/summary` take `state` (required) and these
+optional filters. Each filter may repeat (`?severity=CRITICAL&severity=HIGH`): values of one
+filter are OR-ed, different filters are AND-ed. Filters are applied together with the
+authorization (VIEW grant and current GitHub read) in SQL before paging and counting, and the
+queue order (`createdAt` descending, then `id`) does not change.
+
+| Parameter | Values |
+|---|---|
+| `pipelineId` | pipeline UUID |
+| `repositoryId` | GitHub numeric repository id (string of digits), as returned by discovery |
+| `severity` | `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `UNCLASSIFIED` (severity `null`) |
+| `stage` | `BUILD`, `TESTING`, `QUALITY_GATE`, `DEPLOYMENT`, `CONTAINER`, `INFRASTRUCTURE` |
+| `status` | with `state=OPEN`: `OPEN`, `IN_REMEDIATION`, `VERIFICATION`; with `state=RESOLVED`: `RESOLVED` |
+| `diagnosis` | `PENDING`, `CONFIRMED`, `CORRECTED`, `REJECTED`, `ABSENT` (no admitted diagnosis projected) |
+| `q` | single value, 2–100 characters after trimming. `INC-123` or `123` (case-insensitive prefix, digits only) matches `displayNumber` exactly; any other text is a case-insensitive partial match on the repository `fullName` or the workflow name |
+
+At most 100 values per filter. A value outside these sets, an empty value, a malformed UUID or
+repository id, a `status` not valid for `state`, or a `q` out of bounds is
+`400 INVALID_FILTER` (`problem+json` with `code`). `state`/`pageSize` errors keep
+`400 INVALID_REQUEST`. A `pageToken` is bound to the normalized `state` and filters: reusing it
+with other values, or sending a malformed token, is `400 INVALID_PAGE_TOKEN`.
+
+`GET /api/v1/incidents` response:
+
+```json
+{
+  "items": [IncidentView],
+  "nextPageToken": "opaque | null",
+  "total": 57,
+  "appliedFilters": {
+    "state": "RESOLVED",
+    "pipelineId": [], "repositoryId": ["825001"], "severity": ["CRITICAL", "HIGH"],
+    "stage": [], "status": [], "diagnosis": ["PENDING"],
+    "q": null, "qMatch": null
+  }
+}
+```
+
+- `total`: exact number of incidents that match and the caller may view (independent of the
+  page). It is computed on every request, so it can change between pages if incidents change.
+- `appliedFilters`: normalized echo (deduplicated, sorted arrays; `[]` when absent; `q` trimmed
+  or `null`; `qMatch` is `DISPLAY_NUMBER`, `TEXT` or `null`). Spring ignores unknown query
+  parameters, so clients use its presence to know that the server applied the filters.
+
+Every incident read (`/incidents`, `/incidents/{id}`, `/pipelines/{id}/incidents`) adds, without
+removing fields:
+
+```json
+{
+  "repository": { "repositoryId": "825001", "fullName": "owner/name" },
+  "workflow": { "workflowId": "926001", "name": "CI" },
+  "diagnosis": { "status": "PENDING | CONFIRMED | CORRECTED | REJECTED", "probableCause": "string | null", "createdAt": "RFC 3339" }
+}
+```
+
+`repositoryId` and `workflowId` are GitHub ids (strings). `diagnosis` is `null` while no admitted
+diagnosis is projected; it is the summary of the version the Workspace shows (ADR-027), and
+`probableCause` is inferred model output, truncated to 1000 characters.
+
+### Incident summary
+
+`GET /api/v1/incidents/summary` takes the same parameters except `pageSize`/`pageToken`, with
+the same authorization and `400` codes, and returns counts over the same filtered set (every
+filter applies to every map, so each map sums to `total`; keys are always present):
+
+```json
+{
+  "total": 31,
+  "bySeverity": { "CRITICAL": 4, "HIGH": 20, "MEDIUM": 5, "LOW": 0, "UNCLASSIFIED": 2 },
+  "byStatus": { "OPEN": 25, "IN_REMEDIATION": 4, "VERIFICATION": 2 },
+  "byDiagnosis": { "PENDING": 9, "CONFIRMED": 3, "CORRECTED": 1, "REJECTED": 0, "ABSENT": 18 },
+  "appliedFilters": { "…": "as in the list" }
+}
+```
+
+`byStatus` lists the statuses of the requested `state` (`RESOLVED` only for `state=RESOLVED`).
+
+### Insights
+
+`GET /api/v1/insights?from=&to=&top=` computes History Insights in the server over the
+resolved incidents the caller may view (same authorization as the queue) whose `resolvedAt` is in
+`[from, to]`. `from`/`to` are RFC 3339 instants; defaults: `to` = now, `from` = start of the UTC
+day 29 days before `to` (30 calendar days). `from` must precede `to` and the window may not exceed
+366 days; `top` (1–50, default 10) bounds `recurring`. Invalid values are `400 INVALID_FILTER`.
+
+```json
+{
+  "window": { "from": "RFC 3339", "to": "RFC 3339" },
+  "summary": {
+    "resolvedIncidents": 12, "confirmed": 5, "rejected": 2, "pending": 3, "confirmationRate": 0.714,
+    "meanDiagnosis": { "meanMs": 81234, "sampleSize": 10 },
+    "meanResolution": { "meanMs": 5400000, "sampleSize": 12 }
+  },
+  "outcomes": { "PENDING": 3, "CONFIRMED": 5, "CORRECTED": 1, "REJECTED": 1, "ABSENT": 2 },
+  "stages": [{ "stage": "TESTING", "count": 7 }],
+  "recurring": [{ "pipelineId": "uuid", "repository": { "repositoryId": "825001", "fullName": "owner/name" },
+                  "workflow": { "workflowId": "926001", "name": "CI" }, "stage": "TESTING", "count": 4 }],
+  "trend": [{ "start": "RFC 3339", "end": "RFC 3339", "incidentCount": 3, "meanDiagnosisMs": 70000 }]
+}
+```
+
+Definitions (as the dashboard computed them): mean diagnosis time is
+`diagnosis.createdAt − detectedAt` over incidents with a projected diagnosis (negative samples
+ignored); MTTR is `resolvedAt − detectedAt`; confirmation rate is
+`confirmed / (confirmed + rejected)` where `rejected` counts `CORRECTED` and `REJECTED` and
+`PENDING`/`ABSENT` are excluded (human reviews, not model accuracy; `null` without reviews);
+`outcomes` is the diagnosis distribution; `stages` is sorted by count, then stage order;
+`recurring` groups by pipeline and stage, sorted by count, then repository, workflow and stage
+(not a root-cause taxonomy); `trend` has 7-day buckets from `from`, the last one ending at `to`.
+Means are `null` without samples and are never coerced to zero.
 
 `POST /api/v1/pipelines` performs real registration: GitHub facts come from Ingestion
 (`Pipeline.GitHubFacts.Read` + subject token), never from the browser.
@@ -164,6 +299,31 @@ Returns `200` with `{ "report": <diagnosis projection without reviews>,
 while processing (the workflow retries with backoff), `403` if the OIDC repository
 does not match. The report workflow uploads the markdown as a run artifact and links
 the failed run id and attempt.
+
+## Internal: diagnosis summaries (ADR-027)
+
+`PUT /internal/v1/incidents/{incidentId}/diagnosis-summary` on Pipeline — workload
+`recommendation`, role `Recommendation.DiagnosisSummaries.Write`, no subject token,
+`X-Correlation-ID` with the diagnosis correlation id.
+
+Request (unknown fields rejected):
+
+```json
+{
+  "diagnosisId": "uuid", "version": 1, "executionId": "uuid",
+  "pipelineId": "uuid", "githubRepositoryId": "825001",
+  "status": "PENDING | CONFIRMED | CORRECTED | REJECTED", "reviewRevision": 0,
+  "reviewedAt": "RFC 3339 | null", "probableCause": "string | null", "createdAt": "RFC 3339"
+}
+```
+
+`status` is `PENDING` exactly when `reviewRevision` is `0` (then `reviewedAt` is `null`);
+`probableCause` is at most 1000 characters. `200`:
+`{"incidentId", "diagnosisId", "version", "reviewRevision", "status", "applied"}`; `applied` is
+`false` when the stored summary is already at the same or a later `(version, reviewRevision)`.
+`404 INCIDENT_NOT_FOUND`; `409 SCOPE_MISMATCH` when the execution is not the incident's ORIGIN
+execution or the pipeline/repository differ from the incident's; `400 INVALID_REQUEST`.
+Recommendation retries any other outcome with backoff and drops `400`/`409`.
 
 ## Internal: capture workflow scopes (ADR-023)
 
