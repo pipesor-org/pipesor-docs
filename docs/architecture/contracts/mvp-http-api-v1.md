@@ -152,6 +152,7 @@ New:
 | Method and route | Notes |
 |---|---|
 | `GET /api/v1/incidents?state=OPEN|RESOLVED` | cross-pipeline lifecycle queue, filtered by VIEW grants and current GitHub access before paging; removes the per-pipeline N+1 fan-out. `OPEN` is every active incident (`OPEN`, `IN_REMEDIATION`, `VERIFICATION`). Filters, `total` and enriched items below (ADR-027) |
+| `GET /api/v1/pipelines/registrations?repositoryId=` | monitored workflows of a repository the caller can currently read on GitHub, with or without a grant (ADR-028); existence only, shape below |
 | `GET /api/v1/incidents/summary?state=OPEN|RESOLVED` | counts of the same filtered, visible set per severity, status and diagnosis (ADR-027) |
 | `GET /api/v1/insights?from=&to=` | History Insights over visible resolved incidents (ADR-027) |
 
@@ -169,6 +170,28 @@ Diagnosis validation is not a lifecycle state, so Pipeline has no validation que
 dashboard's *Needs validation* view is `GET /api/v1/incidents?state=RESOLVED&diagnosis=PENDING`:
 Pipeline filters on its diagnosis projection (ADR-027), which replaces the browser-side join of
 decision D03.
+
+### Repository registrations
+
+`GET /api/v1/pipelines/registrations?repositoryId={githubRepositoryId}` tells a reader of the
+repository which of its workflows are monitored, so the dashboard can offer to ask for access
+(ADR-028). It needs current GitHub read access to the admitted repository and no AIOps grant.
+It returns existence only, which a second registration's `409` already reveals:
+
+```json
+{
+  "repositoryId": "123",
+  "items": [
+    {"pipelineId": "83a4c7b9-e2d5-5076-820f-3240ce5b1af8", "githubWorkflowId": "918001", "accessible": false}
+  ]
+}
+```
+
+Items are ordered by numeric `githubWorkflowId`, with no paging. `accessible` is `true` when the
+caller already has an effective capability on that pipeline (stored grant plus current read).
+Errors: `400 INVALID_REQUEST` (missing, non-numeric or repeated `repositoryId`),
+`403 ACCESS_DENIED` (no current read access or repository not admitted),
+`403 GITHUB_CONNECTION_REQUIRED`, `503 GITHUB_VERIFICATION_UNAVAILABLE`.
 
 ### Incident queue filters
 

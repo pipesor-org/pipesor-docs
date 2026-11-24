@@ -51,12 +51,16 @@ Options considered:
   collaborators have a Pipesor link. This is accepted because grants can only target linked
   people and the eligibility check of a grant attempt already reveals it. Login, avatar and role
   are what the administrator already sees on GitHub.
-- **Approved follow-up, not yet specified (P1).** A reader of the repository without a grant
-  may learn that a workflow is monitored (existence only, as the `409` of a second registration
-  already reveals), and may request access without email (ADR-012); a CONFIGURE holder
-  approves (the existing grant plus closing the request) or rejects, and both are audited.
-  Their routes, storage and audit actions are added to the contract when implemented. Teams
-  (named sets of people) stay deferred because DD-012/DD-019 exclude users, roles and teams.
+- **Readers learn that a workflow is monitored.** Anyone with current GitHub read access to an
+  admitted repository may list its registrations through
+  `GET /api/v1/pipelines/registrations?repositoryId=`. The list holds the pipeline id, the
+  workflow id and whether the caller already has access, and nothing else. A second
+  registration's `409` already reveals the same.
+- **Approved follow-up, not yet specified.** A reader may request access without email
+  (ADR-012); a CONFIGURE holder approves (the existing grant plus closing the request) or
+  rejects, and both are audited. Its routes, storage and audit actions are added to the contract
+  when implemented. Teams (named sets of people) stay deferred because DD-012/DD-019 exclude
+  users, roles and teams.
 
 ## Consequences
 
@@ -76,5 +80,5 @@ Options considered:
 - DD-017 and DD-019 record the amendment; P0 adds no table.
 
 Implementation: pipesor-ingestion-normalization-service (collaborators route) and
-pipesor-pipeline-service (last CONFIGURE guard). Contract:
+pipesor-pipeline-service (last CONFIGURE guard and repository registrations). Contract:
 [MVP HTTP API v1](../contracts/mvp-http-api-v1.md#repository-collaborators).
