@@ -74,8 +74,9 @@ Recorrido real ejecutado en local con el stack compartido y los cinco servicios 
 despliegue), las corridas oficiales de OE3-I2 del 23/11/2026 ejercitaron sobre las imágenes
 desplegadas en dev la cadena automática completa: captura por webhook, NLP,
 correlación, RAG, diagnóstico con gpt-6-luna ([ADR-026](../architecture/decisions/ADR-026-diagnosis-model-gpt-6-luna.md))
-y reporte publicado. La evidencia registrada del dashboard y de la revisión humana sigue
-pendiente ([informe de validación](../research/informe-validacion-oe3.md), §1).
+y reporte publicado. La evidencia del dashboard y de la revisión humana quedó registrada el 24/11/2026
+en los 20 casos positivos de la corrida oficial
+([informe de validación](../research/informe-validacion-oe3.md), §3.4).
 
 La demostración paso a paso, con la evidencia que se debe registrar en cada tramo, está en la
 [guía de demostración del MVP](mvp-demo-guide.md).

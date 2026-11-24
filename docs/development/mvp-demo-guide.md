@@ -18,7 +18,8 @@ and gpt-6-luna ([ADR-026](../architecture/decisions/ADR-026-diagnosis-model-gpt-
 28/28 runs as designed, 26/26 diagnoses and published reports
 ([validation report](../research/informe-validacion-oe3.md), §1;
 `pipesor-validation-scenarios/results/2026-11-23-oe3-test-r2`). Steps 10–11 are implemented in the
-dashboard; their recorded evidence is still pending in that report.
+dashboard. The human review of 2026-11-24 recorded their evidence on the 20 positive cases of the
+official run (report §3.4; `pipesor-validation-scenarios/results/review-2026-11-23-oe3-test-r2`).
 
 ## 0. Prerequisites
 
