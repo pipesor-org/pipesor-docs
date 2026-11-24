@@ -135,7 +135,8 @@ repository, user or `pageSize`), `401`, `403 DENIED` (repository not admitted or
 or the caller is not its administrator), `409 CONNECTION_REQUIRED` (no active link or
 reconnection needed), `503 VERIFICATION_UNAVAILABLE` (GitHub unavailable or rate limited,
 SSO not authorized, or GitHub refuses the list, for instance to an outside collaborator of an
-organization).
+organization). As on the other repository routes, a repository that is not admitted is `403 DENIED`
+before the link is checked.
 
 ## Pipeline — operations (external ingress)
 
