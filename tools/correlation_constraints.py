@@ -11,7 +11,8 @@ FIELDS = {
                             'created_at': 'timestamptz', 'group_id': 'uuid',
                             'signal_stage': 'text', 'signal_summary': 'text', 'signal_content': 'text',
                             'scope_tenant_id': 'uuid', 'scope_github_installation_id': 'text',
-                            'scope_github_repository_id': 'text', 'scope_pipeline_id': 'uuid', 'scope_revision': 'text'},
+                            'scope_github_repository_id': 'text', 'scope_pipeline_id': 'uuid', 'scope_revision': 'text',
+                            'signal_source_locator': 'text'},
     'correlation_receipts': {'scope_key': 'text', 'producer_key': 'text', 'message_id': 'uuid',
                              'evidence_id': 'uuid', 'correlation_id': 'text', 'context_id': 'uuid',
                              'input_fingerprint': 'text', 'created_at': 'timestamptz'},
@@ -50,7 +51,7 @@ def validate_correlation(domain):
             errors.append(f'{name}: expected only approved correlation metadata fields')
         for field, typ in FIELDS[name].items():
             attr = attrs.get(field, {})
-            if attr.get('type') != typ or attr.get('nullable') is not (field in ('confirmed_context_id', 'scope_pipeline_id')):
+            if attr.get('type') != typ or attr.get('nullable') is not (field in ('confirmed_context_id', 'scope_pipeline_id', 'signal_source_locator')):
                 errors.append(f'{name}.{field}: approved type/nullability must remain unchanged')
         pk = [a['name'] for a in entity.get('attributes', []) if a.get('pk')]
         if pk != (['scope_key', 'producer_key', 'message_id'] if name == 'correlation_receipts' else ['id']):

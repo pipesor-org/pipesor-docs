@@ -1,7 +1,7 @@
 <!-- GENERATED — DO NOT EDIT. SSOT: model/domain.yml -->
 # Diccionario de datos
 
-Modelo: `1.9.0`. Una instancia PostgreSQL; 35 tablas.
+Modelo: `1.10.0`. Una instancia PostgreSQL; 35 tablas.
 
 Los tipos enum se materializan en el schema propietario de cada tabla.
 FK significa constraint físico intra-schema; logical_ref significa ID sin FK física.
@@ -127,6 +127,7 @@ Constraints complementarias: exactly_one_failed_origin, origin_pipeline_consiste
 | resolved_at | timestamptz | No | — | — | Sí | No | — | Resolución operacional del incidente. | SRC_ADR_018; architecture.yml#INV-007; docs/research/arquitectura-informacion.md; DD-002 | A-002 |
 | correlation_id | text | No | — | — | No | No | — | Identificador de correlación end-to-end; no contiene información sensible. | architecture.yml#CTRL-003 | — |
 | created_at | timestamptz | No | — | — | No | No | — | Instante de persistencia; permite aplicar retención cuando corresponde. | SRC_ADR_013; DD-015 | A-002 |
+| display_number | bigint | No | — | — | No | Sí | — | Número de presentación INC-<n>, solo para mostrar; la identidad sigue siendo id. Lo asigna la secuencia ops.incident_display_number_seq (DEFAULT y secuencia no representados, DD-027). | pipesor-pipeline-service@dcaa002: V7__add_incident_display_number.sql; docs/architecture/contracts/mvp-http-api-v1.md; DD-027 | — |
 
 ### `ops.incident_runs`
 
@@ -251,6 +252,7 @@ Checks: `size_bytes IS NULL OR size_bytes >= 0`; `((scope_tenant_id IS NULL AND 
 | scope_tenant_id | uuid | No | — | — | Sí | No | — | Tenant de captura autorizado al registrar la evidencia. Nulo en filas anteriores sin vínculo verificado. | DD-025 | — |
 | scope_github_installation_id | text | No | — | — | Sí | No | — | Instalación GitHub observada en la captura autorizada. | DD-025 | — |
 | scope_revision | text | No | — | — | Sí | No | — | Revisión de captura original. Su presencia no otorga permiso actual. | DD-025 | — |
+| source_locator | text | No | — | — | Sí | No | — | Localizador agregado de la evidencia protegida 2.1/2.2, conservado con el vínculo de ejecución; nulo en 2.0. Es procedencia, no autorización. La gramática vive en el contrato. | pipesor-log-event-service@31a86e0: V3__retain_aggregate_source_locator.sql; docs/architecture/contracts/protected-evidence-v2.1.md; docs/architecture/contracts/protected-evidence-v2.2.md; DD-027 | — |
 
 ### `evidence.correlation_groups`
 
@@ -314,6 +316,7 @@ Constraints complementarias: correlation_lifecycle.
 | scope_github_repository_id | text | No | — | — | No | No | — | Repositorio GitHub canónico del alcance histórico de la operación. | architecture.yml#evidence_correlation_engine; SRC_ADR_015; DD-014; DD-023 | — |
 | scope_pipeline_id | uuid | No | — | ops.pipelines.id | Sí | No | — | Pipeline lógico del alcance histórico cuando corresponde; no regenerar ni inferir. | architecture.yml#evidence_correlation_engine; SRC_ADR_015; DD-014; DD-023 | — |
 | scope_revision | text | No | — | — | No | No | — | Revisión histórica inmutable del alcance; reautorización vigente separada. | architecture.yml#evidence_correlation_engine; SRC_ADR_015; DD-014; DD-023 | — |
+| signal_source_locator | text | No | — | — | Sí | No | — | Localizador de la señal del miembro incorporado, reenviado sin cambios desde NLP; nulo para evidencia 2.0. Procedencia, no autorización. | pipesor-evidence-correlation-engine@533fa53: V5__retain_signal_source_locator.sql; docs/architecture/contracts/protected-evidence-v2.1.md; DD-027 | — |
 
 ### `evidence.correlation_receipts`
 
@@ -389,7 +392,9 @@ Retención: 365 días (ADR-013), anclada en `created_at`; no hay purge jobs.
 
 Claves únicas compuestas: `(incident_id, version)`.
 
-Checks: `version > 0`; `status <> 'DIAGNOSIS_READY' OR (probable_cause IS NOT NULL AND btrim(probable_cause) <> '' AND diagnosis_ready_at IS NOT NULL)`.
+Unicidad parcial `diagnoses_admitted_context_uq`: (context_id) WHERE `admission_fingerprint IS NOT NULL`; extras.sql.
+
+Checks: `version > 0`; `status <> 'DIAGNOSIS_READY' OR (probable_cause IS NOT NULL AND btrim(probable_cause) <> '' AND diagnosis_ready_at IS NOT NULL)`; `admission_fingerprint IS NULL OR admission_fingerprint ~ '^[0-9a-f]{64}$'`; `context_id = (output->>'contextId')::uuid`; `execution_id = (output->>'executionId')::uuid`.
 
 Constraints complementarias: append_only.
 
@@ -405,7 +410,12 @@ Constraints complementarias: append_only.
 | confidence | jsonb | No | — | — | Sí | No | — | Valor informado por el proveedor, sin imponer tipo numérico, escala ni rango. | architecture.yml#recommendation_service; architecture.yml#INV-005; SRC_ADR_013; DD-003 | A-008 |
 | diagnosis_ready_at | timestamptz | No | — | — | Sí | No | — | Instante de disponibilidad de esta versión; TMD se calcula con detected_at del incidente. | architecture.yml#recommendation_service; architecture.yml#INV-005; SRC_ADR_013; DD-003 | A-002 |
 | correlation_id | text | No | — | — | No | No | — | Identificador de correlación end-to-end; no contiene información sensible. | architecture.yml#CTRL-003 | — |
+| authorization_scope | jsonb | No | — | — | No | No | — | Ámbito de autorización verificado con el que se admitió el diagnóstico. | pipesor-recommendation-service@3d53d26: V2__persist_diagnostic_reviews.sql; DD-027 | — |
+| output | jsonb | No | — | — | No | No | — | Salida diagnóstica inmutable tal como la persiste Recommendation (hipótesis, evidencia y fuentes por ID). DD-027 registra su divergencia con las columnas de DD-003/DD-004/DD-007/DD-010. | pipesor-recommendation-service@3d53d26: V2__persist_diagnostic_reviews.sql; DD-027 | — |
 | created_at | timestamptz | No | — | — | No | No | — | Instante de persistencia; permite aplicar retención cuando corresponde. | SRC_ADR_013; DD-015 | A-002 |
+| admission_fingerprint | text | No | — | — | Sí | No | — | SHA-256 hexadecimal de la admisión del contexto; nulo en diagnósticos anteriores a la admisión. | pipesor-recommendation-service@3d53d26: V3__identify_admitted_diagnoses.sql; DD-027 | — |
+| context_id | uuid | No | — | diagnosis.correlated_context_receipts.context_id | No | No | — | Contexto correlacionado recibido; copia de output.contextId. Referencia lógica dentro del schema, sin FK, como en la migración. | pipesor-recommendation-service@3d53d26: V6__index_diagnosis_context_and_execution.sql; DD-027 | — |
+| execution_id | uuid | No | — | ops.pipeline_executions.id | No | No | — | Ejecución diagnosticada; copia de output.executionId. Referencia lógica cross-schema. | pipesor-recommendation-service@3d53d26: V6__index_diagnosis_context_and_execution.sql; DD-027 | — |
 
 ### `diagnosis.recommendations`
 
@@ -476,18 +486,22 @@ Fuentes: SRC_ADR_011, SRC_ADR_016, architecture.yml#INV-006, SRC_ADR_013, DD-005
 
 Retención: 365 días (ADR-013), anclada en `created_at`; no hay purge jobs.
 
-Checks: `decision <> 'CORRECTED' OR (actual_cause IS NOT NULL AND btrim(actual_cause) <> '')`.
+Claves únicas compuestas: `(diagnostic_id, revision)`.
+
+Checks: `decision <> 'CORRECTED' OR (actual_cause IS NOT NULL AND btrim(actual_cause) <> '')`; `revision > 0`; `(decision = 'CORRECTED' AND actual_cause IS NOT NULL AND btrim(actual_cause) <> '' AND (corrected_recommendation IS NULL OR btrim(corrected_recommendation) <> '')) OR (decision <> 'CORRECTED' AND actual_cause IS NULL AND corrected_recommendation IS NULL)`.
 
 | Columna | Tipo | PK | FK | logical_ref | Nullable | Unique | Enum | Descripción | Fuente | Assumption |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | id | uuid | Sí | — | — | No | No | — | Identificador estable asignado por el servicio propietario. | SRC_ADR_011; SRC_ADR_016; architecture.yml#INV-006; SRC_ADR_013; DD-005 | A-001 |
-| diagnostic_id | uuid | No | diagnosis.diagnoses.id | — | No | No | — | Versión revisada; conserva el nombre contractual diagnostic_id de ADR-011. | SRC_ADR_011; SRC_ADR_016; architecture.yml#INV-006; SRC_ADR_013; DD-005 | — |
+| diagnostic_id | uuid | No | diagnosis.diagnoses.id | — | No | Compuesto: (diagnostic_id, revision) | — | Versión revisada; conserva el nombre contractual diagnostic_id de ADR-011. | SRC_ADR_011; SRC_ADR_016; architecture.yml#INV-006; SRC_ADR_013; DD-005 | — |
+| revision | integer | No | — | — | No | Compuesto: (diagnostic_id, revision) | — | Revisión positiva de la revisión humana, única por diagnóstico. | pipesor-recommendation-service@3d53d26: V2__persist_diagnostic_reviews.sql; DD-027 | — |
 | reviewer_ref | text | No | — | — | No | No | — | Identidad externa del revisor corporativo; mapea reviewer del contrato. | SRC_ADR_011; SRC_ADR_016; architecture.yml#INV-006; SRC_ADR_013; DD-005 | — |
 | decision | diagnosis.HumanReviewDecision | No | — | — | No | No | HumanReviewDecision | CONFIRMED acepta; CORRECTED aporta causa corregida; REJECTED rechaza sin alternativa validada. | SRC_ADR_011; SRC_ADR_016; architecture.yml#INV-006; SRC_ADR_013; DD-005 | — |
 | timestamp | timestamptz | No | — | — | No | No | — | Instante de revisión del contrato. | SRC_ADR_011; SRC_ADR_016; architecture.yml#INV-006; SRC_ADR_013; DD-005 | A-002 |
 | correlation_id | text | No | — | — | No | No | — | Identificador de correlación end-to-end; no contiene información sensible. | architecture.yml#CTRL-003 | — |
 | actual_cause | text | No | — | — | Sí | No | — | Causa corregida suministrada por el revisor; requerida semánticamente en CORRECTED. | SRC_ADR_011; SRC_ADR_016; architecture.yml#INV-006; SRC_ADR_013; DD-005 | — |
 | comment | text | No | — | — | Sí | No | — | Comentario saneado del revisor. | SRC_ADR_011; SRC_ADR_016; architecture.yml#INV-006; SRC_ADR_013; DD-005 | — |
+| corrected_recommendation | text | No | — | — | Sí | No | — | Recomendación corregida opcional; solo admitida en CORRECTED. | pipesor-recommendation-service@3d53d26: V2__persist_diagnostic_reviews.sql; DD-027 | — |
 | created_at | timestamptz | No | — | — | No | No | — | Instante de persistencia; permite aplicar retención cuando corresponde. | SRC_ADR_013; DD-015 | A-002 |
 
 ### `diagnosis.diagnosis_jobs`
@@ -556,17 +570,17 @@ Checks: `btrim(provenance) <> ''`; `corpus_kind <> 'reviewed_incidents' OR revie
 | title | text | No | — | — | No | No | — | Título de la fuente autorizada. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
 | provenance | text | No | — | — | No | No | — | Referencia obligatoria de origen autorizado; nunca URL con tokens o secretos. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
 | reviewed_incident_id | uuid | No | — | ops.incidents.id | Sí | No | — | Incidente revisado cuando el corpus es reviewed_incidents; elegibilidad RAG requiere separación evaluación. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
-| tenant_id | uuid | No | — | — | No | Compuesto: (tenant_id, github_repository_id, source_id, source_version) | — | Tenant autorizado del documento; no se deriva de similitud semÃ¡ntica. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
-| github_installation_id | text | No | — | — | No | No | — | InstalaciÃ³n GitHub verificada para el alcance del corpus. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
-| github_repository_id | text | No | — | — | No | Compuesto: (tenant_id, github_repository_id, source_id, source_version) | — | Repositorio GitHub verificado para el alcance del corpus. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
-| pipeline_id | uuid | No | — | ops.pipelines.id | Sí | No | — | Pipeline opcional del alcance; referencia lÃ³gica, sin FK cross-schema. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
-| scope_revision | text | No | — | — | No | No | — | RevisiÃ³n opaca del alcance autorizado entregado por Recommendation. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
-| source_id | text | No | — | — | No | Compuesto: (tenant_id, github_repository_id, source_id, source_version) | — | Identidad estable de la fuente administrativa autorizada. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
-| source_version | text | No | — | — | No | Compuesto: (tenant_id, github_repository_id, source_id, source_version) | — | VersiÃ³n opaca usada para importaciÃ³n idempotente. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
-| content_hash | text | No | — | — | No | No | — | SHA-256 hexadecimal del contenido canÃ³nico importado. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
-| authorization_reference | text | No | — | — | No | No | — | Evidencia no secreta de autorizaciÃ³n de la fuente. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
-| active | boolean | No | — | — | No | No | — | Solo la versiÃ³n activa participa en recuperaciÃ³n. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
-| correlation_id | text | No | — | — | No | No | — | Identificador de correlación end-to-end; no contiene información sensible. | architecture.yml#CTRL-003 | — |
+| tenant_id | uuid | No | — | — | No | Compuesto: (tenant_id, github_repository_id, source_id, source_version) | — | Tenant autorizado del documento; no se deriva de similitud semántica. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| github_installation_id | varchar(32) | No | — | — | No | No | — | Instalación GitHub verificada para el alcance del corpus. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| github_repository_id | varchar(32) | No | — | — | No | Compuesto: (tenant_id, github_repository_id, source_id, source_version) | — | Repositorio GitHub verificado para el alcance del corpus. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| pipeline_id | uuid | No | — | ops.pipelines.id | Sí | No | — | Pipeline opcional del alcance; referencia lógica, sin FK cross-schema. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| scope_revision | varchar(128) | No | — | — | No | No | — | Revisión opaca del alcance autorizado entregado por Recommendation. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| source_id | varchar(256) | No | — | — | No | Compuesto: (tenant_id, github_repository_id, source_id, source_version) | — | Identidad estable de la fuente administrativa autorizada. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| source_version | varchar(128) | No | — | — | No | Compuesto: (tenant_id, github_repository_id, source_id, source_version) | — | Versión opaca usada para importación idempotente. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| content_hash | varchar(64) | No | — | — | No | No | — | SHA-256 hexadecimal del contenido canónico importado. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| authorization_reference | text | No | — | — | No | No | — | Evidencia no secreta de autorización de la fuente. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| active | boolean | No | — | — | No | No | — | Solo la versión activa participa en recuperación. | architecture.yml#rag_retrieval; architecture.yml#INV-010; SRC_ADR_007; DD-007; DD-022 | — |
+| correlation_id | varchar(128) | No | — | — | No | No | — | Identificador de correlación end-to-end; no contiene información sensible. | architecture.yml#CTRL-003 | — |
 | created_at | timestamptz | No | — | — | No | No | — | Instante de persistencia; permite aplicar retención cuando corresponde. | SRC_ADR_013; DD-015 | A-002 |
 
 ### `knowledge.knowledge_chunks`
@@ -579,7 +593,7 @@ Fuentes: SRC_ADR_007, architecture.yml#INV-010, DD-009.
 
 Claves únicas compuestas: `(document_id, chunk_index)`.
 
-Checks: `chunk_index >= 0`; `btrim(provenance) <> ''`.
+Checks: `chunk_index >= 0`; `btrim(provenance) <> ''`; `btrim(content) <> ''`.
 
 | Columna | Tipo | PK | FK | logical_ref | Nullable | Unique | Enum | Descripción | Fuente | Assumption |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -589,9 +603,9 @@ Checks: `chunk_index >= 0`; `btrim(provenance) <> ''`.
 | content | text | No | — | — | No | No | — | Fragmento autorizado y saneado; nunca casos/soluciones de evaluación. | SRC_ADR_007; architecture.yml#INV-010; DD-009 | — |
 | provenance | text | No | — | — | No | No | — | Procedencia obligatoria del fragmento dentro de su documento. | SRC_ADR_007; architecture.yml#INV-010; DD-009 | — |
 | embedding | vector(1536) | No | — | — | Sí | No | — | Embedding pgvector de 1536 dimensiones para text-embedding-3-small. | SRC_ADR_007; architecture.yml#INV-010; DD-009 | — |
-| embedding_model | text | No | — | — | No | No | — | Modelo que generó el vector; debe ser text-embedding-3-small en el contrato v0.1. | SRC_ADR_007; architecture.yml#INV-010; DD-009 | — |
-| embedding_model_version | text | No | — | — | No | No | — | Versión opaca del modelo/deployment usada para impedir mezcla de vectores incompatibles. | SRC_ADR_007; architecture.yml#INV-010; DD-009 | — |
-| correlation_id | text | No | — | — | No | No | — | Identificador de correlación end-to-end; no contiene información sensible. | architecture.yml#CTRL-003 | — |
+| embedding_model | varchar(128) | No | — | — | No | No | — | Modelo que generó el vector; debe ser text-embedding-3-small en el contrato v0.1. | SRC_ADR_007; architecture.yml#INV-010; DD-009 | — |
+| embedding_model_version | varchar(128) | No | — | — | No | No | — | Versión opaca del modelo/deployment usada para impedir mezcla de vectores incompatibles. | SRC_ADR_007; architecture.yml#INV-010; DD-009 | — |
+| correlation_id | varchar(128) | No | — | — | No | No | — | Identificador de correlación end-to-end; no contiene información sensible. | architecture.yml#CTRL-003 | — |
 | created_at | timestamptz | No | — | — | No | No | — | Instante de persistencia; permite aplicar retención cuando corresponde. | SRC_ADR_013; DD-015 | A-002 |
 
 ## Schema `audit`
@@ -1101,14 +1115,14 @@ Nota de evolución: representación histórica de Blob sustituida parcialmente p
 - impacto: Los vectores anteriores deben reimportarse/re-embedderse; no se reinterpretan. Endpoint, deployment, región y cuota reales continúan como entradas de validación Azure.
 - reversibilidad: Cambiar modelo, dimensión o versión requiere migración explícita, re-embedding e índice compatible.
 
-### DD-022 — Alcance e importaciÃ³n administrativa del corpus RAG
+### DD-022 — Alcance e importación administrativa del corpus RAG
 
 - id: DD-022
-- contexto: El 16/11/2026 el usuario aprobÃ³ el contrato Recommendation → RAG v1 con identidades GitHub canÃ³nicas, alcance verificado por Recommendation y defensa adicional en RAG, ademÃ¡s de un importador administrativo idempotente sin API pÃºblica ni aprendizaje automÃ¡tico.
-- decisiÃ³n: knowledge_documents conserva tenant, instalaciÃ³n, repositorio, pipeline opcional y revisiÃ³n de scope. La carga exige source_id/source_version, hash canÃ³nico, provenance y referencia de autorizaciÃ³n; una versiÃ³n activa sustituye a la anterior. Los casos de evaluaciÃ³n se rechazan. El contrato v0.1 fija text-embedding-3-small/1536, API v1 e identidad administrada; regiÃ³n, endpoint, deployment y cuota se validan en Azure antes de activaciÃ³n.
-- fuentes: AprobaciÃ³n explÃ­cita del usuario del 16/11/2026; architecture.yml#rel_recommendation_rag; INV-010; DD-007/DD-009.
-- impacto: Recommendation entrega scope previamente verificado y RAG vuelve a filtrar. No se crea relaciÃ³n nueva, crawler, API pÃºblica ni acceso a tablas ajenas.
-- reversibilidad: Nuevas fuentes o mecanismos requieren decisiÃ³n posterior; las versiones y hashes preservan procedencia para migraciÃ³n controlada.
+- contexto: El 16/11/2026 el usuario aprobó el contrato Recommendation → RAG v1 con identidades GitHub canónicas, alcance verificado por Recommendation y defensa adicional en RAG, además de un importador administrativo idempotente sin API pública ni aprendizaje automático.
+- decisión: knowledge_documents conserva tenant, instalación, repositorio, pipeline opcional y revisión de scope. La carga exige source_id/source_version, hash canónico, provenance y referencia de autorización; una versión activa sustituye a la anterior. Los casos de evaluación se rechazan. El contrato v0.1 fija text-embedding-3-small/1536, API v1 e identidad administrada; región, endpoint, deployment y cuota se validan en Azure antes de activación.
+- fuentes: Aprobación explícita del usuario del 16/11/2026; architecture.yml#rel_recommendation_rag; INV-010; DD-007/DD-009.
+- impacto: Recommendation entrega scope previamente verificado y RAG vuelve a filtrar. No se crea relación nueva, crawler, API pública ni acceso a tablas ajenas.
+- reversibilidad: Nuevas fuentes o mecanismos requieren decisión posterior; las versiones y hashes preservan procedencia para migración controlada.
 
 ### DD-010 — Confidence sin escala cerrada
 
@@ -1634,6 +1648,40 @@ conserva únicamente la representación protegida y su política de retención.
 - límites: no hay retención ni purga decididas para estas tablas (`retention_policy` nulo); `incident_diagnoses.probable_cause` copia salida inferida del modelo solo para mostrarla y no extiende RET-001 por analogía. `github_login_attempts` usa el prefijo `pkce:` de `github_authorization_attempts`; la no reutilización entre ambas clases depende de UUID distintos asignados por Ingestion, sin guardia SQL común. La llamada Recommendation → Pipeline de ADR-027 no tiene relación en `architecture.yml`; se reporta y no se modela aquí. No se modifican ADR, `architecture.yml`, presupuestos ni membresías de vistas, ni se ejecutan migraciones de servicios.
 - límite del modelo: el límite persistente/ER pasa de 28 a 35 tablas exclusivamente por estas siete.
 - reversibilidad: retirar o reclasificar una tabla requiere decisión explícita; un `inferred` nunca se promueve automáticamente.
+
+<a id="DD-027"></a>
+
+### DD-027 — Reconciliación de tablas modeladas con sus migraciones
+
+- autoridad: solicitud explícita del responsable del 24/11/2026 de corregir las tablas ya modeladas para que reflejen las migraciones reales (columnas, tipos, nulabilidad, claves, CHECK, FK intra-schema y referencias lógicas entre schemas) y, si hiciera falta, admitir un tipo nuevo en el validador. No aprueba arquitectura, contratos, integración ni despliegue, y no cambia `status` ni `scope_basis`.
+- contexto: DD-026 modeló siete tablas nuevas, pero no contrastó las columnas que las migraciones posteriores añadieron a tablas ya modeladas. Una comparación por introspección en PostgreSQL 16.15/pgvector 0.8.7 desechable entre las migraciones de los seis servicios con persistencia y `schema.sql` + `extras.sql` encontró las brechas siguientes. Revisiones de main remoto: Pipeline `dcaa002`, Ingestion `6ecca4c`, Log/Event `31a86e0`, Correlation `533fa53`, Recommendation `3d53d26` y RAG `4fd400f`. NLP no tiene persistencia. Las migraciones Alembic de RAG se tradujeron a SQL a mano porque Alembic no estaba instalado.
+- decisión: `domain.yml` 1.10.0 mantiene las 35 tablas y corrige las siguientes.
+
+| Tabla | Corrección | Migración | Base documental |
+|---|---|---|---|
+| `ops.incidents` | `display_number bigint NOT NULL UNIQUE` | Pipeline V7 | MVP HTTP API v1 (`displayNumber`, asignado por la base). |
+| `evidence.evidence_items` | `source_locator text NULL` | Log/Event V3 | Evidencia protegida 2.1/2.2: «Log/Event stores the locator». |
+| `evidence.correlated_contexts` | `signal_source_locator text NULL`; amplía la lista congelada de DD-023 | Correlation V5 | Evidencia protegida 2.1: Correlation incluye el localizador «in the protected signal delivered to Recommendation». |
+| `diagnosis.correlated_context_receipts` | `signals` admite una séptima clave opcional `source_locator`, con la forma 2.2 y como máximo 898 caracteres | Recommendation V4 y V5 | Evidencia protegida 2.1/2.2: Recommendation lo persiste en su snapshot de señales. Enmienda el «sin claves extra» de DD-024 solo para esa clave. |
+| `diagnosis.diagnoses` | `authorization_scope` y `output` `jsonb NOT NULL`; `admission_fingerprint text NULL` con CHECK SHA-256; `context_id` y `execution_id` `uuid NOT NULL` con CHECK de coincidencia con `output`; único parcial `diagnoses_admitted_context_uq` | Recommendation V2, V3 y V6 | Implementación del owner; la tabla conserva `approved_domain / confirmed`. |
+| `diagnosis.human_reviews` | `revision integer NOT NULL` (> 0, única con `diagnostic_id`); `corrected_recommendation text NULL`; CHECK `human_reviews_check` | Recommendation V2 | DD-005: REJECTED no aporta causa alternativa y la causa corregida pertenece a CORRECTED. Se conserva `human_reviews_check_1`, que queda implicado. |
+| `knowledge.knowledge_chunks` | CHECK `btrim(content) <> ''` | RAG 01 | Implementación del owner. |
+| `knowledge.knowledge_documents` y `knowledge_chunks` | 11 columnas `varchar(n)` en lugar de `text` | RAG 01, 02 y 03 | Implementación del owner. |
+
+- tipos: el validador admite `varchar(n)` con 1 ≤ n ≤ 9999 únicamente para reflejar una migración; fuera del schema `knowledge`, DD-013 sigue fijando `text` para IDs externos y `correlation_id`. `corpus_kind` conserva el enum `KnowledgeCorpusKind`, de modo que su longitud no cambia el SQL generado. También se corrige texto con codificación dañada (UTF-8 leído como Latin-1) en `knowledge_documents` y en DD-022, sin cambiar su contenido.
+- referencias: `diagnoses.context_id` es referencia lógica dentro del schema hacia `diagnosis.correlated_context_receipts.context_id`, sin FK como en V6. Los diagnósticos anteriores a la admisión pueden no tener recibo, y la lectura del owner usa LEFT JOIN. `diagnoses.execution_id` es referencia lógica entre schemas hacia `ops.pipeline_executions.id`. No hay FK física entre schemas en ninguna migración.
+- registro: `tools/domain_constraints.py` y `tools/correlation_constraints.py` registran las CHECK, las únicas, las únicas parciales y las referencias nuevas, como hicieron DD-020, DD-021, DD-023 y DD-026. `tools/test_postgres.py` prueba las restricciones añadidas y el localizador de las señales. `model/design.yml` añade las columnas nuevas a `Diagnosis` y `HumanReview` porque su validador exige que `persisted_as` coincida exactamente con el dominio. Ambas clases siguen `proposed`.
+- divergencias que requieren decisión (no se resuelven aquí):
+  1. `diagnosis.diagnoses` conserva `status`, `probable_cause`, `explanation`, `limitations`, `confidence` y `diagnosis_ready_at` (DD-003, DD-010, DD-015), que la tabla real no tiene. Parte de ese contenido vive en `output`, pero no `status`, `confidence` ni `diagnosis_ready_at`. El modelo queda como superconjunto. Para retirarlas haría falta una decisión que sustituya esas DD y el cálculo de TMD, o bien que Recommendation las materialice.
+  2. No existen `diagnosis.recommendations` (DD-004, con su marcado `critical`), `diagnosis_evidence_links` (DD-006) ni `diagnosis_source_links` (DD-007). Recomendación, evidencias y fuentes viajan dentro de `output`.
+  3. La implementación no tiene el trigger append-only de `diagnoses` (DD-003): la inmutabilidad la garantiza la aplicación.
+  4. `human_reviews_comment_check` (Recommendation V8) exige comentario en REJECTED, mientras DD-005 lo declara opcional. No se modela.
+  5. `knowledge_chunks.document_id` tiene `ON DELETE CASCADE` en RAG. `domain.yml` no tiene vocabulario para acciones referenciales y se deja sin representar.
+  6. Pipeline V6 crea `audit.audit_events` y se declara su owner MVP, mientras el modelo la asigna a `shared` (DD-012, DD-016, PD-035). La estructura coincide.
+  7. Pipeline V8 inicializa `incidents.severity` desde la criticidad del pipeline, y el contrato MVP lo llama «MVP rule». DQ-001, A-005 y PD-003 siguen abiertas en sus fuentes. No cambia ninguna columna.
+- no representado (además de lo listado en DD-026): la secuencia `ops.incident_display_number_seq` y los DEFAULT; los índices no únicos, incluido el HNSW de DD-009; el DEFERRABLE que dbml2sql emite para FK que en las migraciones no son diferibles (`human_reviews_diagnostic_id`, `correlation_receipts_context_id`, `knowledge_chunks_document_id`); los enums PostgreSQL del modelo frente a `text`/`varchar` con CHECK de los mismos valores (`HumanReviewDecision`, `KnowledgeCorpusKind`); y los nombres de constraints, que son detalles de presentación según `tools/domain_constraints.py`.
+- límites: modelar no acredita despliegue ni migraciones de entorno. No se modifican ADR, `architecture.yml`, `status`, `scope_basis`, presupuestos ni membresías de vistas. La comparación cubre estructura (tablas, columnas, tipos, nulabilidad, PK, únicas, CHECK, FK, triggers y funciones) sobre tablas vacías; no cubre datos ni backfills.
+- reversibilidad: cada corrección sigue a su migración. Retirar columnas o tablas del modelo, o promover un `inferred`, requiere decisión explícita.
 
 ## Assumptions
 

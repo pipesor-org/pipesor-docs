@@ -111,6 +111,8 @@ FOR EACH STATEMENT EXECUTE FUNCTION diagnosis.reject_diagnoses_mutation();
 
 RECEIPT_SIGNALS = r'''
 -- DD-024: only the typed protected signal array belongs to the durable receipt.
+-- DD-027: an optional seventh key source_locator carries the protected-evidence 2.1/2.2
+-- locator; the database checks only its shape (the contract owns the grammar).
 CREATE FUNCTION diagnosis.valid_correlated_signals(signals jsonb, evidence_ids uuid[]) RETURNS boolean
 LANGUAGE plpgsql IMMUTABLE SET search_path = pg_catalog AS $$
 DECLARE item jsonb; member uuid; seen uuid[] := ARRAY[]::uuid[];
@@ -124,7 +126,9 @@ BEGIN
     END IF;
     FOR item IN SELECT value FROM jsonb_array_elements(signals) LOOP
         IF jsonb_typeof(item) <> 'object' THEN RETURN false; END IF;
-        IF (SELECT count(*) FROM jsonb_object_keys(item)) <> 6
+        IF (SELECT count(*) FROM jsonb_object_keys(item)) <> (CASE WHEN item ? 'source_locator' THEN 7 ELSE 6 END)
+           OR (item ? 'source_locator' AND ((item->>'source_locator') !~ '^v2:job:[1-9][0-9]{0,19}:member:(?:[A-Za-z0-9._~-]|%[0-9A-F]{2})+:lines:[1-9][0-9]{0,8}-[1-9][0-9]{0,8}:sha256:[0-9a-f]{64}$'
+                                          OR char_length(item->>'source_locator') > 898))
            OR NOT item ?& ARRAY['evidence_id','origin_context_id','correlation_id','stage','summary','content']
            OR EXISTS (SELECT 1 FROM jsonb_each(item) field WHERE jsonb_typeof(field.value) <> 'string') THEN
             RETURN false;

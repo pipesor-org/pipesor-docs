@@ -164,6 +164,7 @@ Table ops.incidents {
   resolved_at timestamptz [null, note: 'Resolución operacional del incidente. Assumption: A-002. Fuente: SRC_ADR_018, architecture.yml#INV-007, docs/research/arquitectura-informacion.md, DD-002']
   correlation_id text [not null, note: 'Identificador de correlación end-to-end; no contiene información sensible. Fuente: architecture.yml#CTRL-003']
   created_at timestamptz [not null, note: 'Instante de persistencia; permite aplicar retención cuando corresponde. Assumption: A-002. Fuente: SRC_ADR_013, DD-015']
+  display_number bigint [not null, unique, note: 'Número de presentación INC-<n>, solo para mostrar; la identidad sigue siendo id. Lo asigna la secuencia ops.incident_display_number_seq (DEFAULT y secuencia no representados, DD-027). Fuente: pipesor-pipeline-service@dcaa002: V7__add_incident_display_number.sql, docs/architecture/contracts/mvp-http-api-v1.md, DD-027']
   Note: 'Incidente originado en una ejecución fallida, con asignación y tiempos operacionales. Owner: pipeline_service. approved_domain / confirmed. Constraints complementarias en extras.sql: exactly_one_failed_origin, origin_pipeline_consistency.'
 }
 
@@ -251,6 +252,7 @@ Table evidence.evidence_items {
   scope_tenant_id uuid [null, note: 'Tenant de captura autorizado al registrar la evidencia. Nulo en filas anteriores sin vínculo verificado. Fuente: DD-025']
   scope_github_installation_id text [null, note: 'Instalación GitHub observada en la captura autorizada. Fuente: DD-025']
   scope_revision text [null, note: 'Revisión de captura original. Su presencia no otorga permiso actual. Fuente: DD-025']
+  source_locator text [null, note: 'Localizador agregado de la evidencia protegida 2.1/2.2, conservado con el vínculo de ejecución; nulo en 2.0. Es procedencia, no autorización. La gramática vive en el contrato. Fuente: pipesor-log-event-service@31a86e0: V3__retain_aggregate_source_locator.sql, docs/architecture/contracts/protected-evidence-v2.1.md, docs/architecture/contracts/protected-evidence-v2.2.md, DD-027']
   checks {
     `size_bytes IS NULL OR size_bytes >= 0` [name: 'evidence_items_check_1']
     `((scope_tenant_id IS NULL AND scope_github_installation_id IS NULL AND scope_revision IS NULL) OR (scope_tenant_id IS NOT NULL AND scope_tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid AND scope_github_installation_id IS NOT NULL AND scope_github_installation_id ~ '^[1-9][0-9]*$' AND scope_revision IS NOT NULL AND scope_revision ~ '^[A-Za-z0-9._:-]{1,128}$'))` [name: 'evidence_items_scope_binding_ck']
@@ -294,6 +296,7 @@ Table evidence.correlated_contexts {
   scope_github_repository_id text [not null, note: 'Repositorio GitHub canónico del alcance histórico de la operación. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014, DD-023']
   scope_pipeline_id uuid [null, note: 'Pipeline lógico del alcance histórico cuando corresponde; no regenerar ni inferir. Referencia lógica a ops.pipelines.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014, DD-023']
   scope_revision text [not null, note: 'Revisión histórica inmutable del alcance; reautorización vigente separada. Fuente: architecture.yml#evidence_correlation_engine, SRC_ADR_015, DD-014, DD-023']
+  signal_source_locator text [null, note: 'Localizador de la señal del miembro incorporado, reenviado sin cambios desde NLP; nulo para evidencia 2.0. Procedencia, no autorización. Fuente: pipesor-evidence-correlation-engine@533fa53: V5__retain_signal_source_locator.sql, docs/architecture/contracts/protected-evidence-v2.1.md, DD-027']
   indexes {
     (group_id, id) [unique, name: 'correlated_contexts_group_id_uq']
   }
@@ -369,15 +372,23 @@ Table diagnosis.diagnoses {
   confidence jsonb [null, note: 'Valor informado por el proveedor, sin imponer tipo numérico, escala ni rango. Assumption: A-008. Fuente: architecture.yml#recommendation_service, architecture.yml#INV-005, SRC_ADR_013, DD-003']
   diagnosis_ready_at timestamptz [null, note: 'Instante de disponibilidad de esta versión; TMD se calcula con detected_at del incidente. Assumption: A-002. Fuente: architecture.yml#recommendation_service, architecture.yml#INV-005, SRC_ADR_013, DD-003']
   correlation_id text [not null, note: 'Identificador de correlación end-to-end; no contiene información sensible. Fuente: architecture.yml#CTRL-003']
+  authorization_scope jsonb [not null, note: 'Ámbito de autorización verificado con el que se admitió el diagnóstico. Fuente: pipesor-recommendation-service@3d53d26: V2__persist_diagnostic_reviews.sql, DD-027']
+  output jsonb [not null, note: 'Salida diagnóstica inmutable tal como la persiste Recommendation (hipótesis, evidencia y fuentes por ID). DD-027 registra su divergencia con las columnas de DD-003/DD-004/DD-007/DD-010. Fuente: pipesor-recommendation-service@3d53d26: V2__persist_diagnostic_reviews.sql, DD-027']
   created_at timestamptz [not null, note: 'Instante de persistencia; permite aplicar retención cuando corresponde. Assumption: A-002. Fuente: SRC_ADR_013, DD-015']
+  admission_fingerprint text [null, note: 'SHA-256 hexadecimal de la admisión del contexto; nulo en diagnósticos anteriores a la admisión. Fuente: pipesor-recommendation-service@3d53d26: V3__identify_admitted_diagnoses.sql, DD-027']
+  context_id uuid [not null, note: 'Contexto correlacionado recibido; copia de output.contextId. Referencia lógica dentro del schema, sin FK, como en la migración. Referencia lógica a diagnosis.correlated_context_receipts.context_id; sin FK física ni navegación ORM cross-context. Fuente: pipesor-recommendation-service@3d53d26: V6__index_diagnosis_context_and_execution.sql, DD-027']
+  execution_id uuid [not null, note: 'Ejecución diagnosticada; copia de output.executionId. Referencia lógica cross-schema. Referencia lógica a ops.pipeline_executions.id; sin FK física ni navegación ORM cross-context. Fuente: pipesor-recommendation-service@3d53d26: V6__index_diagnosis_context_and_execution.sql, DD-027']
   indexes {
     (incident_id, version) [unique, name: 'diagnoses_incident_id_version_uq']
   }
   checks {
     `version > 0` [name: 'diagnoses_check_1']
     `status <> 'DIAGNOSIS_READY' OR (probable_cause IS NOT NULL AND btrim(probable_cause) <> '' AND diagnosis_ready_at IS NOT NULL)` [name: 'diagnoses_check_2']
+    `admission_fingerprint IS NULL OR admission_fingerprint ~ '^[0-9a-f]{64}$'` [name: 'diagnoses_admission_fingerprint_check']
+    `context_id = (output->>'contextId')::uuid` [name: 'diagnoses_context_matches_output_ck']
+    `execution_id = (output->>'executionId')::uuid` [name: 'diagnoses_execution_matches_output_ck']
   }
-  Note: 'Snapshot diagnóstico versionado append-only; actual = versión mayor por incidente. Owner: recommendation_service. approved_domain / confirmed. Constraints complementarias en extras.sql: append_only.'
+  Note: 'Snapshot diagnóstico versionado append-only; actual = versión mayor por incidente. Owner: recommendation_service. approved_domain / confirmed. Partial unique diagnoses_admitted_context_uq (context_id) WHERE admission_fingerprint IS NOT NULL; extras.sql. Constraints complementarias en extras.sql: append_only.'
 }
 
 Table diagnosis.recommendations {
@@ -417,15 +428,22 @@ Table diagnosis.diagnosis_source_links {
 Table diagnosis.human_reviews {
   id uuid [pk, not null, note: 'Identificador estable asignado por el servicio propietario. Assumption: A-001. Fuente: SRC_ADR_011, SRC_ADR_016, architecture.yml#INV-006, SRC_ADR_013, DD-005']
   diagnostic_id uuid [not null, note: 'Versión revisada; conserva el nombre contractual diagnostic_id de ADR-011. Fuente: SRC_ADR_011, SRC_ADR_016, architecture.yml#INV-006, SRC_ADR_013, DD-005']
+  revision integer [not null, note: 'Revisión positiva de la revisión humana, única por diagnóstico. Fuente: pipesor-recommendation-service@3d53d26: V2__persist_diagnostic_reviews.sql, DD-027']
   reviewer_ref text [not null, note: 'Identidad externa del revisor corporativo; mapea reviewer del contrato. Fuente: SRC_ADR_011, SRC_ADR_016, architecture.yml#INV-006, SRC_ADR_013, DD-005']
   decision diagnosis.HumanReviewDecision [not null, note: 'CONFIRMED acepta; CORRECTED aporta causa corregida; REJECTED rechaza sin alternativa validada. Fuente: SRC_ADR_011, SRC_ADR_016, architecture.yml#INV-006, SRC_ADR_013, DD-005']
   timestamp timestamptz [not null, note: 'Instante de revisión del contrato. Assumption: A-002. Fuente: SRC_ADR_011, SRC_ADR_016, architecture.yml#INV-006, SRC_ADR_013, DD-005']
   correlation_id text [not null, note: 'Identificador de correlación end-to-end; no contiene información sensible. Fuente: architecture.yml#CTRL-003']
   actual_cause text [null, note: 'Causa corregida suministrada por el revisor; requerida semánticamente en CORRECTED. Fuente: SRC_ADR_011, SRC_ADR_016, architecture.yml#INV-006, SRC_ADR_013, DD-005']
   comment text [null, note: 'Comentario saneado del revisor. Fuente: SRC_ADR_011, SRC_ADR_016, architecture.yml#INV-006, SRC_ADR_013, DD-005']
+  corrected_recommendation text [null, note: 'Recomendación corregida opcional; solo admitida en CORRECTED. Fuente: pipesor-recommendation-service@3d53d26: V2__persist_diagnostic_reviews.sql, DD-027']
   created_at timestamptz [not null, note: 'Instante de persistencia; permite aplicar retención cuando corresponde. Assumption: A-002. Fuente: SRC_ADR_013, DD-015']
+  indexes {
+    (diagnostic_id, revision) [unique, name: 'human_reviews_diagnostic_id_revision_key']
+  }
   checks {
     `decision <> 'CORRECTED' OR (actual_cause IS NOT NULL AND btrim(actual_cause) <> '')` [name: 'human_reviews_check_1']
+    `revision > 0` [name: 'human_reviews_revision_check']
+    `(decision = 'CORRECTED' AND actual_cause IS NOT NULL AND btrim(actual_cause) <> '' AND (corrected_recommendation IS NULL OR btrim(corrected_recommendation) <> '')) OR (decision <> 'CORRECTED' AND actual_cause IS NULL AND corrected_recommendation IS NULL)` [name: 'human_reviews_check']
   }
   Note: 'Revisión humana: ausencia = PENDING derivado; decision solo CONFIRMED, CORRECTED o REJECTED. Owner: recommendation_service. approved_domain / confirmed.'
 }
@@ -470,17 +488,17 @@ Table knowledge.knowledge_documents {
   title text [not null, note: 'Título de la fuente autorizada. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
   provenance text [not null, note: 'Referencia obligatoria de origen autorizado; nunca URL con tokens o secretos. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
   reviewed_incident_id uuid [null, note: 'Incidente revisado cuando el corpus es reviewed_incidents; elegibilidad RAG requiere separación evaluación. Referencia lógica a ops.incidents.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
-  tenant_id uuid [not null, note: 'Tenant autorizado del documento; no se deriva de similitud semÃ¡ntica. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
-  github_installation_id text [not null, note: 'InstalaciÃ³n GitHub verificada para el alcance del corpus. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
-  github_repository_id text [not null, note: 'Repositorio GitHub verificado para el alcance del corpus. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
-  pipeline_id uuid [null, note: 'Pipeline opcional del alcance; referencia lÃ³gica, sin FK cross-schema. Referencia lógica a ops.pipelines.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
-  scope_revision text [not null, note: 'RevisiÃ³n opaca del alcance autorizado entregado por Recommendation. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
-  source_id text [not null, note: 'Identidad estable de la fuente administrativa autorizada. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
-  source_version text [not null, note: 'VersiÃ³n opaca usada para importaciÃ³n idempotente. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
-  content_hash text [not null, note: 'SHA-256 hexadecimal del contenido canÃ³nico importado. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
-  authorization_reference text [not null, note: 'Evidencia no secreta de autorizaciÃ³n de la fuente. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
-  active boolean [not null, note: 'Solo la versiÃ³n activa participa en recuperaciÃ³n. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
-  correlation_id text [not null, note: 'Identificador de correlación end-to-end; no contiene información sensible. Fuente: architecture.yml#CTRL-003']
+  tenant_id uuid [not null, note: 'Tenant autorizado del documento; no se deriva de similitud semántica. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  github_installation_id varchar(32) [not null, note: 'Instalación GitHub verificada para el alcance del corpus. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  github_repository_id varchar(32) [not null, note: 'Repositorio GitHub verificado para el alcance del corpus. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  pipeline_id uuid [null, note: 'Pipeline opcional del alcance; referencia lógica, sin FK cross-schema. Referencia lógica a ops.pipelines.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  scope_revision varchar(128) [not null, note: 'Revisión opaca del alcance autorizado entregado por Recommendation. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  source_id varchar(256) [not null, note: 'Identidad estable de la fuente administrativa autorizada. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  source_version varchar(128) [not null, note: 'Versión opaca usada para importación idempotente. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  content_hash varchar(64) [not null, note: 'SHA-256 hexadecimal del contenido canónico importado. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  authorization_reference text [not null, note: 'Evidencia no secreta de autorización de la fuente. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  active boolean [not null, note: 'Solo la versión activa participa en recuperación. Fuente: architecture.yml#rag_retrieval, architecture.yml#INV-010, SRC_ADR_007, DD-007, DD-022']
+  correlation_id varchar(128) [not null, note: 'Identificador de correlación end-to-end; no contiene información sensible. Fuente: architecture.yml#CTRL-003']
   created_at timestamptz [not null, note: 'Instante de persistencia; permite aplicar retención cuando corresponde. Assumption: A-002. Fuente: SRC_ADR_013, DD-015']
   indexes {
     (tenant_id, github_repository_id, source_id, source_version) [unique, name: 'knowledge_documents_source_version_uq']
@@ -501,9 +519,9 @@ Table knowledge.knowledge_chunks {
   content text [not null, note: 'Fragmento autorizado y saneado; nunca casos/soluciones de evaluación. Fuente: SRC_ADR_007, architecture.yml#INV-010, DD-009']
   provenance text [not null, note: 'Procedencia obligatoria del fragmento dentro de su documento. Fuente: SRC_ADR_007, architecture.yml#INV-010, DD-009']
   embedding vector(1536) [null, note: 'Embedding pgvector de 1536 dimensiones para text-embedding-3-small. Fuente: SRC_ADR_007, architecture.yml#INV-010, DD-009']
-  embedding_model text [not null, note: 'Modelo que generó el vector; debe ser text-embedding-3-small en el contrato v0.1. Fuente: SRC_ADR_007, architecture.yml#INV-010, DD-009']
-  embedding_model_version text [not null, note: 'Versión opaca del modelo/deployment usada para impedir mezcla de vectores incompatibles. Fuente: SRC_ADR_007, architecture.yml#INV-010, DD-009']
-  correlation_id text [not null, note: 'Identificador de correlación end-to-end; no contiene información sensible. Fuente: architecture.yml#CTRL-003']
+  embedding_model varchar(128) [not null, note: 'Modelo que generó el vector; debe ser text-embedding-3-small en el contrato v0.1. Fuente: SRC_ADR_007, architecture.yml#INV-010, DD-009']
+  embedding_model_version varchar(128) [not null, note: 'Versión opaca del modelo/deployment usada para impedir mezcla de vectores incompatibles. Fuente: SRC_ADR_007, architecture.yml#INV-010, DD-009']
+  correlation_id varchar(128) [not null, note: 'Identificador de correlación end-to-end; no contiene información sensible. Fuente: architecture.yml#CTRL-003']
   created_at timestamptz [not null, note: 'Instante de persistencia; permite aplicar retención cuando corresponde. Assumption: A-002. Fuente: SRC_ADR_013, DD-015']
   indexes {
     (document_id, chunk_index) [unique, name: 'knowledge_chunks_document_id_chunk_index_uq']
@@ -511,6 +529,7 @@ Table knowledge.knowledge_chunks {
   checks {
     `chunk_index >= 0` [name: 'knowledge_chunks_check_1']
     `btrim(provenance) <> ''` [name: 'knowledge_chunks_check_2']
+    `btrim(content) <> ''` [name: 'knowledge_chunks_content_ck']
   }
   Note: 'Chunks recuperables de documentos autorizados; conserva provenance y embeddings pgvector compatibles con el contrato aprobado. Owner: rag_retrieval. approved_domain / confirmed.'
 }

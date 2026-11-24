@@ -28,7 +28,7 @@ class CorrelationGenerationTests(unittest.TestCase):
 
     def test_approved_metadata_is_exact_and_technical_retention_is_not_invented(self):
         self.assertEqual(validate_domain(self.model, self.architecture), [])
-        self.assertEqual(self.model['model_version'], '1.9.0')
+        self.assertEqual(self.model['model_version'], '1.10.0')
         self.assertEqual(len(self.model['entities']), 35)
         for name in TABLES:
             self.assertEqual(set(FIELDS[name]), {a['name'] for a in self.entity(name)['attributes']})
@@ -66,7 +66,7 @@ class CorrelationGenerationTests(unittest.TestCase):
 
     def test_signal_columns_and_each_required_check_cannot_be_weakened(self):
         context = self.entity('correlated_contexts')
-        self.assertEqual(len(context['attributes']), 16)
+        self.assertEqual(len(context['attributes']), 17)
         for attr in context['attributes']:
             if not attr['name'].startswith('signal_'):
                 continue

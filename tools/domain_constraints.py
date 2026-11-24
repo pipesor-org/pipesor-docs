@@ -1,4 +1,4 @@
-"""Current DD-003/005/006/007/009/013/023/024/026 constraints, not a SQL parser.
+"""Current DD-003/005/006/007/009/013/023/024/026/027 constraints, not a SQL parser.
 
 An authorized domain evolution updates these contracts and regression tests.
 Constraint names are presentation details; compare expressions and column sets.
@@ -18,10 +18,14 @@ REQUIRED_UNIQUES = {
     'diagnosis_source_links': [('diagnosis_id', 'knowledge_chunk_id')],
     'knowledge_chunks': [('document_id', 'chunk_index')],
     'github_login_attempts': [('state_digest',)],
+    # DD-027: review revisions as created by Recommendation V2.
+    'human_reviews': [('diagnostic_id', 'revision')],
 }
 # DD-026: one-time handoff digests and admitted-repository membership of workflow scopes.
 REQUIRED_PARTIAL_UNIQUES = {
     'github_login_attempts': [(('handoff_digest',), 'handoff_digest IS NOT NULL')],
+    # DD-027: one admitted diagnosis per admitted context (Recommendation V6).
+    'diagnoses': [(('context_id',), 'admission_fingerprint IS NOT NULL')],
 }
 REQUIRED_COMPOSITE_FKS = {
     'capture_workflow_scopes': [(['tenant_id', 'repository_id'], 'ingestion.repository_admissions',
@@ -69,6 +73,9 @@ REQUIRED_REFERENCES = {
     'ingestion.github_login_attempts.connection_id': ('logical_ref', 'ingestion.github_connections.id'),
     'ingestion.github_login_attempts.generation_id': ('logical_ref', 'ingestion.github_connection_generations.id'),
     'ingestion.capture_workflow_scopes.pipeline_id': ('logical_ref', 'ops.pipelines.id'),
+    # DD-027: Recommendation V6 promotes both references from the immutable output, without FK.
+    'diagnosis.diagnoses.context_id': ('logical_ref', 'diagnosis.correlated_context_receipts.context_id'),
+    'diagnosis.diagnoses.execution_id': ('logical_ref', 'ops.pipeline_executions.id'),
 }
 REQUIRED_CHECKS = {
     'pipeline_executions': ['run_attempt > 0'],
@@ -79,10 +86,19 @@ REQUIRED_CHECKS = {
         "AND scope_github_installation_id IS NOT NULL AND scope_github_installation_id ~ '^[1-9][0-9]*$' "
         "AND scope_revision IS NOT NULL AND scope_revision ~ '^[A-Za-z0-9._:-]{1,128}$'))",
     ],
-    'diagnoses': ['version > 0', "status <> 'DIAGNOSIS_READY' OR (probable_cause IS NOT NULL AND btrim(probable_cause) <> '' AND diagnosis_ready_at IS NOT NULL)"],
-    'human_reviews': ["decision <> 'CORRECTED' OR (actual_cause IS NOT NULL AND btrim(actual_cause) <> '')"],
+    'diagnoses': ['version > 0', "status <> 'DIAGNOSIS_READY' OR (probable_cause IS NOT NULL AND btrim(probable_cause) <> '' AND diagnosis_ready_at IS NOT NULL)",
+                  # DD-027: Recommendation V3 and V6.
+                  "admission_fingerprint IS NULL OR admission_fingerprint ~ '^[0-9a-f]{64}$'",
+                  "context_id = (output->>'contextId')::uuid",
+                  "execution_id = (output->>'executionId')::uuid"],
+    'human_reviews': ["decision <> 'CORRECTED' OR (actual_cause IS NOT NULL AND btrim(actual_cause) <> '')",
+                      # DD-027: Recommendation V2.
+                      'revision > 0',
+                      "(decision = 'CORRECTED' AND actual_cause IS NOT NULL AND btrim(actual_cause) <> '' AND "
+                      "(corrected_recommendation IS NULL OR btrim(corrected_recommendation) <> '')) OR (decision <> 'CORRECTED' "
+                      "AND actual_cause IS NULL AND corrected_recommendation IS NULL)"],
     'knowledge_documents': ["btrim(provenance) <> ''", "corpus_kind <> 'reviewed_incidents' OR reviewed_incident_id IS NOT NULL"],
-    'knowledge_chunks': ['chunk_index >= 0', "btrim(provenance) <> ''"],
+    'knowledge_chunks': ['chunk_index >= 0', "btrim(provenance) <> ''", "btrim(content) <> ''"],
     'correlated_context_receipts': [
         'operation_id = context_id',
         "request_fingerprint ~ '^v1:sha256:[0-9a-f]{64}$'",
@@ -198,8 +214,8 @@ def validate_constraints(domain):
             errors.append(f'{column}: required {kind} to {target}')
     for table, names in {
         'ops.pipeline_executions': ['run_attempt'],
-        'diagnosis.diagnoses': ['version', 'status', 'incident_id'],
-        'diagnosis.human_reviews': ['decision'],
+        'diagnosis.diagnoses': ['version', 'status', 'incident_id', 'authorization_scope', 'output', 'context_id', 'execution_id'],
+        'diagnosis.human_reviews': ['decision', 'revision'],
         'knowledge.knowledge_documents': ['provenance', 'corpus_kind'],
         'knowledge.knowledge_chunks': ['chunk_index', 'document_id', 'provenance'],
     }.items():
@@ -208,6 +224,8 @@ def validate_constraints(domain):
                 errors.append(f'{table}.{name}: approved constraint requires NOT NULL')
     if columns.get('ops.repositories.github_repository_id', {}).get('unique') is not True:
         errors.append('ops.repositories.github_repository_id: approved identity requires UNIQUE')
+    if columns.get('ops.incidents.display_number', {}).get('unique') is not True:
+        errors.append('ops.incidents.display_number: DD-027 presentation number requires UNIQUE')
     confidence = columns.get('diagnosis.diagnoses.confidence', {})
     if confidence.get('type') != 'jsonb' or confidence.get('nullable') is not True:
         errors.append('confidence must remain nullable JSONB while DQ-002 is open')

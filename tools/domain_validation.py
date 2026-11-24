@@ -14,6 +14,8 @@ from correlation_constraints import validate_correlation
 IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 TYPES = {"uuid", "uuid[]", "text", "text[]", "integer", "bigint", "boolean",
          "timestamptz", "interval", "jsonb", "vector(1536)", "numeric", "bytea"}
+# DD-027: bounded strings exist only where an owner's migration declares them (RAG knowledge schema).
+VARCHAR = re.compile(r"^varchar\(([1-9][0-9]{0,3})\)$")
 EXCLUDED = {"users", "teams", "roles", "workflows", "failure_types",
             "root_causes", "reporting_service", "audit_service",
             "anomaly_detector", "anomaly_detection_engine", "logbert",
@@ -163,7 +165,7 @@ def validate_domain(domain, architecture):
                 errors.append(f"Invalid column: {location}")
             if "root_cause" in str(c.get("name", "")).lower():
                 errors.append(f"{location}: root_cause is prohibited; use probable_cause")
-            if c.get("type") not in TYPES:
+            if c.get("type") not in TYPES and not VARCHAR.fullmatch(str(c.get("type"))):
                 errors.append(f"{location}: unsupported type {c.get('type')!r}")
             for flag in ("pk", "nullable", "unique", "er_visible"):
                 if type(c.get(flag)) is not bool:

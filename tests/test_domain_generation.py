@@ -134,8 +134,8 @@ class DomainGenerationTests(unittest.TestCase):
         self.assertTrue(all(source == target for source, target in refs))
         self.assertIn("Referencia lógica a knowledge.knowledge_chunks.id", dbml)
         self.assertIn("embedding vector(1536)", dbml)
-        self.assertIn("embedding_model text", dbml)
-        self.assertIn("embedding_model_version text", dbml)
+        self.assertIn("embedding_model varchar(128)", dbml)
+        self.assertIn("embedding_model_version varchar(128)", dbml)
 
     def test_mvp_tables_keep_their_qualification_and_logical_references(self):
         tables = ("execution_event_receipts", "incident_diagnoses", "diagnosis_jobs", "incident_summary_outbox",
@@ -147,6 +147,30 @@ class DomainGenerationTests(unittest.TestCase):
         attr = self.column("incident_diagnoses", "diagnosis_id")
         attr["fk"] = attr.pop("logical_ref")
         self.rejected("physical cross-schema FK is prohibited")
+
+    def test_dd027_reconciles_implemented_columns_without_physical_cross_schema_refs(self):
+        self.assertEqual(self.model["model_version"], "1.10.0")
+        self.assertTrue(self.column("incidents", "display_number")["unique"])
+        self.assertTrue(self.column("evidence_items", "source_locator")["nullable"])
+        self.assertTrue(self.column("correlated_contexts", "signal_source_locator")["nullable"])
+        self.assertEqual(self.column("diagnoses", "context_id")["logical_ref"],
+                         "diagnosis.correlated_context_receipts.context_id")
+        self.assertEqual(self.column("diagnoses", "execution_id")["logical_ref"], "ops.pipeline_executions.id")
+        self.assertIn("CREATE UNIQUE INDEX diagnoses_admitted_context_uq", generate_extras(self.model))
+        self.assertIn("CASE WHEN item ? 'source_locator' THEN 7 ELSE 6 END", generate_extras(self.model))
+        self.column("diagnoses", "context_id").pop("logical_ref")
+        self.rejected("diagnosis.diagnoses.context_id: required logical_ref")
+
+    def test_presentation_number_must_stay_unique(self):
+        self.column("incidents", "display_number")["unique"] = False
+        self.rejected("display_number")
+
+    def test_bounded_strings_only_as_varchar_with_positive_length(self):
+        self.assertEqual(self.column("knowledge_documents", "source_id")["type"], "varchar(256)")
+        for invalid in ("varchar", "varchar(0)", "varchar(n)", "character varying(64)"):
+            with self.subTest(type=invalid):
+                self.column("knowledge_documents", "source_id")["type"] = invalid
+                self.rejected("unsupported type")
 
     def test_non_deferred_composite_fk_is_not_described_as_deferred(self):
         self.assertIn("Composite FK capture_workflow_scopes_admitted_fk.", generate_dbml(self.model))
