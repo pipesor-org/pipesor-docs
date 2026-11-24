@@ -17,8 +17,8 @@ def visible_columns(entity):
 
 def generate_er(model):
     # load_domain performs the shared checks before any generated file is written.
-    if len(model["entities"]) > 28:
-        raise ValueError("ER exceeds 28 tables")
+    if len(model["entities"]) > 35:
+        raise ValueError("ER exceeds 35 tables")
     keys = {f"{e['schema']}.{e['table']}" for e in model["entities"]}
     for e in model["entities"]:
         if not any(c["pk"] for c in e["attributes"]):
@@ -76,7 +76,8 @@ def generate_er(model):
         for fk in entity.get('foreign_keys', []):
             left = f"{entity['schema']}.{entity['table']}.{fk['columns'][0]}"
             right = f"{fk['references']['table']}.{fk['references']['columns'][0]}"
-            label = "composite FK deferred: " + ', '.join(fk['columns']) + ' → ' + ', '.join(fk['references']['columns'])
+            kind = "composite FK deferred: " if fk.get('initially_deferred') else "composite FK: "
+            label = kind + ', '.join(fk['columns']) + ' → ' + ', '.join(fk['references']['columns'])
             lines.append(f'{left} -> {right}: {quote(label)}')
     lines.extend(["", 'legend: "Legend\\nSolid line: intra-schema FK (N:1)\\nDashed line: logical reference by ID, no physical FK\\nDotted border: pipeline_access_grants (IA-only / inferred)\\nComposite UQ: member of a composite unique key\\n+N columns: see data dictionary\\nNo cross-context ORM navigation" {',
                   "  shape: text", "  style.font-size: 16", "  near: bottom-center", "}"])

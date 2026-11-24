@@ -23,12 +23,18 @@ class CaptureGenerationTests(unittest.TestCase):
 
     def test_only_four_capture_tables_are_added_under_ingestion_ownership(self):
         self.assertEqual(validate_domain(self.model, self.architecture), [])
-        self.assertEqual(len(self.model['entities']), 28)
+        self.assertEqual(len(self.model['entities']), 35)
         for table in TABLES:
             self.assertEqual(self.entity(table)['owner_container'], 'ingestion_normalization_service')
             self.assertIsNone(self.entity(table)['retention_policy'])
         self.entity('capture_receipts')['attributes'].append(dict(self.entity('capture_receipts')['attributes'][2], name='raw_body'))
         self.assertTrue(any('raw inputs' in e for e in validate_domain(self.model, self.architecture)))
+
+    def test_only_declared_ingestion_tables_are_accepted(self):
+        extra = deepcopy(self.entity('repository_admissions'))
+        extra['id'] = extra['table'] = 'unapproved_admissions'
+        self.model['entities'].append(extra)
+        self.assertTrue(any('ingestion requires only' in e for e in validate_domain(self.model, self.architecture)))
 
     def test_reserved_uuids_lossless_instants_and_membership_are_required(self):
         for table, field in [('capture_receipts', 'snapshot_message_id'), ('capture_observations', 'observed_at_submicro')]:

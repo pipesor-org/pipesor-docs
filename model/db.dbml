@@ -193,6 +193,46 @@ Table ops.pipeline_access_grants {
   Note: 'Representación provisional de capacidades por pipeline; no requisito core ni implementación definitiva RBAC. Owner: pipeline_service. ia_only / inferred.'
 }
 
+Table ops.execution_event_receipts {
+  event_id uuid [pk, not null, note: 'Identidad del evento entregado (eventId); asignada por el productor, no por Pipeline. Fuente: architecture.yml#pipeline_service, architecture.yml#rel_service_bus_pipeline_service, pipesor-pipeline-service@dcaa002: docs/architecture.md#contrato-de-evento-normalizado-v1-aprobado-en-sesion, V5__create_execution_event_receipts.sql, DD-026']
+  execution_id uuid [not null, note: 'Ejecución descrita por el evento; sin FK porque un evento pausado puede preceder a la fila de la ejecución. Referencia lógica a ops.pipeline_executions.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#pipeline_service, architecture.yml#rel_service_bus_pipeline_service, pipesor-pipeline-service@dcaa002: docs/architecture.md#contrato-de-evento-normalizado-v1-aprobado-en-sesion, V5__create_execution_event_receipts.sql, DD-026']
+  message_digest text [not null, note: 'SHA-256 hexadecimal del mensaje canónico; detecta reutilización conflictiva del eventId. Fuente: architecture.yml#pipeline_service, architecture.yml#rel_service_bus_pipeline_service, pipesor-pipeline-service@dcaa002: docs/architecture.md#contrato-de-evento-normalizado-v1-aprobado-en-sesion, V5__create_execution_event_receipts.sql, DD-026']
+  content_digest text [not null, note: 'SHA-256 hexadecimal del contenido canónico del snapshot; distingue snapshots idénticos de conflictivos. Fuente: architecture.yml#pipeline_service, architecture.yml#rel_service_bus_pipeline_service, pipesor-pipeline-service@dcaa002: docs/architecture.md#contrato-de-evento-normalizado-v1-aprobado-en-sesion, V5__create_execution_event_receipts.sql, DD-026']
+  source_updated_at timestamptz [not null, note: 'Instante upstream del snapshot truncado a microsegundos; ordena versiones de la fuente. Fuente: architecture.yml#pipeline_service, architecture.yml#rel_service_bus_pipeline_service, pipesor-pipeline-service@dcaa002: docs/architecture.md#contrato-de-evento-normalizado-v1-aprobado-en-sesion, V5__create_execution_event_receipts.sql, DD-026']
+  source_submicro_nanos integer [not null, note: 'Nanosegundos restantes (0..999) para reconstruir el instante exacto de la fuente. Fuente: architecture.yml#pipeline_service, architecture.yml#rel_service_bus_pipeline_service, pipesor-pipeline-service@dcaa002: docs/architecture.md#contrato-de-evento-normalizado-v1-aprobado-en-sesion, V5__create_execution_event_receipts.sql, DD-026']
+  disposition text [not null, note: 'Resultado registrado: APPLIED, DUPLICATE, IGNORED_STALE o IGNORED_PAUSED. Fuente: architecture.yml#pipeline_service, architecture.yml#rel_service_bus_pipeline_service, pipesor-pipeline-service@dcaa002: docs/architecture.md#contrato-de-evento-normalizado-v1-aprobado-en-sesion, V5__create_execution_event_receipts.sql, DD-026']
+  correlation_id text [not null, note: 'Identificador de correlación del evento; no contiene información sensible. Fuente: architecture.yml#pipeline_service, architecture.yml#rel_service_bus_pipeline_service, pipesor-pipeline-service@dcaa002: docs/architecture.md#contrato-de-evento-normalizado-v1-aprobado-en-sesion, V5__create_execution_event_receipts.sql, DD-026']
+  created_at timestamptz [not null, note: 'Instante de persistencia del recibo; sin política de purga. Assumption: A-002. Fuente: architecture.yml#pipeline_service, architecture.yml#rel_service_bus_pipeline_service, pipesor-pipeline-service@dcaa002: docs/architecture.md#contrato-de-evento-normalizado-v1-aprobado-en-sesion, V5__create_execution_event_receipts.sql, DD-026']
+  checks {
+    `message_digest ~ '^[0-9a-f]{64}$'` [name: 'execution_event_receipts_message_digest_check']
+    `content_digest ~ '^[0-9a-f]{64}$'` [name: 'execution_event_receipts_content_digest_check']
+    `source_submicro_nanos BETWEEN 0 AND 999` [name: 'execution_event_receipts_source_submicro_nanos_check']
+    `disposition IN ('APPLIED','DUPLICATE','IGNORED_STALE','IGNORED_PAUSED')` [name: 'execution_event_receipts_disposition_check']
+  }
+  Note: 'Recibo técnico durable de cada evento execution.snapshot consumido; identidad, digests y disposición para deduplicar y ordenar entregas, sin payload ni logs. Owner: pipeline_service. approved_domain / inferred.'
+}
+
+Table ops.incident_diagnoses {
+  incident_id uuid [pk, not null, note: 'Incidente proyectado; como máximo una fila por incidente y su ausencia equivale a ABSENT. Fuente: docs/architecture/decisions/ADR-027-incident-queue-read-model.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027, SRC_ADR_018, DD-026']
+  diagnosis_id uuid [not null, note: 'Diagnóstico de Recommendation por referencia lógica; sin FK cross-schema. Referencia lógica a diagnosis.diagnoses.id; sin FK física ni navegación ORM cross-context. Fuente: docs/architecture/decisions/ADR-027-incident-queue-read-model.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027, SRC_ADR_018, DD-026']
+  diagnosis_version integer [not null, note: 'Versión admitida proyectada; positiva y monótona junto con review_revision. Fuente: docs/architecture/decisions/ADR-027-incident-queue-read-model.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027, SRC_ADR_018, DD-026']
+  execution_id uuid [not null, note: 'Ejecución ORIGIN fallida del incidente a la que corresponde el diagnóstico. Fuente: docs/architecture/decisions/ADR-027-incident-queue-read-model.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027, SRC_ADR_018, DD-026']
+  status text [not null, note: 'Estado de revisión proyectado: PENDING, CONFIRMED, CORRECTED o REJECTED; PENDING representa la ausencia de revisión. Fuente: docs/architecture/decisions/ADR-027-incident-queue-read-model.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027, SRC_ADR_018, DD-026']
+  review_revision integer [not null, note: 'Revisiones aplicadas; 0 exactamente cuando el estado es PENDING. Fuente: docs/architecture/decisions/ADR-027-incident-queue-read-model.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027, SRC_ADR_018, DD-026']
+  reviewed_at timestamptz [null, note: 'Instante de la última revisión; nulo sin revisión. Fuente: docs/architecture/decisions/ADR-027-incident-queue-read-model.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027, SRC_ADR_018, DD-026']
+  probable_cause text [null, note: 'Causa probable inferida por el modelo, copiada solo para mostrar; hasta 1000 caracteres. Fuente: docs/architecture/decisions/ADR-027-incident-queue-read-model.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027, SRC_ADR_018, DD-026']
+  diagnosis_created_at timestamptz [not null, note: 'Instante de creación de la versión diagnóstica proyectada. Fuente: docs/architecture/decisions/ADR-027-incident-queue-read-model.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027, SRC_ADR_018, DD-026']
+  correlation_id text [not null, note: 'Correlación del diagnóstico recibida en X-Correlation-ID; no contiene información sensible. Fuente: docs/architecture/decisions/ADR-027-incident-queue-read-model.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027, SRC_ADR_018, DD-026']
+  projected_at timestamptz [not null, note: 'Instante en que Pipeline aplicó la proyección. Fuente: docs/architecture/decisions/ADR-027-incident-queue-read-model.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027, SRC_ADR_018, DD-026']
+  checks {
+    `diagnosis_version > 0` [name: 'incident_diagnoses_version_ck']
+    `status IN ('PENDING','CONFIRMED','CORRECTED','REJECTED')` [name: 'incident_diagnoses_status_ck']
+    `review_revision >= 0 AND (status = 'PENDING') = (review_revision = 0) AND (reviewed_at IS NULL) = (review_revision = 0)` [name: 'incident_diagnoses_review_ck']
+    `probable_cause IS NULL OR char_length(probable_cause) BETWEEN 1 AND 1000` [name: 'incident_diagnoses_cause_ck']
+  }
+  Note: 'Proyección de solo lectura del resumen diagnóstico por incidente, alimentada por Recommendation; no es autoridad del diagnóstico ni de sus revisiones. Owner: pipeline_service. approved_domain / confirmed.'
+}
+
 Table evidence.evidence_items {
   id uuid [pk, not null, note: 'Identificador estable asignado por el servicio propietario. Assumption: A-001. Fuente: architecture.yml#log_event_service, SRC_ADR_019, architecture.yml#INV-001, SRC_ADR_013, DD-006']
   incident_id uuid [not null, note: 'Incidente asociado por ID lógico. Referencia lógica a ops.incidents.id; sin FK física ni navegación ORM cross-context. Fuente: architecture.yml#log_event_service, SRC_ADR_019, architecture.yml#INV-001, SRC_ADR_013, DD-006']
@@ -388,6 +428,40 @@ Table diagnosis.human_reviews {
     `decision <> 'CORRECTED' OR (actual_cause IS NOT NULL AND btrim(actual_cause) <> '')` [name: 'human_reviews_check_1']
   }
   Note: 'Revisión humana: ausencia = PENDING derivado; decision solo CONFIRMED, CORRECTED o REJECTED. Owner: recommendation_service. approved_domain / confirmed.'
+}
+
+Table diagnosis.diagnosis_jobs {
+  context_id uuid [pk, not null, note: 'Recepción de contexto a diagnosticar; FK intra-schema a su recibo. Fuente: architecture.yml#recommendation_service, SRC_ADR_015, pipesor-recommendation-service@3d53d26: docs/diagnosis-worker.md, V7__create_diagnosis_jobs.sql, DD-026']
+  state text [not null, note: 'Estado del trabajo: PENDING, DONE o FAILED. Fuente: architecture.yml#recommendation_service, SRC_ADR_015, pipesor-recommendation-service@3d53d26: docs/diagnosis-worker.md, V7__create_diagnosis_jobs.sql, DD-026']
+  attempts integer [not null, note: 'Intentos reclamados; no negativo. Fuente: architecture.yml#recommendation_service, SRC_ADR_015, pipesor-recommendation-service@3d53d26: docs/diagnosis-worker.md, V7__create_diagnosis_jobs.sql, DD-026']
+  next_attempt_at timestamptz [not null, note: 'Instante desde el que el trabajo puede reclamarse. Fuente: architecture.yml#recommendation_service, SRC_ADR_015, pipesor-recommendation-service@3d53d26: docs/diagnosis-worker.md, V7__create_diagnosis_jobs.sql, DD-026']
+  lease_until timestamptz [null, note: 'Fin del lease del worker que lo reclamó; solo en PENDING. Fuente: architecture.yml#recommendation_service, SRC_ADR_015, pipesor-recommendation-service@3d53d26: docs/diagnosis-worker.md, V7__create_diagnosis_jobs.sql, DD-026']
+  last_failure text [null, note: 'Código corto del último fallo; sin mensajes, evidencia ni respuestas del proveedor. Fuente: architecture.yml#recommendation_service, SRC_ADR_015, pipesor-recommendation-service@3d53d26: docs/diagnosis-worker.md, V7__create_diagnosis_jobs.sql, DD-026']
+  created_at timestamptz [not null, note: 'Instante de creación del trabajo; sin política de purga. Assumption: A-002. Fuente: architecture.yml#recommendation_service, SRC_ADR_015, pipesor-recommendation-service@3d53d26: docs/diagnosis-worker.md, V7__create_diagnosis_jobs.sql, DD-026']
+  checks {
+    `state IN ('PENDING','DONE','FAILED')` [name: 'diagnosis_jobs_state_check']
+    `attempts >= 0` [name: 'diagnosis_jobs_attempts_check']
+    `last_failure IS NULL OR last_failure ~ '^[a-z][a-z0-9_]{0,63}$'` [name: 'diagnosis_jobs_last_failure_check']
+    `state = 'PENDING' OR lease_until IS NULL` [name: 'diagnosis_jobs_check']
+  }
+  Note: 'Cola técnica durable del diagnóstico automático; un trabajo por recepción de contexto, con lease y reintentos, sin evidencia ni payloads. Owner: recommendation_service. approved_domain / inferred.'
+}
+
+Table diagnosis.incident_summary_outbox {
+  incident_id uuid [pk, not null, note: 'Incidente cuyo resumen debe proyectarse; referencia lógica sin FK cross-schema. Referencia lógica a ops.incidents.id; sin FK física ni navegación ORM cross-context. Fuente: docs/architecture/decisions/ADR-027-incident-queue-read-model.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027, architecture.yml#recommendation_service, DD-026']
+  execution_id uuid [pk, not null, note: 'Ejecución del diagnóstico; referencia lógica sin FK cross-schema. Referencia lógica a ops.pipeline_executions.id; sin FK física ni navegación ORM cross-context. Fuente: docs/architecture/decisions/ADR-027-incident-queue-read-model.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027, architecture.yml#recommendation_service, DD-026']
+  generation bigint [not null, note: 'Generación de cambios pendientes; positiva y creciente con cada admisión o revisión. Fuente: docs/architecture/decisions/ADR-027-incident-queue-read-model.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027, architecture.yml#recommendation_service, DD-026']
+  attempts integer [not null, note: 'Intentos de envío desde el último cambio; no negativo. Fuente: docs/architecture/decisions/ADR-027-incident-queue-read-model.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027, architecture.yml#recommendation_service, DD-026']
+  next_attempt_at timestamptz [not null, note: 'Instante desde el que la fila puede reclamarse. Fuente: docs/architecture/decisions/ADR-027-incident-queue-read-model.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027, architecture.yml#recommendation_service, DD-026']
+  lease_until timestamptz [null, note: 'Fin del lease del publicador que la reclamó. Fuente: docs/architecture/decisions/ADR-027-incident-queue-read-model.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027, architecture.yml#recommendation_service, DD-026']
+  last_failure text [null, note: 'Código corto del último fallo; sin cuerpo del resumen ni tokens. Fuente: docs/architecture/decisions/ADR-027-incident-queue-read-model.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027, architecture.yml#recommendation_service, DD-026']
+  created_at timestamptz [not null, note: 'Instante de creación de la fila pendiente. Assumption: A-002. Fuente: docs/architecture/decisions/ADR-027-incident-queue-read-model.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027, architecture.yml#recommendation_service, DD-026']
+  checks {
+    `generation > 0` [name: 'incident_summary_outbox_generation_check']
+    `attempts >= 0` [name: 'incident_summary_outbox_attempts_check']
+    `last_failure IS NULL OR last_failure ~ '^[a-z][a-z0-9_]{0,63}$'` [name: 'incident_summary_outbox_last_failure_check']
+  }
+  Note: 'Outbox transaccional del resumen diagnóstico hacia Pipeline; una fila pendiente por incidente y ejecución hasta que Pipeline confirma la generación leída. Owner: recommendation_service. approved_domain / confirmed.'
 }
 
 Table knowledge.knowledge_documents {
@@ -766,6 +840,84 @@ Table ingestion.publication_outputs {
   Note: 'Captura/publicación durable de Ingestion: publication_outputs Owner: ingestion_normalization_service. approved_domain / confirmed. Partial unique publication_outputs_snapshot_uq (observation_id) WHERE event_type = \'execution.snapshot\'; extras.sql. Partial unique publication_outputs_fragment_uq (observation_id, fragment_locator) WHERE event_type = \'protected_workflow_evidence\'; extras.sql. Composite FK publication_outputs_observation_fk; DEFERRABLE INITIALLY DEFERRED in extras.sql. Constraints complementarias en extras.sql: capture_lifecycle.'
 }
 
+Table ingestion.github_login_attempts {
+  id uuid [pk, not null, note: 'Identificador del intento asignado por Ingestion. Fuente: docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md, docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion, docs/architecture/decisions/ADR-025-open-sign-in.md, DD-026']
+  state_digest bytea [not null, note: 'SHA-256 del state OAuth de un solo uso; nunca el valor crudo. Fuente: docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md, docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion, docs/architecture/decisions/ADR-025-open-sign-in.md, DD-026']
+  pkce_secret_object_ref text [not null, note: 'Referencia lógica pkce:<id> al objeto de custodia del verifier; no contiene el secreto. Fuente: docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md, docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion, docs/architecture/decisions/ADR-025-open-sign-in.md, DD-026']
+  pkce_secret_version_ref text [not null, note: 'Versión exacta custodiada del verifier; nunca el alias latest. Fuente: docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md, docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion, docs/architecture/decisions/ADR-025-open-sign-in.md, DD-026']
+  return_path text [not null, note: 'Ruta relativa del dashboard a la que se vuelve tras el inicio de sesión. Fuente: docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md, docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion, docs/architecture/decisions/ADR-025-open-sign-in.md, DD-026']
+  phase text [not null, note: 'Fase del intento: READY, CLAIMED, HANDOFF_READY, COMPLETED o FAILED. Fuente: docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md, docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion, docs/architecture/decisions/ADR-025-open-sign-in.md, DD-026']
+  expires_at timestamptz [not null, note: 'Expiración del intento; posterior a created_at. Fuente: docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md, docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion, docs/architecture/decisions/ADR-025-open-sign-in.md, DD-026']
+  correlation_id text [not null, note: 'Identificador de correlación no vacío; no contiene información sensible. Fuente: docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md, docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion, docs/architecture/decisions/ADR-025-open-sign-in.md, DD-026']
+  connection_id uuid [null, note: 'Conexión DD-020 resultante del inicio de sesión; presente con el handoff, sin FK física. Referencia lógica a ingestion.github_connections.id; sin FK física ni navegación ORM cross-context. Fuente: docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md, docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion, docs/architecture/decisions/ADR-025-open-sign-in.md, DD-026']
+  generation_id uuid [null, note: 'Generación DD-020 resultante del inicio de sesión; presente con el handoff, sin FK física. Referencia lógica a ingestion.github_connection_generations.id; sin FK física ni navegación ORM cross-context. Fuente: docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md, docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion, docs/architecture/decisions/ADR-025-open-sign-in.md, DD-026']
+  github_user_id text [null, note: 'ID numérico del usuario GitHub verificado; presente con el handoff. Fuente: docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md, docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion, docs/architecture/decisions/ADR-025-open-sign-in.md, DD-026']
+  github_login text [null, note: 'Login GitHub verificado para presentación; presente con el handoff. Fuente: docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md, docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion, docs/architecture/decisions/ADR-025-open-sign-in.md, DD-026']
+  handoff_digest bytea [null, note: 'SHA-256 del handoff de un solo uso; único cuando existe y nunca el valor crudo. Fuente: docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md, docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion, docs/architecture/decisions/ADR-025-open-sign-in.md, DD-026']
+  handoff_expires_at timestamptz [null, note: 'Expiración del handoff. Fuente: docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md, docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion, docs/architecture/decisions/ADR-025-open-sign-in.md, DD-026']
+  created_at timestamptz [not null, note: 'Instante de creación del intento. Fuente: docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md, docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion, docs/architecture/decisions/ADR-025-open-sign-in.md, DD-026']
+  updated_at timestamptz [not null, note: 'Instante del último cambio de fase. Fuente: docs/architecture/decisions/ADR-022-platform-identity-without-entra-app-registrations.md, docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion, docs/architecture/decisions/ADR-025-open-sign-in.md, DD-026']
+  indexes {
+    (state_digest) [unique, name: 'github_login_attempts_state_uq']
+  }
+  checks {
+    `phase IN ('READY','CLAIMED','HANDOFF_READY','COMPLETED','FAILED')` [name: 'github_login_attempts_phase_ck']
+    `pkce_secret_object_ref = 'pkce:' || id::text` [name: 'github_login_attempts_pkce_owner_ck']
+    `btrim(pkce_secret_version_ref) <> '' AND lower(btrim(pkce_secret_version_ref)) <> 'latest'` [name: 'github_login_attempts_version_ck']
+    `return_path ~ '^/'` [name: 'github_login_attempts_return_ck']
+    `btrim(correlation_id) <> ''` [name: 'github_login_attempts_correlation_ck']
+    `expires_at > created_at` [name: 'github_login_attempts_expiry_ck']
+    `updated_at >= created_at` [name: 'github_login_attempts_timestamps_ck']
+    `(phase IN ('HANDOFF_READY','COMPLETED')) = (handoff_digest IS NOT NULL) AND (handoff_digest IS NULL OR (handoff_expires_at IS NOT NULL AND connection_id IS NOT NULL AND generation_id IS NOT NULL AND github_user_id ~ '^[1-9][0-9]*$' AND btrim(github_login) <> ''))` [name: 'github_login_attempts_handoff_ck']
+  }
+  Note: 'Intento de inicio de sesión GitHub de un solo uso y su handoff al dashboard; solo digests y referencias de custodia, nunca state, verifier, código, handoff ni tokens. Owner: ingestion_normalization_service. approved_domain / confirmed. Partial unique github_login_attempts_handoff_uq (handoff_digest) WHERE handoff_digest IS NOT NULL; extras.sql.'
+}
+
+Table ingestion.repository_admissions {
+  tenant_id uuid [pk, not null, note: 'Tenant de plataforma de la admisión. Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, SRC_ADR_020, DD-026']
+  app_id text [not null, note: 'ID numérico de la GitHub App pipesor. Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, SRC_ADR_020, DD-026']
+  account_id text [not null, note: 'ID numérico de la cuenta propietaria de la instalación. Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, SRC_ADR_020, DD-026']
+  installation_id text [not null, note: 'ID numérico de la instalación de la App. Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, SRC_ADR_020, DD-026']
+  repository_id text [pk, not null, note: 'ID numérico del repositorio GitHub admitido. Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, SRC_ADR_020, DD-026']
+  admitted_at timestamptz [not null, note: 'Instante de la admisión o de su reactivación. Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, SRC_ADR_020, DD-026']
+  admitted_by text [not null, note: 'Referencia no vacía del sujeto que admitió (operador o administrador del repositorio). Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, SRC_ADR_020, DD-026']
+  source text [not null, note: 'Origen de la admisión: operator o repository_administrator. Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, SRC_ADR_020, DD-026']
+  revoked_at timestamptz [null, note: 'Instante de revocación cuando GitHub deja de listar el repositorio en la instalación. Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, SRC_ADR_020, DD-026']
+  revoked_by text [null, note: 'Referencia del sujeto cuya reconciliación revocó; presente junto con revoked_at. Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, SRC_ADR_020, DD-026']
+  checks {
+    `app_id ~ '^[1-9][0-9]*$' AND account_id ~ '^[1-9][0-9]*$' AND installation_id ~ '^[1-9][0-9]*$' AND repository_id ~ '^[1-9][0-9]*$'` [name: 'repository_admissions_ids_ck']
+    `btrim(admitted_by) <> ''` [name: 'repository_admissions_by_ck']
+    `source IN ('operator','repository_administrator')` [name: 'repository_admissions_source_ck']
+    `(revoked_at IS NULL) = (revoked_by IS NULL) AND (revoked_by IS NULL OR btrim(revoked_by) <> '')` [name: 'repository_admissions_revoked_ck']
+  }
+  Note: 'Admisión de un repositorio GitHub por tenant, importada por el operador o reconciliada desde su administrador; las revocadas se conservan. Owner: ingestion_normalization_service. approved_domain / confirmed.'
+}
+
+Table ingestion.capture_workflow_scopes {
+  capture_domain text [pk, not null, note: 'Partición confiable de autorización máquina (DD-021). Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, DD-026']
+  tenant_id uuid [pk, not null, note: 'Tenant de plataforma del alcance. Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, DD-026']
+  app_id text [pk, not null, note: 'ID numérico de la GitHub App pipesor. Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, DD-026']
+  account_id text [not null, note: 'ID numérico de la cuenta propietaria de la instalación. Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, DD-026']
+  installation_id text [not null, note: 'ID numérico de la instalación de la App. Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, DD-026']
+  repository_id text [pk, not null, note: 'ID numérico del repositorio GitHub; debe estar admitido. Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, DD-026']
+  workflow_id text [pk, not null, note: 'ID numérico del workflow GitHub. Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, DD-026']
+  pipeline_id uuid [null, note: 'Pipeline registrado por referencia lógica; nulo en alcances importados sin registro. Referencia lógica a ops.pipelines.id; sin FK física ni navegación ORM cross-context. Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, DD-026']
+  status text [not null, note: 'Estado de monitorización sincronizado desde Pipeline: ACTIVE o PAUSED. Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, DD-026']
+  allowed_actions text[] [not null, note: 'Acciones workflow_run admitidas; subconjunto no vacío de requested, in_progress y completed. Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, DD-026']
+  replay_window interval [not null, note: 'Ventana de replay positiva. Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, DD-026']
+  revision bigint [not null, note: 'Revisión numérica positiva; aumenta con cada cambio de estado. Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, DD-026']
+  scope_revision text [not null, note: 'Revisión opaca derivada que comparan capturas, replays y comprobaciones de Pipeline. Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, DD-026']
+  updated_at timestamptz [not null, note: 'Instante de la última sincronización. Fuente: docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md, docs/architecture/contracts/mvp-http-api-v1.md#internal-capture-workflow-scopes-adr-023, docs/architecture/decisions/ADR-024-repository-administrator-admission.md, DD-026']
+  checks {
+    `status IN ('ACTIVE','PAUSED')` [name: 'capture_workflow_scopes_status_ck']
+    `app_id ~ '^[1-9][0-9]*$' AND account_id ~ '^[1-9][0-9]*$' AND installation_id ~ '^[1-9][0-9]*$' AND repository_id ~ '^[1-9][0-9]*$' AND workflow_id ~ '^[1-9][0-9]*$'` [name: 'capture_workflow_scopes_ids_ck']
+    `cardinality(allowed_actions) > 0 AND allowed_actions <@ ARRAY['requested','in_progress','completed']::text[]` [name: 'capture_workflow_scopes_actions_ck']
+    `replay_window > interval '0'` [name: 'capture_workflow_scopes_replay_ck']
+    `revision > 0 AND scope_revision ~ '^[A-Za-z0-9._:-]{1,128}$'` [name: 'capture_workflow_scopes_revision_ck']
+  }
+  Note: 'Alcance de captura máquina por workflow, sincronizado por Pipeline desde sus registros; cada cambio de estado incrementa la revisión y revoca la autoridad anterior. Owner: ingestion_normalization_service. approved_domain / confirmed. Composite FK capture_workflow_scopes_admitted_fk.'
+}
+
 Ref correlation_receipts_context_id: evidence.correlation_receipts.context_id > evidence.correlated_contexts.id
 Ref github_generation_connection: ingestion.github_connection_generations.connection_id > ingestion.github_connections.id
 Ref pipelines_repository_id: ops.pipelines.repository_id > ops.repositories.id
@@ -780,6 +932,9 @@ Ref diagnosis_evidence_links_diagnosis_id: diagnosis.diagnosis_evidence_links.di
 Ref diagnosis_source_links_diagnosis_id: diagnosis.diagnosis_source_links.diagnosis_id > diagnosis.diagnoses.id
 Ref human_reviews_diagnostic_id: diagnosis.human_reviews.diagnostic_id > diagnosis.diagnoses.id
 Ref knowledge_chunks_document_id: knowledge.knowledge_chunks.document_id > knowledge.knowledge_documents.id
+Ref incident_diagnoses_incident_id: ops.incident_diagnoses.incident_id > ops.incidents.id
+Ref incident_diagnoses_execution_id: ops.incident_diagnoses.execution_id > ops.pipeline_executions.id
+Ref diagnosis_jobs_context_id_fkey: diagnosis.diagnosis_jobs.context_id > diagnosis.correlated_context_receipts.context_id
 Ref correlation_groups_confirmed_context_fk: evidence.correlation_groups.(id, confirmed_context_id) > evidence.correlated_contexts.(group_id, id)
 Ref correlated_contexts_group_identity_fk: evidence.correlated_contexts.(group_id, incident_id, execution_id) > evidence.correlation_groups.(id, incident_id, execution_id)
 Ref github_connections_active_generation_fk: ingestion.github_connections.(id, active_generation_id) > ingestion.github_connection_generations.(connection_id, id)
@@ -791,6 +946,7 @@ Ref capture_receipts_observation_fk: ingestion.capture_receipts.(capture_domain,
 Ref capture_aliases_receipt_fk: ingestion.capture_delivery_aliases.(capture_domain, source, receipt_id) > ingestion.capture_receipts.(capture_domain, source, id)
 Ref capture_observations_origin_fk: ingestion.capture_observations.(capture_domain, source, origin_receipt_id) > ingestion.capture_receipts.(capture_domain, source, id)
 Ref publication_outputs_observation_fk: ingestion.publication_outputs.(observation_id) > ingestion.capture_observations.(id)
+Ref capture_workflow_scopes_admitted_fk: ingestion.capture_workflow_scopes.(tenant_id, repository_id) > ingestion.repository_admissions.(tenant_id, repository_id)
 
 TableGroup ops {
   ops.repositories
@@ -800,6 +956,8 @@ TableGroup ops {
   ops.incidents
   ops.incident_runs
   ops.pipeline_access_grants
+  ops.execution_event_receipts
+  ops.incident_diagnoses
 }
 
 TableGroup evidence {
@@ -816,6 +974,8 @@ TableGroup diagnosis {
   diagnosis.diagnosis_evidence_links
   diagnosis.diagnosis_source_links
   diagnosis.human_reviews
+  diagnosis.diagnosis_jobs
+  diagnosis.incident_summary_outbox
 }
 
 TableGroup knowledge {
@@ -836,4 +996,7 @@ TableGroup ingestion {
   ingestion.capture_delivery_aliases
   ingestion.capture_observations
   ingestion.publication_outputs
+  ingestion.github_login_attempts
+  ingestion.repository_admissions
+  ingestion.capture_workflow_scopes
 }

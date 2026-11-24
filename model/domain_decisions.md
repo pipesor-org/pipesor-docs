@@ -598,3 +598,29 @@ confirma el ámbito vigente y el intento ORIGIN con Pipeline antes de llamar.
 Ausencia y fila fuera de la consulta acotada se devuelven como `NOT_READY`.
 Log/Event conserva su propiedad y sus referencias lógicas. El modelo
 conserva únicamente la representación protegida y su política de retención.
+
+<a id="DD-026"></a>
+
+## DD-026 — Reconciliación de siete tablas MVP implementadas
+
+- autoridad: solicitud explícita del responsable del 23/11/2026 de modelar ahora las siete tablas que los servicios ya crean y de elevar el límite del modelo persistente/ER de 28 a 35 tablas. Es el único cambio de gobernanza autorizado; no aprueba por sí misma arquitectura, contratos, integración ni despliegue.
+- contexto: ADR-023 y ADR-027 dejaron pendiente que `model/domain.yml` añadiera sus tablas («must add … tables», junto con las demás tablas MVP). Esta decisión cumple esas notas sin editar los ADR.
+- decisión: `domain.yml` 1.9.0 añade siete tablas (35 en total). Las migraciones Flyway son la fuente de columnas, nulabilidad, claves, CHECK y FK intra-schema. Revisiones consultadas, main remoto de cada servicio: Recommendation `3d53d26`, Ingestion `6ecca4c`, Pipeline `dcaa002`.
+
+| Tabla | Migración | Base documental | scope_basis / status |
+|---|---|---|---|
+| `ops.execution_event_receipts` | Pipeline V5 | Política de recepción durable y orden aprobada en sesión y registrada en `docs/architecture.md` del servicio; el contrato conjunto sigue en PD-031/033. | approved_domain / inferred |
+| `ops.incident_diagnoses` | Pipeline V9 | ADR-027; MVP HTTP API v1, «Internal: diagnosis summaries». | approved_domain / confirmed |
+| `diagnosis.diagnosis_jobs` | Recommendation V7 | Implementación (`docs/diagnosis-worker.md`) dentro de la orquestación de ADR-015; ningún ADR ni DD aprueba la tabla. | approved_domain / inferred |
+| `diagnosis.incident_summary_outbox` | Recommendation V9 | ADR-027; MVP HTTP API v1, «Internal: diagnosis summaries». | approved_domain / confirmed |
+| `ingestion.github_login_attempts` | Ingestion V3 | ADR-022 (state/PKCE y canje de un solo uso en Ingestion), contrato de identidad de plataforma v1 §5 y ADR-025. | approved_domain / confirmed |
+| `ingestion.repository_admissions` | Ingestion V4 y V5 | ADR-023 y ADR-024. | approved_domain / confirmed |
+| `ingestion.capture_workflow_scopes` | Ingestion V4 | ADR-023; MVP HTTP API v1, «Internal: capture workflow scopes». | approved_domain / confirmed |
+
+- calificación: `approved_domain` indica que las siete pertenecen a capacidades ya aprobadas de su owner, sin ampliar alcance ni ownership de schema. `confirmed` se usa solo cuando un ADR Accepted decide la tabla o su concepto persistente. `diagnosis_jobs` y `execution_event_receipts` quedan `inferred`: derivan de la implementación y, para los recibos, de una aprobación de sesión registrada fuera de este repositorio. No se usa `ia_only`, reservado a derivaciones de arquitectura de información. Promoverlas exige una decisión explícita.
+- referencias: FK físicas solo intra-schema: `incident_diagnoses.incident_id`/`execution_id` hacia `ops.incidents`/`ops.pipeline_executions`, `diagnosis_jobs.context_id` hacia `correlated_context_receipts.context_id` y la FK compuesta `capture_workflow_scopes_admitted_fk` hacia `repository_admissions`. Referencias lógicas cross-schema (ADR-018, DD-008): `incident_diagnoses.diagnosis_id`, `incident_summary_outbox.incident_id`/`execution_id` y `capture_workflow_scopes.pipeline_id`. Dentro de su schema y sin FK, como en las migraciones: `execution_event_receipts.execution_id` (un evento pausado puede preceder a la ejecución) y `github_login_attempts.connection_id`/`generation_id` hacia las tablas DD-020.
+- representación: `incident_diagnoses.status` es text con CHECK y su PENDING proyecta la ausencia de revisión; no es el enum `HumanReviewDecision` ni modifica A-012. Los demás estados técnicos (`state`, `phase`, `disposition`, `source`) siguen como text con CHECK, igual que en las migraciones. Los tipos admitidos incorporan `text[]` e `interval` solo para representar `allowed_actions` y `replay_window`. El cierre de tablas de `ingestion` y el registro de constraints congeladas incorporan las tablas nuevas, como en DD-020, DD-021 y DD-023.
+- no representado: DEFAULT de columnas, índices no únicos (colas, estado, instalación, orden) y backfills de las migraciones; el modelo no expresa esos elementos y no cambian las restricciones. dbml2sql exporta toda FK como DEFERRABLE INITIALLY IMMEDIATE, mientras `diagnosis_jobs_context_id_fkey` y `capture_workflow_scopes_admitted_fk` son NOT DEFERRABLE en las migraciones; sin SET CONSTRAINTS el comportamiento coincide. Los generadores ya no describen como diferida una FK compuesta que no lo es.
+- límites: no hay retención ni purga decididas para estas tablas (`retention_policy` nulo); `incident_diagnoses.probable_cause` copia salida inferida del modelo solo para mostrarla y no extiende RET-001 por analogía. `github_login_attempts` usa el prefijo `pkce:` de `github_authorization_attempts`; la no reutilización entre ambas clases depende de UUID distintos asignados por Ingestion, sin guardia SQL común. La llamada Recommendation → Pipeline de ADR-027 no tiene relación en `architecture.yml`; se reporta y no se modela aquí. No se modifican ADR, `architecture.yml`, presupuestos ni membresías de vistas, ni se ejecutan migraciones de servicios.
+- límite del modelo: el límite persistente/ER pasa de 28 a 35 tablas exclusivamente por estas siete.
+- reversibilidad: retirar o reclasificar una tabla requiere decisión explícita; un `inferred` nunca se promueve automáticamente.

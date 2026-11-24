@@ -26,7 +26,9 @@ class ConnectorGenerationTests(unittest.TestCase):
     def test_connector_owned_metadata_excludes_reverse_uniqueness_and_secret_values(self):
         self.assertEqual(validate_domain(self.model,self.architecture),[])
         tables=[e for e in self.model['entities'] if e['schema']=='ingestion' and e['table'].startswith('github_')]
-        self.assertEqual(len(tables),4)
+        # Four DD-020 connector tables plus the DD-026 login attempts, which is not connector metadata.
+        self.assertEqual({e['table'] for e in tables},{'github_connections','github_connection_generations',
+                         'github_authorization_attempts','github_credential_operations','github_login_attempts'})
         self.assertTrue(all(e['owner_container']=='ingestion_normalization_service' for e in tables))
         self.entity('github_connection_generations')['unique_constraints'].append({'name':'unapproved_reverse_uq','columns':['github_user_id']})
         self.assertTrue(any('reverse uniqueness' in e for e in validate_domain(self.model,self.architecture)))
