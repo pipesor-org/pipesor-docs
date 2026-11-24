@@ -13,7 +13,7 @@ collapse:
 node_summaries:
   github_actions: "CI/CD evidence and artifacts"
   observability_sources: "Authorized telemetry"
-  pretrained_llm_diagnostic_service: "Foundry foundation; model pending"
+  pretrained_llm_diagnostic_service: "gpt-6-luna in dev (ADR-026)"
   ingestion_normalization_service: "Normalizes and protects"
   azure_service_bus: "Topic and subscriptions"
   pipeline_service: "Pipelines and executions"
@@ -24,7 +24,7 @@ node_summaries:
   rag_retrieval: "Authorized knowledge"
   postgresql_operational_store: "Operational data"
   technical_users: "Querying and validation"
-  entra_id: "Corporate identity"
+  github: "Sign-in and repositories"
   web_dashboard: "Querying and human review"
 
 relationship_labels:
@@ -55,7 +55,8 @@ relationship_labels:
   rel_recommendation_llm: "Inference with evidence and RAG"
   rel_human_review_postgresql: "Persists human review"
   rel_technical_users_dashboard: "Querying and human review"
-  rel_dashboard_entra: "Corporate authentication"
+  rel_dashboard_github_sign_in: "GitHub sign-in (OAuth + PKCE)"
+  rel_github_github_actions: "Repository and workflows"
   rel_dashboard_pipeline_service: "Queries pipelines and executions"
   rel_dashboard_log_event_service: "Queries logs and evidence"
   rel_dashboard_recommendation_service: "Diagnosis and review"
@@ -135,7 +136,7 @@ views:
     include_external: true
     elements:
       - technical_users
-      - entra_id
+      - github
       - web_dashboard
       - pipeline_service
       - log_event_service
@@ -145,7 +146,7 @@ views:
     positions:
       technical_users: [150, 795]
       github_actions: [150, 535]
-      entra_id: [150, 245]
+      github: [150, 245]
       web_dashboard: [450, 795]
       pipeline_service: [990, 795]
       log_event_service: [990, 535]
@@ -157,17 +158,18 @@ views:
       rel_log_event_pipeline_operational_evidence: {from: n, to: s, via: [], label: [1010, 665]}
       rel_recommendation_service_postgresql: {from: e, to: w, via: [[1125, 245], [1125, 535]], label: [1125, 350]}
       rel_technical_users_dashboard: {from: e, to: w, via: [], label: [300, 810]}
-      rel_dashboard_entra: {from: s, to: e, via: [[450, 665], [300, 665], [300, 245]], label: [300, 400]}
+      rel_dashboard_github_sign_in: {from: s, to: e, via: [[450, 665], [285, 665], [285, 245]], label: [285, 400]}
+      rel_github_github_actions: {from: n, to: s, via: [], label: [170, 390]}
       rel_dashboard_pipeline_service: {from: e, to: w, via: [], label: [720, 810]}
       rel_dashboard_log_event_service: {from: e, to: w, via: [[720, 795], [720, 535]], label: [720, 665]}
       rel_dashboard_recommendation_service: {from: s, to: w, via: [[450, 400], [720, 400], [720, 245]], label: [720, 350]}
       rel_human_review_postgresql: {from: n, to: s, via: [[990, 390], [1215, 390], [1215, 435], [1260, 435]], label: [1140, 390]}
-      rel_github_actions_diagnostic: {from: e, to: s, via: [[300, 535], [300, 135], [990, 135]], label: [720, 150]}
+      rel_github_actions_diagnostic: {from: e, to: s, via: [[305, 535], [305, 135], [990, 135]], label: [720, 150]}
       rel_recommendation_pipeline_diagnosis_entitlement: {from: w, to: w, from_offset: 50, to_offset: -50, via: [[820, 295], [820, 745]], label: [820, 450]}
       rel_recommendation_pipeline_diagnosis_summary: {from: w, to: w, from_offset: 25, to_offset: -25, via: [[845, 270], [845, 770]], label: [845, 630]}
     narration: >
-      El usuario accede al dashboard, se autentica con Entra ID y consume APIs
-      mediante ingress nativo de ACA. Pipeline, Log/Event y diagnóstico conservan los datos
+      El usuario accede al dashboard, inicia sesión con GitHub (OAuth con PKCE, mediante
+      Ingesta; ADR-022) y consume APIs mediante ingress nativo de ACA. Pipeline, Log/Event y diagnóstico conservan los datos
       y la revisión humana en PostgreSQL; Log/Event conserva evidencia saneada en PostgreSQL; los logs originales permanecen en GitHub Actions.
       GitHub Actions consulta el diagnóstico mediante ingress nativo de ACA y publica su artifact.
       La revisión pertenece al servicio diagnóstico, sin otro microservicio.

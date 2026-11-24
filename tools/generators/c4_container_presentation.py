@@ -24,6 +24,8 @@ ROOT = c4.ROOT
 MODEL = ROOT / "model/c4_container_presentation.yml"
 NODE_WIDTH = 238
 NODE_HEIGHT = 174
+# Document variant: same positions and routes, larger text, no in-figure legend.
+DOCUMENT_FONT = 17
 
 
 def lines(value, width=28):
@@ -106,7 +108,7 @@ def prepare(presentation, architecture):
     return result
 
 
-def node_label(element, presentation, projection):
+def node_label(element, presentation, projection, document=False):
     kind = {"actor": "Person", "external_system": "External system", "datastore": "Data container", "container": "Container"}[element["kind"]]
     technologies = technology_lines(element)
     if element["id"] == "postgresql_operational_store" and projection.combined_postgres:
@@ -114,12 +116,32 @@ def node_label(element, presentation, projection):
     summary = presentation["node_summaries"][element["id"]]
     if element["id"] == "postgresql_operational_store" and projection.combined_postgres:
         summary += " and RAG knowledge"
+    if document:
+        # Colour and frame carry the C4 kind; the guide and figure note state it.
+        size = DOCUMENT_FONT
+        rows = [f'<TR><TD><FONT POINT-SIZE="{size}"><B>{lines(element["name"], 20)}</B></FONT></TD></TR>']
+        if technologies:
+            rows.append(f'<TR><TD><FONT POINT-SIZE="{size}">'
+                        + "<BR/>".join(lines(t, 22) for t in technologies) + "</FONT></TD></TR>")
+        rows.append(f'<TR><TD><FONT POINT-SIZE="{size}">{lines(summary, 22)}</FONT></TD></TR>')
+        return '<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="2">' + "".join(rows) + '</TABLE>>'
     rows = [f'<TR><TD><FONT POINT-SIZE="11">[{kind}]</FONT></TD></TR>',
             f'<TR><TD><FONT POINT-SIZE="16"><B>{lines(element["name"], 22)}</B></FONT></TD></TR>']
     if technologies:
         rows.append(f'<TR><TD><FONT POINT-SIZE="12">{lines(" · ".join(technologies), 27)}</FONT></TD></TR>')
     rows.append(f'<TR><TD><FONT POINT-SIZE="12">{lines(summary, 26)}</FONT></TD></TR>')
     return '<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="3">' + "".join(rows) + '</TABLE>>'
+
+
+SCOPES = {"dev_and_oe3_i2_evaluation": "dev and the OE3-I2 evaluation"}
+
+
+def llm_note(architecture):
+    """State the diagnosis model and its scope only as the canonical element declares them."""
+    llm = next(e for e in architecture["elements"] if e["id"] == "pretrained_llm_diagnostic_service")
+    if not llm.get("model"):
+        return f"{llm['model_family']} family, model/deployment unspecified"
+    return f"{llm['model']} in {SCOPES[llm['model_scope']]}"
 
 
 def route_geometry(view, relation):
@@ -165,20 +187,30 @@ def edge_position(points):
     return f"e,{tip[0]},{tip[1]} " + " ".join(f"{x:.3f},{y:.3f}" for x, y in controls)
 
 
-def generate_dot(presentation, architecture, view, projection):
+def document_viewport(view):
+    """Crop to the prototype frame and the external column; no title, legend or footer."""
+    left = min(x for x, _ in view["positions"].values()) - NODE_WIDTH / 2 - 15
+    right, bottom, top = 1460, 125, 960
+    return f"{right - left:.0f},{top - bottom:.0f},1,{(left + right) / 2:.0f},{(bottom + top) / 2:.0f}"
+
+
+def generate_dot(presentation, architecture, view, projection, document=False):
     graph = Digraph(view["id"], comment="GENERATED — sources: model/c4_container_presentation.yml + model/architecture.yml")
-    graph.attr(viewport="1920,1080,1,960,540", splines="true", overlap="true", notranslate="true",
+    graph.attr(viewport=document_viewport(view) if document else "1920,1080,1,960,540", splines="true", overlap="true", notranslate="true",
                bgcolor="white", fontname="DejaVu Sans", outputorder="edgesfirst")
     graph.attr("node", fontname="DejaVu Sans", shape="box", style="rounded,filled", fixedsize="true",
                width=str(NODE_WIDTH / 72), height=str(NODE_HEIGHT / 72), margin="0.03", fontsize="16", penwidth="1.6")
-    graph.attr("edge", fontname="DejaVu Sans", fontsize="14", color="#52647A", arrowsize="0.7", penwidth="1.4")
-    graph.node("slide_title", projection.view["title"], pos="960,1040!", shape="plaintext", style="", width="24", height="0.5", fontsize="30")
-    graph.node("slide_subtitle", f"Proposed design · {projection.count} nodes · {len(projection.relationships)} relationships · Numbers on arrows and in legend", pos="960,995!", shape="plaintext", style="", width="24", height="0.4", fontsize="16")
+    graph.attr("edge", fontname="DejaVu Sans", fontsize=str(DOCUMENT_FONT + 1 if document else 14), color="#52647A",
+               arrowsize="0.7", penwidth="1.4")
+    if not document:
+        graph.node("slide_title", projection.view["title"], pos="960,1040!", shape="plaintext", style="", width="24", height="0.5", fontsize="30")
+        graph.node("slide_subtitle", f"Proposed design · {projection.count} nodes · {len(projection.relationships)} relationships · Numbers on arrows and in legend", pos="960,995!", shape="plaintext", style="", width="24", height="0.4", fontsize="16")
     # Presentation-only frame. neato -n2 does not lay out cluster boundaries.
     graph.node("prototype_boundary", "", pos="880,545!", width=str(1130 / 72), height=str(810 / 72),
                shape="box", style="dashed,rounded", color="#2563EB", penwidth="1.4")
     graph.node("prototype_boundary_title", architecture["architecture"]["name"], pos="880,930!",
-               shape="plaintext", style="", width="14", height="0.3", fontsize="16", fontcolor="#2563EB")
+               shape="plaintext", style="", width="14", height="0.3",
+               fontsize=str(DOCUMENT_FONT if document else 16), fontcolor="#2563EB")
     positions = view["positions"]
     def add_node(target, element, outside=False):
         x, y = positions[element["id"]]
@@ -190,7 +222,7 @@ def generate_dot(presentation, architecture, view, projection):
         if element["kind"] == "datastore":
             attrs.update(shape="cylinder", fillcolor="#ECFDF5", color="#059669", fontcolor="#064E3B")
         tooltip = element["name"] + " | " + c4.description(element, {l["id"]: l for l in architecture["layers"]}, set())
-        target.node(element["id"], node_label(element, presentation, projection), pos=f"{x},{y}!", tooltip=tooltip, **attrs)
+        target.node(element["id"], node_label(element, presentation, projection, document), pos=f"{x},{y}!", tooltip=tooltip, **attrs)
     for e in projection.inside:
         add_node(graph, e)
     for e in projection.outside:
@@ -198,18 +230,22 @@ def generate_dot(presentation, architecture, view, projection):
     rows = ['<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="18"><B>Relationships and protocols</B></FONT></TD></TR>']
     for index, r in enumerate(projection.relationships, 1):
         number = f"{index:02d}"
-        graph.edge(r["from"], r["to"], xlabel=number, id=r["id"],
+        graph.edge(r["from"], r["to"], xlabel=f"<<B>{number}</B>>" if document else number, id=r["id"],
                    tooltip=f"{number}: {r['label']} ({r['protocol']})",
                    pos=edge_position(route_geometry(view, r)), xlp=",".join(map(str, view["routes"][r["id"]]["label"])),
                    style={"sync": "solid", "async": "dashed", "event": "dotted", "governance": "dashed"}[r["style"]])
         action = presentation["relationship_labels"][r["id"]]
         rows.append(f'<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="15"><B>{number}</B> {lines(action, 36)}</FONT>'
                     f'<BR ALIGN="LEFT"/><FONT POINT-SIZE="12" COLOR="#52647A">{escape(r["protocol"])}</FONT></TD></TR>')
+    if document:
+        return graph.source
     legend = '<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="6" CELLPADDING="0">' + "".join(rows) + '</TABLE>>'
     graph.node("relation_legend", legend, pos="1700,560!", width="5.5", height="12.0", shape="plaintext", style="", fixedsize="false")
     footer = "Blue: prototype · Gray: actors/external systems · Green: persistence | Solid: synchronous · Dashed: asynchronous · Dotted: event"
     graph.node("slide_footer", footer, pos="960,85!", shape="plaintext", style="", width="25", height="0.4", fontsize="14")
-    note = "PostgreSQL/pgvector: one physical instance. Managed AI: Foundry foundation; GPT-4 family, model/deployment unspecified." if projection.combined_postgres else "Human review within Diagnostic & Recommendation Service. Actions publishes the artifact through its own workflow."
+    note = (f"PostgreSQL/pgvector: one physical instance. Managed AI: Foundry foundation; {llm_note(architecture)}."
+            if projection.combined_postgres else
+            "Human review within Diagnostic & Recommendation Service. Actions publishes the artifact through its own workflow.")
     graph.node("slide_note", note, pos="960,45!", shape="plaintext", style="", width="25", height="0.4", fontsize="15")
     return graph.source
 

@@ -39,7 +39,13 @@ relationship_labels:
   rel_rag_embeddings: "Generates embeddings"
   rel_recommendation_llm: "Inference with evidence and RAG"
   rel_technical_users_dashboard: "Querying and human review"
-  rel_dashboard_entra: "Corporate authentication"
+  rel_dashboard_github_sign_in: "GitHub sign-in (OAuth + PKCE)"
+  rel_ingestion_key_vault: "Signing keys, App material, token custody"
+  rel_pipeline_key_vault: "Signs workload tokens"
+  rel_log_event_key_vault: "Signs workload tokens"
+  rel_nlp_key_vault: "Signs workload tokens"
+  rel_correlation_key_vault: "Signs workload tokens"
+  rel_recommendation_key_vault: "Signs workload tokens"
   rel_dashboard_pipeline_service: "Queries executions"
   rel_dashboard_log_event_service: "Queries evidence"
   rel_dashboard_recommendation_service: "Diagnosis and review"
@@ -63,6 +69,7 @@ views:
       - observability_sources
       - ingestion_normalization_service
       - azure_service_bus
+      - azure_key_vault
       - pipeline_service
       - log_event_service
     groups:
@@ -70,8 +77,8 @@ views:
         title: "External sources"
         elements: [github, github_actions, observability_sources]
       - id: intake
-        title: "Ingestion and messaging"
-        elements: [ingestion_normalization_service, azure_service_bus]
+        title: "Ingestion, messaging and keys"
+        elements: [ingestion_normalization_service, azure_service_bus, azure_key_vault]
       - id: registration
         title: "Operational registration"
         elements: [pipeline_service, log_event_service]
@@ -80,7 +87,8 @@ views:
       GitHub Actions origina eventos de ejecuciones fallidas. Ingesta consulta
       evidencia autorizada, la normaliza y protege antes de publicarla en Service
       Bus. Pipeline Service, Log/Event Service y NLP consumen suscripciones
-      independientes; NLP continúa en la segunda vista.
+      independientes; NLP continúa en la segunda vista. Key Vault guarda las claves
+      con que cada servicio firma sus tokens y la custodia de credenciales GitHub de Ingesta.
 
   - id: logica_expo_02
     kind: logical_presentation
@@ -125,7 +133,7 @@ views:
     elements:
       - technical_users
       - web_dashboard
-      - entra_id
+      - github
       - github_actions
       - pipeline_service
       - log_event_service
@@ -134,7 +142,7 @@ views:
     groups:
       - id: interaction
         title: "Interaction and identity"
-        elements: [technical_users, web_dashboard, entra_id]
+        elements: [technical_users, web_dashboard, github]
       - id: perimeter
         title: "API access"
         elements: [github_actions]
@@ -146,7 +154,7 @@ views:
         elements: [postgresql_operational_store]
     continuation: "Services from views 01/02 reappear as the same elements. Actions publishes its own artifact."
     narration: >
-      Los usuarios se autentican con Entra ID y consumen el dashboard mediante
-      APIs mediante ingress nativo de ACA. Los servicios consultan y conservan contexto,
+      Los usuarios inician sesión con GitHub (OAuth con PKCE, mediante Ingesta) y
+      consumen el dashboard mediante APIs con ingress nativo de ACA. Los servicios consultan y conservan contexto,
       evidencia, diagnósticos y revisión humana. GitHub Actions recupera el
       diagnóstico mediante ingress nativo de ACA y publica el artifact con un paso nativo.

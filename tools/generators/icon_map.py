@@ -7,6 +7,7 @@ from diagrams.azure.compute import ContainerApps
 from diagrams.azure.identity import ActiveDirectory
 from diagrams.azure.integration import APIManagement, ServiceBus
 from diagrams.azure.ml import AzureOpenAI
+from diagrams.azure.security import KeyVaults
 from diagrams.azure.monitor import Monitor
 from diagrams.azure.storage import BlobStorage
 from diagrams.azure.web import StaticApps
@@ -24,6 +25,7 @@ TECHNOLOGY_ICONS = {
     "PostgreSQL": PostgreSQL,
     "Azure Monitor": Monitor,
     "Azure Blob Storage": BlobStorage,
+    "Azure Key Vault": KeyVaults,
 }
 HOST_ICONS = {
     "Azure Container Apps": ContainerApps,

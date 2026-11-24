@@ -39,7 +39,7 @@ jobs:
       - name: Validate architecture, domain and design models
         run: make PYTHON=python validate validate-domain validate_design
       - name: Validate presentation models
-        run: make PYTHON=python validate-logical-expo validate-physical-expo validate-c4-expo
+        run: make PYTHON=python validate-logical-expo validate-physical-expo validate-c4-expo validate-doc-figures
 
   test:
     name: test

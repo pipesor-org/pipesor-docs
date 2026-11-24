@@ -37,7 +37,13 @@ relationship_labels:
   rel_rag_embeddings: "Generates embeddings"
   rel_recommendation_llm: "Inference with evidence and RAG"
   rel_technical_users_dashboard: "Querying and human review"
-  rel_dashboard_entra: "Corporate authentication"
+  rel_dashboard_github_sign_in: "GitHub sign-in (OAuth + PKCE)"
+  rel_ingestion_key_vault: "Signing keys, App material, token custody"
+  rel_pipeline_key_vault: "Signs workload tokens"
+  rel_log_event_key_vault: "Signs workload tokens"
+  rel_nlp_key_vault: "Signs workload tokens"
+  rel_correlation_key_vault: "Signs workload tokens"
+  rel_recommendation_key_vault: "Signs workload tokens"
   rel_dashboard_pipeline_service: "Queries executions"
   rel_dashboard_log_event_service: "Queries evidence"
   rel_dashboard_recommendation_service: "Diagnosis and review"
@@ -61,6 +67,7 @@ views:
       - observability_sources
       - ingestion_normalization_service
       - azure_service_bus
+      - azure_key_vault
       - pipeline_service
       - log_event_service
     groups:
@@ -68,8 +75,8 @@ views:
         title: "External sources"
         elements: [github, github_actions, observability_sources]
       - id: intake
-        title: "Ingestion and messaging"
-        elements: [ingestion_normalization_service, azure_service_bus]
+        title: "Ingestion, messaging and keys"
+        elements: [ingestion_normalization_service, azure_service_bus, azure_key_vault]
       - id: registration
         title: "Operational consumers"
         elements: [pipeline_service, log_event_service]
@@ -80,6 +87,7 @@ views:
       protege y normaliza los datos antes de Service Bus. Un topic distribuye
       los eventos a tres suscripciones: Pipeline Service, Log/Event Service y NLP;
       este último continúa en la segunda vista. El acceso a GitHub es read-only.
+      Key Vault guarda claves de firma no exportables y la custodia de credenciales GitHub.
 
   - id: fisica_expo_02
     kind: physical_presentation
@@ -113,8 +121,8 @@ views:
       NLP y RAG usan Python y FastAPI; correlación y diagnóstico usan Java y Spring
       Boot. Los cuatro servicios tienen runtime propio en Azure Container Apps.
       NLP utiliza Drain3. Diagnóstico orquesta RAG, que consulta pgvector sobre
-      PostgreSQL, y solicita inferencia a Azure OpenAI con fundación Microsoft Foundry, familia GPT-4 sin modelo
-      concreto fijado. Azure OpenAI es externo y no se aloja en Container Apps.
+      PostgreSQL, y solicita inferencia a Azure OpenAI con fundación Microsoft Foundry: gpt-6-luna
+      en dev y en la evaluación OE3-I2 (ADR-026). Azure OpenAI es externo y no se aloja en Container Apps.
 
   - id: fisica_expo_03
     kind: physical_presentation
@@ -125,7 +133,7 @@ views:
     elements:
       - technical_users
       - web_dashboard
-      - entra_id
+      - github
       - github_actions
       - pipeline_service
       - log_event_service
@@ -134,7 +142,7 @@ views:
     groups:
       - id: interaction
         title: "Presentation and identity"
-        elements: [technical_users, web_dashboard, entra_id]
+        elements: [technical_users, web_dashboard, github]
       - id: perimeter
         title: "API access"
         elements: [github_actions]
@@ -146,7 +154,8 @@ views:
         elements: [postgresql_operational_store]
     continuation: "Actions retrieves the diagnosis through ACA native ingress and publishes its artifact. Human review is within the diagnostic service."
     narration: >
-      El dashboard React y TypeScript se aloja en Azure Static Web Apps. Entra ID
-      autentica; las APIs usan ingress nativo de ACA y autorización en los servicios.
+      El dashboard React y TypeScript se sirve desde Azure Container Apps (ADR-030).
+      El inicio de sesión es con GitHub (OAuth con PKCE, mediante Ingesta; ADR-022);
+      las APIs usan ingress nativo de ACA y autorización en los servicios.
       PostgreSQL conserva evidencia saneada; los logs originales permanecen en GitHub Actions. La revisión humana se registra dentro del
       servicio diagnóstico. El workflow publica el artifact con su paso nativo.

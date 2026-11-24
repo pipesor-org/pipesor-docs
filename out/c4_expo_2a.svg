@@ -366,7 +366,7 @@
 <!-- evidence_correlation_engine -->
 <g id="node10" class="node">
 <title>evidence_correlation_engine</title>
-<g id="a_node10"><a xlink:title="Evidence Correlation Service | Process logs semantically and correlate operational evidence of failures identified by Gi…">
+<g id="a_node10"><a xlink:title="Evidence Correlation Service | Process logs semantically and correlate operational evidence of failures identified by GitHub Actions.">
 <path fill="#eff6ff" stroke="#2563eb" stroke-width="1.6" d="M1097,-622C1097,-622 883,-622 883,-622 877,-622 871,-616 871,-610 871,-610 871,-460 871,-460 871,-454 877,-448 883,-448 883,-448 1097,-448 1097,-448 1103,-448 1109,-454 1109,-460 1109,-460 1109,-610 1109,-610 1109,-616 1103,-622 1097,-622"/>
 <text xml:space="preserve" text-anchor="start" x="958.88" y="-579.17" font-family="DejaVu Sans" font-size="11.00" fill="#172554">[Container]</text>
 <text xml:space="preserve" text-anchor="start" x="896.62" y="-554.92" font-family="DejaVu Sans" font-weight="bold" font-size="16.00" fill="#172554">Evidence Correlation</text>
@@ -434,7 +434,7 @@
 <!-- observability_sources -->
 <g id="node15" class="node">
 <title>observability_sources</title>
-<g id="a_node15"><a xlink:title="Compatible Observability and Runtime Sources | Represent CI/CD, DevSecOps and observability tools that produce or consume operational ev…">
+<g id="a_node15"><a xlink:title="Compatible Observability and Runtime Sources | Represent CI/CD, DevSecOps and observability tools that produce or consume operational evidence.">
 <polygon fill="#f1f5f9" stroke="#64748b" stroke-width="1.6" stroke-dasharray="5,2" points="269,-622 31,-622 31,-448 269,-448 269,-622"/>
 <text xml:space="preserve" text-anchor="start" x="100.5" y="-587.17" font-family="DejaVu Sans" font-size="11.00" fill="#334155">[External system]</text>
 <text xml:space="preserve" text-anchor="start" x="99.38" y="-562.92" font-family="DejaVu Sans" font-weight="bold" font-size="16.00" fill="#334155">Compatible</text>
@@ -449,14 +449,15 @@
 <!-- pretrained_llm_diagnostic_service -->
 <g id="node16" class="node">
 <title>pretrained_llm_diagnostic_service</title>
-<g id="a_node16"><a xlink:title="Azure OpenAI Service | Retrieve contextual knowledge and generate assisted diagnostic hypotheses using a pretrai…">
+<g id="a_node16"><a xlink:title="Azure OpenAI Service | Retrieve contextual knowledge and generate assisted diagnostic hypotheses using a pretrained LLM.">
 <polygon fill="#f1f5f9" stroke="#64748b" stroke-width="1.6" stroke-dasharray="5,2" points="269,-332 31,-332 31,-158 269,-158 269,-332"/>
-<text xml:space="preserve" text-anchor="start" x="100.5" y="-290.05" font-family="DejaVu Sans" font-size="11.00" fill="#334155">[External system]</text>
-<text xml:space="preserve" text-anchor="start" x="53.25" y="-265.8" font-family="DejaVu Sans" font-weight="bold" font-size="16.00" fill="#334155">Azure OpenAI Service</text>
-<text xml:space="preserve" text-anchor="start" x="79.88" y="-242.1" font-family="DejaVu Sans" font-size="12.00" fill="#334155">GPT&#45;4 family · Microsoft</text>
-<text xml:space="preserve" text-anchor="start" x="77.25" y="-227.85" font-family="DejaVu Sans" font-size="12.00" fill="#334155">Foundry account/project</text>
-<text xml:space="preserve" text-anchor="start" x="69" y="-206.6" font-family="DejaVu Sans" font-size="12.00" fill="#334155">Foundry foundation; model</text>
-<text xml:space="preserve" text-anchor="start" x="126" y="-192.35" font-family="DejaVu Sans" font-size="12.00" fill="#334155">pending</text>
+<text xml:space="preserve" text-anchor="start" x="100.5" y="-297.18" font-family="DejaVu Sans" font-size="11.00" fill="#334155">[External system]</text>
+<text xml:space="preserve" text-anchor="start" x="53.25" y="-272.93" font-family="DejaVu Sans" font-weight="bold" font-size="16.00" fill="#334155">Azure OpenAI Service</text>
+<text xml:space="preserve" text-anchor="start" x="79.12" y="-249.22" font-family="DejaVu Sans" font-size="12.00" fill="#334155">gpt&#45;6&#45;luna 2026&#45;09&#45;22 ·</text>
+<text xml:space="preserve" text-anchor="start" x="96.75" y="-234.97" font-family="DejaVu Sans" font-size="12.00" fill="#334155">Microsoft Foundry</text>
+<text xml:space="preserve" text-anchor="start" x="103.5" y="-220.72" font-family="DejaVu Sans" font-size="12.00" fill="#334155">account/project</text>
+<text xml:space="preserve" text-anchor="start" x="99.38" y="-199.47" font-family="DejaVu Sans" font-size="12.00" fill="#334155">gpt&#45;6&#45;luna in dev</text>
+<text xml:space="preserve" text-anchor="start" x="119.62" y="-185.22" font-family="DejaVu Sans" font-size="12.00" fill="#334155">(ADR&#45;026)</text>
 </a>
 </g>
 </g>
@@ -554,7 +555,7 @@
 <!-- slide_note -->
 <g id="node19" class="node">
 <title>slide_note</title>
-<text xml:space="preserve" text-anchor="middle" x="960" y="-39.75" font-family="DejaVu Sans" font-size="15.00">PostgreSQL/pgvector: one physical instance. Managed AI: Foundry foundation; GPT&#45;4 family, model/deployment unspecified.</text>
+<text xml:space="preserve" text-anchor="middle" x="960" y="-39.75" font-family="DejaVu Sans" font-size="15.00">PostgreSQL/pgvector: one physical instance. Managed AI: Foundry foundation; gpt&#45;6&#45;luna in dev and the OE3&#45;I2 evaluation.</text>
 </g>
 </g>
 </svg>

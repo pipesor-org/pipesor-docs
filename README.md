@@ -254,3 +254,35 @@ append-only `ingestion.consent_records`, que solo admite una revocación manual.
 persistente/ER pasa de 35 a 40 tablas (36 en uso). La retención es la regla propia de
 ADR-029, documentada y sin purga; no se aplica RET-001. Modelar no acredita despliegue ni
 migraciones de entorno.
+
+## Dashboard, inicio de sesión y Key Vault en el modelo — 24/11/2026
+
+[ADR-030](docs/architecture/decisions/ADR-030-dashboard-on-azure-container-apps.md) registra,
+con la confirmación del responsable, que el dashboard se sirve desde Azure Container Apps:
+Static Web Apps no se ofrece en las regiones permitidas de la suscripción. `architecture.yml`
+0.9.0 aplica además decisiones ya aceptadas:
+
+- retira Entra ID como autenticación de personas. El inicio de sesión es con GitHub (OAuth
+  con PKCE S256 mediante Ingesta, ADR-022 y ADR-029), y Entra queda solo como identidad
+  administrada frente a recursos Azure;
+- añade Azure Key Vault con las claves de firma no exportables de seis servicios y la
+  custodia de credenciales GitHub de Ingesta;
+- fija gpt-6-luna como modelo de diagnóstico solo en dev y en la evaluación OE3-I2 (ADR-026).
+
+Las vistas C4, lógicas y físicas se regeneraron. El C4 de componentes ya no recorta
+descripciones y muestra los elementos externos con texto oscuro. Modelar no acredita
+despliegue.
+
+## Figuras para documentos — 24/11/2026
+
+Las vistas de [`out/`](out/) están pensadas para diapositivas de 16:9. Insertadas a 15,9 cm, el
+ancho útil de una página A4, su texto queda entre 3 y 6 pt. `make doc-figures`, incluido en
+`make all`, genera en [`out/doc/`](out/doc/) variantes de impresión de las vistas lógicas,
+físicas, C4 2A/2B y C4 de componentes. Usan los mismos modelos, con flechas numeradas, sin
+iconos y con el texto a la escala de la página. Las C4 2A/2B conservan sus posiciones y rutas.
+
+El generador prueba varias composiciones y elige una en la que ningún texto impreso baja de 8 pt
+en A4 con márgenes de 2,54 cm. [`out/doc/guia_figuras.md`](out/doc/guia_figuras.md) indica para
+cada figura la orientación, el tamaño de inserción y el texto mínimo. Cuando la leyenda no cabe
+legible dentro de la figura, la guía trae la tabla de relaciones para colocarla junto a ella.
+Los PNG declaran 300 ppp: insertados al 100 %, conservan el tamaño comprobado.

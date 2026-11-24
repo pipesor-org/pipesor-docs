@@ -31,16 +31,18 @@ class PhysicalPresentationTests(unittest.TestCase):
         self.assertEqual(nlp, ["Azure Container Apps", "Python / FastAPI", "Drain3"])
         diagnostic = renderer.technology_lines(self.elements["recommendation_service"])
         self.assertEqual(diagnostic, ["Azure Container Apps", "Java / Spring Boot"])
-        for eid in ("entra_id", "pretrained_llm_diagnostic_service", "web_dashboard"):
+        for eid in ("azure_key_vault", "azure_service_bus", "pretrained_llm_diagnostic_service"):
             self.assertNotIn("Azure Container Apps", renderer.technology_lines(self.elements[eid]))
+        # ADR-030: Static Web Apps is not offered in the subscription's allowed regions.
+        self.assertEqual(renderer.technology_lines(self.elements["web_dashboard"])[0], "Azure Container Apps")
 
     def test_does_not_invent_postgresql_host_or_concrete_llm(self):
         self.assertEqual(renderer.technology_lines(self.elements["postgresql_operational_store"]), [])
         self.assertEqual(renderer.technology_lines(self.elements["pgvector_knowledge_store"]), ["PostgreSQL / pgvector"])
         llm = self.elements["pretrained_llm_diagnostic_service"]
         self.assertEqual(llm["kind"], "external_system")
-        self.assertIsNone(llm["model"])
-        self.assertEqual(renderer.technology_lines(llm), ["GPT-4 family", "Microsoft Foundry account/project"])
+        self.assertEqual(llm["model"], "gpt-6-luna")  # ADR-026, dev and OE3-I2 only
+        self.assertEqual(renderer.technology_lines(llm), ["gpt-6-luna 2026-09-22", "Microsoft Foundry account/project"])
 
     def test_icons_are_installed_and_embedded_without_local_paths(self):
         fallbacks = set()

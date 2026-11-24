@@ -27,7 +27,7 @@ Las fuentes externas entregan evidencia a ingesta, que la protege antes del topi
 | PostgreSQL | datastore / dentro del prototipo | PostgreSQL / pgvector | pipelines, incidents, diagnoses, human_reviews, recommendations, metrics, audit_metadata, evidence_references, traceability_metadata |
 | GitHub Actions | external_system / externo al prototipo | GitHub Actions | ci_cd_execution_and_evidence_source |
 | Compatible Observability and Runtime Sources | external_system / externo al prototipo | Azure Monitor, Application Insights | Authorized telemetry |
-| Azure OpenAI Service | external_system / externo al prototipo | GPT-4 family, Microsoft Foundry account/project | Foundry foundation; model pending |
+| Azure OpenAI Service | external_system / externo al prototipo | gpt-6-luna 2026-09-22, Microsoft Foundry account/project | gpt-6-luna in dev (ADR-026) |
 
 ### Relaciones
 
@@ -65,19 +65,19 @@ Las fuentes externas entregan evidencia a ingesta, que la protege antes del topi
 
 [SVG](c4_expo_2b.svg) · [PNG](c4_expo_2b.png)
 
-El usuario accede al dashboard, se autentica con Entra ID y consume APIs mediante ingress nativo de ACA. Pipeline, Log/Event y diagnóstico conservan los datos y la revisión humana en PostgreSQL; Log/Event conserva evidencia saneada en PostgreSQL; los logs originales permanecen en GitHub Actions. GitHub Actions consulta el diagnóstico mediante ingress nativo de ACA y publica su artifact. La revisión pertenece al servicio diagnóstico, sin otro microservicio.
+El usuario accede al dashboard, inicia sesión con GitHub (OAuth con PKCE, mediante Ingesta; ADR-022) y consume APIs mediante ingress nativo de ACA. Pipeline, Log/Event y diagnóstico conservan los datos y la revisión humana en PostgreSQL; Log/Event conserva evidencia saneada en PostgreSQL; los logs originales permanecen en GitHub Actions. GitHub Actions consulta el diagnóstico mediante ingress nativo de ACA y publica su artifact. La revisión pertenece al servicio diagnóstico, sin otro microservicio.
 
 ### Contenedores, actores y sistemas externos
 
 | Nombre exacto | Tipo / frontera | Tecnologías | Responsabilidades del modelo |
 |---|---|---|---|
-| AIOps Web Dashboard | container / dentro del prototipo | Azure Static Web Apps, TypeScript / React, SPA | incident_query, diagnosis_query, evidence_query, recommendation_query, pipeline_status_query, tmd_metrics, comparative_diagnosis_metrics, human_review_registration, human_review_status_display, distinguish_generated_hypothesis_from_validated_diagnosis, role_protected_access, github_account_connection, authorized_workflow_selection |
+| AIOps Web Dashboard | container / dentro del prototipo | Azure Container Apps, TypeScript / React, SPA | incident_query, diagnosis_query, evidence_query, recommendation_query, pipeline_status_query, tmd_metrics, comparative_diagnosis_metrics, human_review_registration, human_review_status_display, distinguish_generated_hypothesis_from_validated_diagnosis, role_protected_access, github_account_connection, authorized_workflow_selection |
 | Pipeline Service | container / dentro del prototipo | Azure Container Apps, Java / Spring Boot | register_pipeline, authorize_pipeline_with_verified_github_access, register_execution, maintain_pipeline_stages, maintain_execution_state, maintain_execution_metadata |
 | Log/Event Service | container / dentro del prototipo | Azure Container Apps, Java / Spring Boot | register_normalized_evidence, query_logs_by_incident, query_events_by_incident, query_evidence_by_correlation_id, preserve_source_metadata, resolve_external_evidence_references |
 | Diagnostic & Recommendation Service | container / dentro del prototipo | Azure Container Apps, Java / Spring Boot | generate_initial_recommendations, associate_recommendation_with_probable_cause, associate_recommendation_with_evidence, expose_evidence_limitations, orchestrate_diagnostic_flow |
 | PostgreSQL | datastore / dentro del prototipo | PostgreSQL | pipelines, incidents, diagnoses, human_reviews, recommendations, metrics, audit_metadata, evidence_references, traceability_metadata |
 | Technical Users | actor / externo al prototipo | No aplica | Querying and validation |
-| Microsoft Entra ID | external_system / externo al prototipo | Microsoft Entra ID | corporate_authentication, identity_token_issuance |
+| GitHub | external_system / externo al prototipo | GitHub | source_control |
 | GitHub Actions | external_system / externo al prototipo | GitHub Actions | ci_cd_execution_and_evidence_source |
 
 ### Relaciones
@@ -87,13 +87,14 @@ El usuario accede al dashboard, se autentica con Entra ID y consume APIs mediant
 | 01 | Pipeline Service → PostgreSQL | Persists pipelines, stages, states and execution metadata | PostgreSQL | sync |
 | 02 | Log/Event Service → PostgreSQL | Persists and queries normalized evidence metadata and references | PostgreSQL | sync |
 | 03 | Diagnostic & Recommendation Service → PostgreSQL | Persists diagnosis, recommendations and evidence links | PostgreSQL | sync |
-| 04 | Technical Users → AIOps Web Dashboard | Queries results and records human review | HTTPS | sync |
-| 05 | AIOps Web Dashboard → Microsoft Entra ID | Authenticates corporate users | OIDC/OAuth2/HTTPS | sync |
-| 06 | AIOps Web Dashboard → Pipeline Service | Routes pipeline, execution, incident queue and insights queries, registration, grants and incident lifecycle commands | REST/HTTPS | sync |
-| 07 | AIOps Web Dashboard → Log/Event Service | Routes log, event and evidence queries | REST/HTTPS | sync |
-| 08 | AIOps Web Dashboard → Diagnostic & Recommendation Service | Routes diagnosis and review queries and operations | REST/HTTPS | sync |
-| 09 | Diagnostic & Recommendation Service → PostgreSQL | Persists human review decisions and traceability | PostgreSQL | sync |
-| 10 | GitHub Actions → Diagnostic & Recommendation Service | Queries diagnostic_output to publish the workflow artifact | REST/HTTPS | sync |
-| 11 | Log/Event Service → Pipeline Service | Checks committed operational membership before evidence registration | REST/HTTPS | sync |
-| 12 | Diagnostic & Recommendation Service → Pipeline Service | Resolves the user's diagnosis read entitlement and the incident's ORIGIN execution | REST/HTTPS | sync |
-| 13 | Diagnostic & Recommendation Service → Pipeline Service | Projects the incident diagnosis summary into Pipeline's incident queue read model | REST/HTTPS | sync |
+| 04 | GitHub → GitHub Actions | Provides the repository, commits and CI/CD workflow definitions | GitHub API/HTTPS | event |
+| 05 | Technical Users → AIOps Web Dashboard | Queries results and records human review | HTTPS | sync |
+| 06 | AIOps Web Dashboard → GitHub | Sends users to GitHub to authorize sign-in | OAuth 2.0/HTTPS (authorization code + PKCE S256) | sync |
+| 07 | AIOps Web Dashboard → Pipeline Service | Routes pipeline, execution, incident queue and insights queries, registration, grants and incident lifecycle commands | REST/HTTPS | sync |
+| 08 | AIOps Web Dashboard → Log/Event Service | Routes log, event and evidence queries | REST/HTTPS | sync |
+| 09 | AIOps Web Dashboard → Diagnostic & Recommendation Service | Routes diagnosis and review queries and operations | REST/HTTPS | sync |
+| 10 | Diagnostic & Recommendation Service → PostgreSQL | Persists human review decisions and traceability | PostgreSQL | sync |
+| 11 | GitHub Actions → Diagnostic & Recommendation Service | Queries diagnostic_output to publish the workflow artifact | REST/HTTPS | sync |
+| 12 | Log/Event Service → Pipeline Service | Checks committed operational membership before evidence registration | REST/HTTPS | sync |
+| 13 | Diagnostic & Recommendation Service → Pipeline Service | Resolves the user's diagnosis read entitlement and the incident's ORIGIN execution | REST/HTTPS | sync |
+| 14 | Diagnostic & Recommendation Service → Pipeline Service | Projects the incident diagnosis summary into Pipeline's incident queue read model | REST/HTTPS | sync |
