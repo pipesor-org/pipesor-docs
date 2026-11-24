@@ -1,6 +1,6 @@
 # Convenciones comunes de desarrollo backend
 
-Acuerdo inicial autorizado por el usuario el 2026-11-06, revisable en futuras iteraciones. Alcance: los siete servicios backend de ADR-018. Este registro documenta decisiones de desarrollo; no aprueba contratos de integración ni despliegues. Mientras estos cambios no estén integrados, son un acuerdo local de esta sesión, no una revisión publicada en main.
+Acuerdo inicial autorizado por el usuario el 2026-11-06, revisable en futuras iteraciones. Alcance: los siete servicios backend de ADR-018. Este registro documenta decisiones de desarrollo; no aprueba contratos de integración ni despliegues. El acuerdo está integrado en main.
 
 ## Autoridad y consumo
 
@@ -30,7 +30,7 @@ La entrada Service Bus es asíncrona. Antes de integrar, acordar identidad del m
 - Conservar IDs externos de GitHub y correlation_id como texto conforme al modelo. No convertirlos a UUID. La variante/algoritmo UUID se fijará al implementar y no queda elegida aquí.
 - Tiempos absolutos en UTC; PostgreSQL usa timestamptz. created_at es fecha técnica de inserción, inmutable, asignada por el owner. No sustituye timestamps de negocio.
 - updated_at corresponde a la última modificación persistida de registros mutables; se inicializa con created_at. No añadirlo a registros append-only ni usarlo como control de concurrencia.
-- El modelo actual todavía no incluye updated_at. Antes de mapearlo o migrarlo, registrar las tablas aplicables en model/domain.yml y explicar el cambio en model/domain_decisions.md, actualizando derivados mediante generadores y checks pertinentes. Esta convención no agrega columnas implícitas.
+- El modelo incluye updated_at solo en las tablas que lo declaran en model/domain.yml (por ejemplo, las del conector GitHub y del ledger de captura de Ingestion, correlation_groups y capture_workflow_scopes). Antes de mapearlo o migrarlo en otra tabla, registrarla en model/domain.yml y explicar el cambio en model/domain_decisions.md, actualizando derivados mediante generadores y checks pertinentes. Esta convención no agrega columnas implícitas.
 - No añadir created_by, updated_by, soft delete o version por herencia sin requisito y definición del modelo. Los metadatos temporales no sustituyen audit.audit_events ni sus contratos pendientes.
 
 ## Documentación y verificación

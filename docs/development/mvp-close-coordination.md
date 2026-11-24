@@ -70,6 +70,13 @@ Recorrido real ejecutado en local con el stack compartido y los cinco servicios 
 | Correlation y Recommendation | Con un sustituto de prueba de NLP (firma como `nlp` con la clave local), la evidencia auténtica fue aceptada tras las comprobaciones reales contra Pipeline y Log/Event; contexto persistido, recibo de Recommendation y trabajo de diagnóstico creado; el reenvío devolvió `duplicate` |
 | Pendiente | NLP real, RAG (el worker reintenta con `rag_unavailable`), GPT-4o, dashboard y despliegue |
 
+**Actualización 24/11/2026.** Según el informe de validación (esta auditoría no verificó el
+despliegue), las corridas oficiales de OE3-I2 del 23/11/2026 ejercitaron sobre las imágenes
+desplegadas en dev la cadena automática completa: captura por webhook, NLP,
+correlación, RAG, diagnóstico con gpt-6-luna ([ADR-026](../architecture/decisions/ADR-026-diagnosis-model-gpt-6-luna.md))
+y reporte publicado. La evidencia registrada del dashboard y de la revisión humana sigue
+pendiente ([informe de validación](../research/informe-validacion-oe3.md), §1).
+
 La demostración paso a paso, con la evidencia que se debe registrar en cada tramo, está en la
 [guía de demostración del MVP](mvp-demo-guide.md).
 
@@ -91,6 +98,16 @@ La demostración paso a paso, con la evidencia que se debe registrar en cada tra
    `POST /api/v1/auth/session`, cuya respuesta incluye también `returnTo`.
 6. Registrar el workflow, pedir el análisis de un run fallido y observar los logs en
    `~/.local/state/pipesor-local/`.
+
+**Actualización 24/11/2026.** El modelo de diagnóstico de dev es gpt-6-luna
+(`pipesor-dev-diagnostics-luna`, ADR-026); `local_stack.py init` aún escribe
+`pipesor-dev-diagnostics` (gpt-4o) en `env/recommendation.env`. Cualquier usuario de GitHub puede
+iniciar sesión (ADR-025) y los repositorios que administra se admiten al seleccionarlos en la
+instalación de la App (ADR-024): `authority.json` solo hace falta para importar admisiones del
+operador (`PIPESOR_GITHUB_AUTHORITY_FILE`, comando de importación de Ingestion). Registrar un
+workflow sigue exigiendo administrar su repositorio. El dashboard se inicia con
+`bun run dev -- --host 127.0.0.1 --port 5173 --strictPort` y el login empieza en
+`http://127.0.0.1:5173/login`.
 
 El emulador conserva los mensajes como máximo una hora: para probar NLP más tarde se analiza
 otro run fallido (por ejemplo `43054769400`) en lugar de esperar los mensajes ya publicados.
@@ -116,9 +133,21 @@ otro run fallido (por ejemplo `43054769400`) en lugar de esperar los mensajes ya
 - **IaC:** variables y roles del manifiesto; Ingestion además necesita las variables
   `PIPESOR_GITHUB_*` (ver README de Ingestion) y la callback de Azure registrada en la App.
 
+**Actualización 24/11/2026.** Las rutas de discovery de Ingestion usan la forma paginada
+`pageSize`/`pageToken`/`q` del [contrato](../architecture/contracts/mvp-http-api-v1.md#paged-discovery);
+`limit` se conserva como forma heredada y `cursor` devuelve `400 INVALID_REQUEST`. El
+[manifiesto de runtime](runtime-manifest.md#service-specific-settings) recoge ahora las variables
+`PIPESOR_GITHUB_*`.
+
 ## Brief para la sesión de Codex
 
 > Copiar este bloque como primer mensaje de la sesión de Codex.
+
+**Actualización 24/11/2026.** El brief se conserva como se entregó. Después, `pipesor-frontend`
+pasó a una sesión de Claude Code (tabla de reparto), el repositorio de escenarios se creó como
+`pipesor-validation-scenarios`, los workflows `deploy` se retiraron ([guía CI/CD](cicd.md)) y la
+IaC de dev sirve el dashboard como Container App en lugar de Static Web Apps; esta última
+divergencia con ADR-008 sigue pendiente de decisión ([manifiesto de runtime](runtime-manifest.md)).
 
 ```text
 Trabajas en Pipesor (prototipo AIOps de tesis, multirepo en pipesor-org). Otra sesión
