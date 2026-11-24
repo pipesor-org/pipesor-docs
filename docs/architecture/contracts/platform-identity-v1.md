@@ -62,6 +62,7 @@ Issued by the calling service for exactly one target audience and one role.
 | pipeline → ingestion | `PUT /internal/v1/capture/workflow-scopes/{repositoryId}/{workflowId}` | `Pipeline.CaptureScope.Write` (ADR-023) |
 | pipeline → ingestion | `/internal/v1/github/**` (access facts, workflow verification) | `Pipeline.GitHubFacts.Read` + subject token (§4) |
 | recommendation → pipeline | `POST /internal/v1/diagnosis-read-entitlements` | `Recommendation.DiagnosisEntitlements.Resolve` + subject token (§4) |
+| recommendation → pipeline | `PUT /internal/v1/incidents/{incidentId}/diagnosis-summary` | `Recommendation.DiagnosisSummaries.Write` (ADR-027) |
 
 A route accepts only the callers listed for it. Adding a caller is a contract change.
 
