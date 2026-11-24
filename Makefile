@@ -4,9 +4,9 @@ VALIDATOR := tools/validate.py
 PHYSICAL_GENERATOR := tools/generators/physical.py
 DOMAIN_MODEL := model/domain.yml
 DESIGN_MODEL := model/design.yml
-.PHONY: all check-env validate validate-domain validate_design validate-logical-expo validate-physical-expo validate-c4-expo classes physical physical-expo logical logical-expo c4 c4-expo db dbml sql er dictionary clean
+.PHONY: all check-env validate validate-domain validate_design validate-logical-expo validate-physical-expo validate-c4-expo validate-doc-figures classes physical physical-expo logical logical-expo c4 c4-expo doc-figures db dbml sql er dictionary clean
 
-all: check-env validate physical physical-expo logical logical-expo c4 c4-expo db classes
+all: check-env validate physical physical-expo logical logical-expo c4 c4-expo doc-figures db classes
 
 check-env:
 	@PYTHON="$(PYTHON)" bash tools/check_env.sh
@@ -72,10 +72,18 @@ c4-expo: validate-c4-expo
 	@echo "==> Generating slide-sized C4 container views"
 	@$(PYTHON) tools/generators/c4_container_presentation.py
 
+validate-doc-figures: validate
+	@$(PYTHON) tools/generators/document_figures.py --validate-only
+
+doc-figures: validate-doc-figures
+	@echo "==> Generating print-legible document figures (Graphviz)"
+	@$(PYTHON) tools/generators/document_figures.py
+
 clean:
 	@echo "==> Cleaning generated artifacts"
 	@find build -mindepth 1 -maxdepth 1 -type f -delete
 	@find out -mindepth 1 -maxdepth 1 -type f -delete
+	@for dir in build/doc out/doc; do if [ -d "$$dir" ]; then find "$$dir" -type f -delete; fi; done
 
 .PHONY: test verify-artifacts test-postgres
 test:
