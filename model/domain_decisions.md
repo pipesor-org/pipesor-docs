@@ -170,6 +170,7 @@ Nota de evolución: representación histórica de Blob sustituida parcialmente p
 - decisión: pipeline_access_grants conserva scope_basis: ia_only y status: inferred; referencia principal Entra ID sin users/roles internos. Es representación provisional, no implementación final RBAC ni requisito core.
 - fuentes: arquitectura-informacion.md; SRC_ADR_003; Prompt §7; DQ-005/DQ-006.
 - impacto: Se muestra con borde punteado y etiqueta IA-only / inferred; la política de alta de workflows y RBAC seguían abiertas en este corte. DD-019/ADR-020 aprueban después la política MVP; representación física y contratos pendientes conservan su estado.
+- enmienda ADR-028 (23/11/2026): quien concede un grant elige al destinatario entre los colaboradores GitHub del repositorio; el grant sigue siendo explícito y se rechaza revocar el último CONFIGURE de un pipeline (`409 LAST_CONFIGURE_GRANT`). No cambia la representación ni el estado ia_only/inferred.
 - reversibilidad: Puede retirarse o cambiarse cuando se apruebe implementación definitiva; nunca promoverla automáticamente.
 
 ## DD-018 — Evidencia MVP sin almacenamiento Blob de workload
@@ -186,6 +187,7 @@ Nota de evolución: representación histórica de Blob sustituida parcialmente p
 - decisión: Pipeline crea/reutiliza Repository y registra Pipeline con datos GitHub verificados por el conector de Ingestion. Grants AIOps no conceden acceso fuera del alcance GitHub vigente; VIEW/OPERATE requieren lectura y CONFIGURE/alta administración efectiva. CONFIGURE incluye VIEW, no OPERATE. El creador recibe CONFIGURE con auditoría atómica; un duplicado no concede grants.
 - impacto: complementa DD-001/DD-017 y acota DQ-005/006 a detalles pendientes. Se conserva pipeline_access_grants como ia_only/inferred; no se aprueban columnas, tablas, users/roles/teams, pipeline owners ni asociaciones ORM nuevas. Credenciales/vinculaciones pertenecen lógicamente a Ingestion, nunca a ops ni a audit; su schema y custodia siguen pendientes.
 - límites: las APIs humanas de evidencia y diagnóstico requieren contrato para aplicar la restricción sin accesos cross-context. No hay grants automáticos por rol GitHub ni reescritura de IDs/filas históricas. Política aprobada no equivale a implementación ni modifica la retención.
+- enmienda ADR-028 (23/11/2026): los candidatos a recibir grants salen de los colaboradores del repositorio, leídos por Ingestion con el token del administrador que concede (permiso Metadata: read ya existente) y sin almacenarse. GitHub decide quién puede ser candidato; Pipesor decide qué puede hacer cada persona mediante grants explícitos, verificados al concederlos y al usarlos. Un pipeline conserva siempre al menos un grant CONFIGURE. Se descarta derivar VIEW de la lectura GitHub (ADR-025 permite iniciar sesión a cualquiera) y se difieren los equipos; no se aprueban tablas nuevas en esta fase.
 
 
 <a id="DD-020"></a>

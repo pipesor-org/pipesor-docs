@@ -34,6 +34,7 @@ guarantees recorded in [pending decisions](../pending-decisions.md).
 | `GET /api/v1/github/repositories?pageSize=&pageToken=&q=` | `GitHub.Self` | extended | admitted + readable only; reconciles admissions first (ADR-024); paged form below. The legacy `?limit=` form is unchanged (503 above `limit`) |
 | `GET /api/v1/github/installations` | `GitHub.Self` | new | pipesor installations visible to the user, reconciled (ADR-024); shape below |
 | `GET /api/v1/github/repositories/{repositoryId}/workflows?pageSize=&pageToken=&q=` | `GitHub.Self` | extended | paged form below; the legacy `?limit=` form is unchanged |
+| `GET /api/v1/github/repositories/{repositoryId}/collaborators?pageSize=&pageToken=` | `GitHub.Self` | new | GitHub collaborators of a repository the caller currently administers, to choose grant recipients (ADR-028); shape below |
 | `GET /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs?conclusion=failure|success` | `GitHub.Self` | new | `items[]: {runId, attempt, conclusion, headBranch, headSha, createdAt, htmlUrl}`; `failure` (default) lists runs to analyse, `success` runs to record as verification; other values 400 |
 | `POST /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs/{runId}/attempts/{attempt}/analysis` | `GitHub.Self` | generalized | replaces the configured single run; requires OPERATE conditions of ADR-020; returns `202 {analysisId, phase}` and only records durable intent; accepts failed runs (analysis) and successful runs (verification capture) |
 | `GET /api/v1/github/repositories/{repositoryId}/workflows/{workflowId}/runs/{runId}/attempts/{attempt}/analysis` | `GitHub.Self` | existing (pilot) | `{analysisId, phase: ACCEPTED|PREPARING|PUBLISHED|BLOCKED, blockedReason?: SCOPE_CHANGED|SOURCE_EXPIRED, executionId?, incidentId?}`. `BLOCKED` is terminal; `SOURCE_EXPIRED` means GitHub no longer retains the run's logs (410 Gone). |
@@ -89,12 +90,62 @@ asking for internal UUIDs. Both appear once the phase is `PUBLISHED`; `incidentI
 when the run failed. A successful run yields only `executionId`, which the dashboard
 passes to Pipeline's `POST /api/v1/incidents/{id}/verification`.
 
+### Repository collaborators
+
+`GET /api/v1/github/repositories/{repositoryId}/collaborators` lists the people GitHub reports
+as collaborators of the repository, so an administrator can choose grant recipients (ADR-028).
+It is read with the caller's own GitHub token and requires an active link, a repository admitted
+in a pipesor installation and readable, and the caller's current GitHub administration of it.
+Nothing is stored.
+
+- `pageSize`: 1–100, default 30. `pageToken`: opaque `nextPageToken` of the previous page,
+  valid only for the same route, repository, user and `pageSize`.
+- Order is GitHub's. Only accounts of type `User` are listed (bots are skipped), so a page may
+  hold fewer than `pageSize` items; only `nextPageToken` (`null` on the last page) signals more.
+  There is no `q`: GitHub cannot search collaborators. Pending invitations are not listed.
+
+```json
+{
+  "repository": {"repositoryId": "123", "fullName": "acme/payments-api"},
+  "items": [{
+    "githubUserId": "583231",
+    "login": "octocat",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/583231?v=4",
+    "role": "ADMIN",
+    "principalRef": "<tenantId>:<objectId>",
+    "pipesorConnection": "ACTIVE"
+  }],
+  "nextPageToken": null
+}
+```
+
+- `role`: `READ|TRIAGE|WRITE|MAINTAIN|ADMIN`, the highest base role from every source (direct,
+  teams, organization base permission, owners); a custom role is reported as its base role.
+- `principalRef`: exactly the `tenantId:objectId` of
+  `PUT /api/v1/pipelines/{id}/grants/{principalRef}/{capability}` (caller's tenant plus UUIDv5
+  of the GitHub user id, platform identity contract v1).
+- `pipesorConnection`: `ACTIVE` when the person has an active GitHub link in Pipesor, else
+  `NONE`. It does not prove the link still works: granting still verifies the recipient and can
+  return `403 GITHUB_CONNECTION_REQUIRED`.
+- `avatarUrl` is an absolute `https` URL or `null`.
+
+Errors (`problem+json`, `code`): `400 INVALID_REQUEST` (non-numeric `repositoryId`, `pageSize`
+out of range, repeated parameter), `400 INVALID_PAGE_TOKEN` (malformed, or issued for another
+repository, user or `pageSize`), `401`, `403 DENIED` (repository not admitted or not readable,
+or the caller is not its administrator), `409 CONNECTION_REQUIRED` (no active link or
+reconnection needed), `503 VERIFICATION_UNAVAILABLE` (GitHub unavailable or rate limited,
+SSO not authorized, or GitHub refuses the list, for instance to an outside collaborator of an
+organization).
+
 ## Pipeline — operations (external ingress)
 
 Existing routes (`/api/v1/pipelines`, `/pipelines/{id}`, `/pipelines/{id}/executions`,
 `/pipelines/{id}/incidents`, `/executions/{id}`, `/executions/{id}/stages`,
 `/incidents/{id}`, `/incidents/{id}/runs`, settings, policy, ownership, grants and
 incident lifecycle commands) keep their shapes and require `Pipeline.Access`.
+`DELETE /api/v1/pipelines/{id}/grants/{principalRef}/CONFIGURE` refuses to remove the
+pipeline's last `CONFIGURE` grant, also the caller's own: `409 LAST_CONFIGURE_GRANT`
+(ADR-028). It counts stored grants; grant changes of one pipeline are serialized.
 
 New:
 
