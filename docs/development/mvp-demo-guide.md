@@ -55,8 +55,14 @@ grant for the creator, one `audit.audit_events` row. A second registration retur
 ## 4. Grant OPERATE to the reviewer
 
 ADR-020: `CONFIGURE` includes `VIEW` but not `OPERATE`, and human review requires `OPERATE`.
-The creator grants it explicitly:
-`PUT /api/v1/pipelines/{pipelineId}/grants/{tenantId}:{subjectObjectId}/OPERATE` → 204.
+The creator grants it explicitly. To grant it to a teammate, the creator lists the repository's
+GitHub collaborators (ADR-028):
+`GET /api/v1/github/repositories/{repositoryId}/collaborators?pageSize=100` → each person's
+`login`, `role`, `principalRef` and `pipesorConnection`. Only people with
+`pipesorConnection: ACTIVE` (they signed in to Pipesor once) can receive grants:
+`PUT /api/v1/pipelines/{pipelineId}/grants/{principalRef}/OPERATE` → 204.
+
+Revoking the pipeline's last `CONFIGURE` grant is refused with `409 LAST_CONFIGURE_GRANT`.
 
 Evidence: the diagnosis entitlement reports `["VIEW","OPERATE"]`.
 
