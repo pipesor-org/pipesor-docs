@@ -73,12 +73,13 @@ accept exactly one of two forms:
   plus `nextPageToken` (string or `null`); more results than `pageSize` produce a page and a
   token, never a 503. Order: repositories by `fullName` (case-insensitive), then `repositoryId`;
   workflows by `name` (case-insensitive), then `workflowId`. Every page carries the same
-  `context` object (`tenantId`, `subjectObjectId`, …) and repeats the ADR-024 reconciliation.
+  `context` object (`tenantId`, `subjectObjectId`, …); repository pages repeat the ADR-024
+  reconciliation and workflow pages re-check the repository's admission and readability.
 - **Legacy:** `limit` (1–100) with no `pageSize`/`pageToken`/`q`: unchanged, including
   `503 VERIFICATION_UNAVAILABLE` when the user sees more than `limit` items.
 
 Sending both forms, neither form, or `cursor` is `400 INVALID_REQUEST`. A `pageToken` that is
-malformed or was issued for another route, repository or `q` is `400 INVALID_PAGE_TOKEN`.
+malformed or was issued for another route, repository, user or `q` is `400 INVALID_PAGE_TOKEN`.
 Ingestion still reads at most 500 repositories per user from GitHub
 (`pipesor.github.limits.user-max-items`); beyond that the read is `503` in both forms.
 
