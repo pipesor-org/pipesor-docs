@@ -163,13 +163,52 @@ FOR EACH STATEMENT EXECUTE FUNCTION diagnosis.reject_correlated_receipt_mutation
 '''
 
 
+CONSENT_LIFECYCLE = r"""
+-- DD-028 (ADR-029; Ley 29733, D.S. 016-2024-JUS arts. 4 and 9): as in Ingestion V6.
+-- A CHECK cannot tell historical attempts from new ones, so new attempts are checked on insert.
+CREATE FUNCTION ingestion.require_login_consent_version() RETURNS trigger
+LANGUAGE plpgsql SET search_path = pg_catalog, ingestion AS $$ BEGIN
+    IF NEW.consent_version IS NULL THEN
+        RAISE EXCEPTION 'Login attempts require the accepted consent version'
+          USING ERRCODE = '23514', CONSTRAINT = 'github_login_attempts_consent_required_ck';
+    END IF;
+    RETURN NEW;
+END; $$;
+CREATE TRIGGER github_login_attempts_consent_required BEFORE INSERT ON ingestion.github_login_attempts
+FOR EACH ROW EXECUTE FUNCTION ingestion.require_login_consent_version();
+
+-- Append-only: no DELETE or TRUNCATE, and the only UPDATE is the single manual revocation that sets
+-- revoked_at and revocation_reference from NULL while every other column stays unchanged.
+CREATE FUNCTION ingestion.guard_consent_record() RETURNS trigger
+LANGUAGE plpgsql SET search_path = pg_catalog, ingestion AS $$
+BEGIN
+    IF TG_OP = 'UPDATE'
+       AND OLD.revoked_at IS NULL AND OLD.revocation_reference IS NULL
+       AND NEW.revoked_at IS NOT NULL AND NEW.revocation_reference IS NOT NULL
+       AND ROW(NEW.id, NEW.tenant_id, NEW.entra_object_id, NEW.github_user_id, NEW.documents_version, NEW.accepted_at,
+               NEW.recorded_at, NEW.source, NEW.login_attempt_id, NEW.correlation_id)
+           IS NOT DISTINCT FROM ROW(OLD.id, OLD.tenant_id, OLD.entra_object_id, OLD.github_user_id, OLD.documents_version,
+               OLD.accepted_at, OLD.recorded_at, OLD.source, OLD.login_attempt_id, OLD.correlation_id) THEN
+        RETURN NEW;
+    END IF;
+    RAISE EXCEPTION 'Consent records are append-only; only one revocation may be recorded'
+      USING ERRCODE = '23514', CONSTRAINT = 'consent_records_append_only_ck';
+END;
+$$;
+CREATE TRIGGER consent_records_guard BEFORE UPDATE OR DELETE ON ingestion.consent_records
+FOR EACH ROW EXECUTE FUNCTION ingestion.guard_consent_record();
+CREATE TRIGGER consent_records_no_truncate BEFORE TRUNCATE ON ingestion.consent_records
+FOR EACH STATEMENT EXECUTE FUNCTION ingestion.guard_consent_record();
+"""
+
+
 def generate_extras(model):
     constraints = {c for e in model["entities"] for c in e.get("domain_constraints", [])}
-    supported = {"at_most_one_origin", "exactly_one_failed_origin", "origin_pipeline_consistency", "append_only", "connector_lifecycle", "capture_lifecycle", "correlation_lifecycle"}
+    supported = {"at_most_one_origin", "exactly_one_failed_origin", "origin_pipeline_consistency", "append_only", "connector_lifecycle", "capture_lifecycle", "correlation_lifecycle", "consent_lifecycle"}
     if constraints - supported:
         raise ValueError(f"Unsupported domain constraints: {sorted(constraints - supported)}")
     parts = ["-- GENERATED — DO NOT EDIT. SSOT: model/domain.yml; DD-002 / DD-003."]
-    origin = supported - {"append_only", "connector_lifecycle", "capture_lifecycle", "correlation_lifecycle"}
+    origin = supported - {"append_only", "connector_lifecycle", "capture_lifecycle", "correlation_lifecycle", "consent_lifecycle"}
     if constraints & origin:
         if not origin <= constraints:
             raise ValueError("ORIGIN constraints must be declared together")
@@ -192,6 +231,8 @@ def generate_extras(model):
         parts.append(generate_capture_sql())
     if "correlation_lifecycle" in constraints:
         parts.append(generate_correlation_sql())
+    if "consent_lifecycle" in constraints:
+        parts.append(CONSENT_LIFECYCLE)
     return "\n".join(parts)
 
 

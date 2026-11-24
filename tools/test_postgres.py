@@ -114,8 +114,10 @@ INSERT INTO diagnosis.diagnosis_jobs(context_id,state,attempts,next_attempt_at,l
 VALUES ('{ONE}','PENDING',0,now(),NULL,NULL,now());
 INSERT INTO diagnosis.incident_summary_outbox(incident_id,execution_id,generation,attempts,next_attempt_at,lease_until,last_failure,created_at)
 VALUES ('{TWO}','{TWO}',1,0,now(),NULL,NULL,now());
-INSERT INTO ingestion.github_login_attempts(id,state_digest,pkce_secret_object_ref,pkce_secret_version_ref,return_path,phase,expires_at,correlation_id,created_at,updated_at)
-VALUES ('{ONE}',decode('01','hex'),'pkce:{ONE}','v1','/pipelines','READY',now()+interval '10 minutes','synthetic',now(),now());
+INSERT INTO ingestion.github_login_attempts(id,state_digest,pkce_secret_object_ref,pkce_secret_version_ref,return_path,phase,expires_at,correlation_id,created_at,updated_at,consent_version)
+VALUES ('{ONE}',decode('01','hex'),'pkce:{ONE}','v1','/pipelines','READY',now()+interval '10 minutes','synthetic',now(),now(),'2026-11-24');
+INSERT INTO ingestion.consent_records(id,tenant_id,entra_object_id,github_user_id,documents_version,accepted_at,recorded_at,source,login_attempt_id,correlation_id)
+VALUES ('{ONE}','{ONE}','{TWO}','123','2026-11-24',now(),now(),'LOGIN_CHECKBOX','{ONE}','synthetic');
 INSERT INTO ingestion.repository_admissions(tenant_id,app_id,account_id,installation_id,repository_id,admitted_at,admitted_by,source)
 VALUES ('{ONE}','1','2','3','456',now(),'synthetic-operator','operator');
 INSERT INTO ingestion.capture_workflow_scopes(capture_domain,tenant_id,app_id,account_id,installation_id,repository_id,workflow_id,pipeline_id,status,allowed_actions,replay_window,revision,scope_revision,updated_at)
@@ -145,10 +147,55 @@ VALUES ('synthetic','{ONE}','1','2','3','456','789','{TWO}','ACTIVE',ARRAY['comp
         ]:
             with self.subTest(statement=statement):
                 self.rejected(statement, code)
-        self.rejected(f"INSERT INTO ingestion.github_login_attempts(id,state_digest,pkce_secret_object_ref,pkce_secret_version_ref,return_path,phase,expires_at,correlation_id,created_at,updated_at) SELECT '{TWO}',state_digest,'pkce:{TWO}',pkce_secret_version_ref,return_path,phase,expires_at,correlation_id,created_at,updated_at FROM ingestion.github_login_attempts", '23505')
+        self.rejected(f"INSERT INTO ingestion.github_login_attempts(id,state_digest,pkce_secret_object_ref,pkce_secret_version_ref,return_path,phase,expires_at,correlation_id,created_at,updated_at,consent_version) SELECT '{TWO}',state_digest,'pkce:{TWO}',pkce_secret_version_ref,return_path,phase,expires_at,correlation_id,created_at,updated_at,consent_version FROM ingestion.github_login_attempts", '23505')
         self.accepted(f"UPDATE ops.incident_diagnoses SET diagnosis_id='{ONE}'")
         self.accepted(f"UPDATE ops.execution_event_receipts SET execution_id='{ONE}'")
         self.accepted("UPDATE ingestion.repository_admissions SET revoked_at=now(), revoked_by='synthetic-administrator', source='repository_administrator'")
+
+    def test_login_consent_is_required_and_append_only(self):
+        # DD-028: generated DDL keeps Ingestion V6's checks, key, FK and triggers.
+        attempt = (f"INSERT INTO ingestion.github_login_attempts(id,state_digest,pkce_secret_object_ref,pkce_secret_version_ref,return_path,phase,expires_at,correlation_id,created_at,updated_at,consent_version) "
+                   f"VALUES ('{TWO}',decode('02','hex'),'pkce:{TWO}','v1','/','READY',now()+interval '10 minutes','synthetic',now(),now(),VERSION)")
+        self.rejected(attempt.replace('VERSION', 'NULL'), constraint='github_login_attempts_consent_required_ck')
+        self.rejected(attempt.replace('VERSION', "(now() AT TIME ZONE 'UTC')::date + 2"),
+                      constraint='github_login_attempts_consent_version_ck')
+        self.accepted(attempt.replace('VERSION', "(now() AT TIME ZONE 'UTC')::date + 1"))
+        # Attempts created before V6 keep a NULL version and may still change phase.
+        self.accepted("ALTER TABLE ingestion.github_login_attempts DISABLE TRIGGER github_login_attempts_consent_required; "
+                      + attempt.replace('VERSION', 'NULL') + "; ALTER TABLE ingestion.github_login_attempts ENABLE TRIGGER "
+                      f"github_login_attempts_consent_required; UPDATE ingestion.github_login_attempts SET phase='FAILED' WHERE id='{TWO}'")
+        columns = "id,tenant_id,entra_object_id,github_user_id,documents_version,accepted_at,recorded_at,source,login_attempt_id,correlation_id,revoked_at,revocation_reference"
+        values = [f"'{TWO}'", f"'{ONE}'", f"'{TWO}'", "'123'", "'2026-11-24'", "now()", "now()", "'LOGIN_CHECKBOX'", f"'{TWO}'", "'synthetic'", "NULL", "NULL"]
+        def record(**changes):
+            row = dict(zip(columns.split(','), values), **changes)
+            return f"INSERT INTO ingestion.consent_records({columns}) VALUES ({','.join(row.values())})"
+        valid_attempt = attempt.replace('VERSION', "'2026-11-24'") + '; '
+        self.accepted(valid_attempt + record())
+        self.rejected(record(login_attempt_id=f"'{ONE}'", id=f"'{TWO}'"), '23505')
+        self.rejected(record(), '23503')
+        for changes, constraint in [
+            (dict(github_user_id="'0'"), 'consent_records_github_user_ck'),
+            (dict(source="'API'"), 'consent_records_source_ck'),
+            (dict(correlation_id="' '"), 'consent_records_correlation_ck'),
+            (dict(recorded_at="now()-interval '1 second'"), 'consent_records_timestamps_ck'),
+            (dict(documents_version="(now() AT TIME ZONE 'UTC')::date + 2"), 'consent_records_version_ck'),
+            (dict(revoked_at='now()'), 'consent_records_revocation_ck'),
+            (dict(revoked_at='now()', revocation_reference="' '"), 'consent_records_revocation_ck'),
+        ]:
+            with self.subTest(changes=changes):
+                self.rejected(valid_attempt + record(**changes), constraint=constraint)
+        for statement in [
+            "UPDATE ingestion.consent_records SET correlation_id='other'",
+            "UPDATE ingestion.consent_records SET revoked_at=now()",
+            "UPDATE ingestion.consent_records SET revoked_at=now(), revocation_reference='REQ-1', correlation_id='other'",
+            "UPDATE ingestion.consent_records SET revoked_at=now(), revocation_reference='REQ-1'; "
+            "UPDATE ingestion.consent_records SET revoked_at=now(), revocation_reference='REQ-2'",
+            'DELETE FROM ingestion.consent_records',
+            'TRUNCATE ingestion.consent_records',
+        ]:
+            with self.subTest(statement=statement):
+                self.rejected(statement, constraint='consent_records_append_only_ck')
+        self.accepted("UPDATE ingestion.consent_records SET revoked_at=now(), revocation_reference='REQ-1'")
 
     def test_recommendation_receipt_signals_are_typed_exact_and_immutable(self):
         base = f"SELECT diagnosis.valid_correlated_signals(signals, evidence_ids) FROM diagnosis.correlated_context_receipts"

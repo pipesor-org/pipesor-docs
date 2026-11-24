@@ -1,5 +1,5 @@
 # SSOT del dominio persistente. DBML/SQL/ER/diccionario se generan; no editar derivados.
-model_version: 1.10.0
+model_version: 1.11.0
 source_authority:
   scope: SRC_CHARTER
   architecture:
@@ -36,7 +36,7 @@ schemas:
 - id: ingestion
   owner_containers:
   - ingestion_normalization_service
-  description_es: Metadata de conector GitHub (DD-020), ledger de captura/publicación y buffer temporal de bytes protegidos (DD-021), intentos de inicio de sesión, admisiones de repositorios y alcances de captura por workflow (DD-026); sin credenciales ni entradas crudas.
+  description_es: Metadata de conector GitHub (DD-020), ledger de captura/publicación y buffer temporal de bytes protegidos (DD-021), intentos de inicio de sesión, admisiones de repositorios y alcances de captura por workflow (DD-026), registros de consentimiento del inicio de sesión (DD-028); sin credenciales ni entradas crudas.
 entities:
 - id: repositories
   table: repositories
@@ -4436,6 +4436,8 @@ entities:
   - docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion
   - docs/architecture/decisions/ADR-025-open-sign-in.md
   - DD-026
+  - docs/architecture/decisions/ADR-029-login-consent-record.md
+  - DD-028
   attributes:
   - name: id
     type: uuid
@@ -4569,6 +4571,20 @@ entities:
     er_visible: false
     assumption: null
     description_es: Instante del último cambio de fase.
+  - name: consent_version
+    type: date
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Versión (fecha ISO) de la Política de privacidad y los Términos de uso aceptada al iniciar
+      sesión; created_at es el instante de aceptación. Nula solo en intentos anteriores a la migración; un
+      trigger BEFORE INSERT la exige en intentos nuevos (DD-028).
+    source:
+    - 'pipesor-ingestion-normalization-service@021cdc3: V6__login_consent_records.sql'
+    - docs/architecture/decisions/ADR-029-login-consent-record.md
+    - DD-028
   unique_constraints:
   - name: github_login_attempts_state_uq
     columns:
@@ -4597,8 +4613,12 @@ entities:
     expression: (phase IN ('HANDOFF_READY','COMPLETED')) = (handoff_digest IS NOT NULL) AND (handoff_digest
       IS NULL OR (handoff_expires_at IS NOT NULL AND connection_id IS NOT NULL AND generation_id IS NOT
       NULL AND github_user_id ~ '^[1-9][0-9]*$' AND btrim(github_login) <> ''))
+  - name: github_login_attempts_consent_version_ck
+    expression: consent_version IS NULL OR consent_version <= (created_at AT TIME ZONE 'UTC')::date + 1
   traceability_required: false
   retention_policy: null
+  domain_constraints:
+  - consent_lifecycle
 - id: repository_admissions
   table: repository_admissions
   schema: ingestion
@@ -4858,6 +4878,142 @@ entities:
       - repository_id
   traceability_required: false
   retention_policy: null
+- id: consent_records
+  table: consent_records
+  schema: ingestion
+  owner_container: ingestion_normalization_service
+  description_es: Prueba append-only del consentimiento dado al iniciar sesión (Ley 29733, D.S. 016-2024-JUS
+    arts. 4 y 9); una fila por inicio de sesión exitoso, escrita en la transacción que ofrece el handoff.
+    Solo admite una revocación manual.
+  scope_basis: approved_domain
+  status: confirmed
+  source:
+  - docs/architecture/decisions/ADR-029-login-consent-record.md
+  - docs/architecture/contracts/platform-identity-v1.md#5-login-flow-ingestion
+  - 'pipesor-ingestion-normalization-service@021cdc3: V6__login_consent_records.sql'
+  - DD-028
+  attributes:
+  - name: id
+    type: uuid
+    pk: true
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Identificador del registro asignado por Ingestion.
+  - name: tenant_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Tenant Entra del principal de plataforma, como en github_connections.
+  - name: entra_object_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Object id del principal de plataforma (tenantId:objectId de los grants), como en
+      github_connections.
+  - name: github_user_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: ID numérico del usuario GitHub verificado en el inicio de sesión.
+  - name: documents_version
+    type: date
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Versión (fecha ISO) común de la Política de privacidad y los Términos de uso aceptada; como
+      máximo el día UTC siguiente a accepted_at.
+  - name: accepted_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Instante de aceptación (creación del intento de inicio de sesión).
+  - name: recorded_at
+    type: timestamptz
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Instante de registro, no anterior a accepted_at.
+  - name: source
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: 'Origen del consentimiento: LOGIN_CHECKBOX.'
+  - name: login_attempt_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Intento de inicio de sesión que originó el registro; uno por intento.
+    fk: ingestion.github_login_attempts.id
+  - name: correlation_id
+    type: text
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Identificador de correlación no vacío; no contiene información sensible.
+  - name: revoked_at
+    type: timestamptz
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Instante de la revocación manual; presente junto con revocation_reference.
+  - name: revocation_reference
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Referencia no vacía de la solicitud de revocación; presente junto con revoked_at.
+  unique_constraints:
+  - name: consent_records_login_attempt_uq
+    columns:
+    - login_attempt_id
+  checks:
+  - name: consent_records_github_user_ck
+    expression: github_user_id ~ '^[1-9][0-9]*$'
+  - name: consent_records_source_ck
+    expression: source IN ('LOGIN_CHECKBOX')
+  - name: consent_records_correlation_ck
+    expression: btrim(correlation_id) <> ''
+  - name: consent_records_timestamps_ck
+    expression: accepted_at <= recorded_at
+  - name: consent_records_version_ck
+    expression: documents_version <= (accepted_at AT TIME ZONE 'UTC')::date + 1
+  - name: consent_records_revocation_ck
+    expression: (revoked_at IS NULL) = (revocation_reference IS NULL) AND (revocation_reference IS NULL OR
+      btrim(revocation_reference) <> '')
+  traceability_required: false
+  retention_policy: null
+  domain_constraints:
+  - consent_lifecycle
 relationships:
 - id: correlation_groups_execution_id
   from: evidence.correlation_groups.execution_id
@@ -5159,6 +5315,14 @@ relationships:
   source:
   - docs/architecture/decisions/ADR-023-capture-scope-from-registrations.md
   - DD-026
+- id: consent_records_login_attempt_fk
+  from: ingestion.consent_records.login_attempt_id
+  to: ingestion.github_login_attempts.id
+  kind: fk
+  cardinality: one_to_one
+  source:
+  - docs/architecture/decisions/ADR-029-login-consent-record.md
+  - DD-028
 enums:
 - id: IncidentStatus
   schema: ops

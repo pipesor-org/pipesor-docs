@@ -44,9 +44,10 @@ guarantees recorded in [pending decisions](../pending-decisions.md).
 
 | Method and route | Scope | Status | Notes |
 |---|---|---|---|
-| `GET /api/v1/auth/github/start?return_to=` | none | new | §5 of the identity contract |
+| `GET /api/v1/auth/github/start?return_to=&consent_version=` | none | new | §5 of the identity contract; `consent_version` required (ADR-029), otherwise redirect with `error=consent_required` |
 | `GET /api/v1/auth/github/callback` | none | new | redirects to the dashboard |
-| `POST /api/v1/auth/session` | none | new | `{handoff}` → `{accessToken, expiresAt, user, returnTo}`; the callback redirects with `?error=<code>` on failure |
+| `POST /api/v1/auth/session` | none | new | `{handoff}` → `{accessToken, expiresAt, user, returnTo, consent}`; the callback redirects with `?error=<code>` on failure |
+| `GET /api/v1/auth/consent` | `GitHub.Self` | new | latest non-revoked login consent `{documentsVersion, acceptedAt, source}` or `404 CONSENT_NOT_FOUND` (ADR-029) |
 | `POST /api/v1/auth/logout` | `GitHub.Self` | new | 204 |
 | `GET /api/v1/github/connection` | `GitHub.Self` | existing | |
 | `DELETE /api/v1/github/connection` | `GitHub.Self` | existing | |

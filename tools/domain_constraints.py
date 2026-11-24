@@ -1,4 +1,4 @@
-"""Current DD-003/005/006/007/009/013/023/024/026/027 constraints, not a SQL parser.
+"""Current DD-003/005/006/007/009/013/023/024/026/027/028 constraints, not a SQL parser.
 
 An authorized domain evolution updates these contracts and regression tests.
 Constraint names are presentation details; compare expressions and column sets.
@@ -20,6 +20,8 @@ REQUIRED_UNIQUES = {
     'github_login_attempts': [('state_digest',)],
     # DD-027: review revisions as created by Recommendation V2.
     'human_reviews': [('diagnostic_id', 'revision')],
+    # DD-028: one consent record per login attempt.
+    'consent_records': [('login_attempt_id',)],
 }
 # DD-026: one-time handoff digests and admitted-repository membership of workflow scopes.
 REQUIRED_PARTIAL_UNIQUES = {
@@ -73,6 +75,7 @@ REQUIRED_REFERENCES = {
     'ingestion.github_login_attempts.connection_id': ('logical_ref', 'ingestion.github_connections.id'),
     'ingestion.github_login_attempts.generation_id': ('logical_ref', 'ingestion.github_connection_generations.id'),
     'ingestion.capture_workflow_scopes.pipeline_id': ('logical_ref', 'ops.pipelines.id'),
+    'ingestion.consent_records.login_attempt_id': ('fk', 'ingestion.github_login_attempts.id'),
     # DD-027: Recommendation V6 promotes both references from the immutable output, without FK.
     'diagnosis.diagnoses.context_id': ('logical_ref', 'diagnosis.correlated_context_receipts.context_id'),
     'diagnosis.diagnoses.execution_id': ('logical_ref', 'ops.pipeline_executions.id'),
@@ -144,6 +147,8 @@ REQUIRED_CHECKS = {
         "(phase IN ('HANDOFF_READY','COMPLETED')) = (handoff_digest IS NOT NULL) AND (handoff_digest IS NULL OR "
         "(handoff_expires_at IS NOT NULL AND connection_id IS NOT NULL AND generation_id IS NOT NULL AND "
         "github_user_id ~ '^[1-9][0-9]*$' AND btrim(github_login) <> ''))",
+        # DD-028 (Ingestion V6): the accepted version is at most the next UTC day.
+        "consent_version IS NULL OR consent_version <= (created_at AT TIME ZONE 'UTC')::date + 1",
     ],
     'repository_admissions': [
         "app_id ~ '^[1-9][0-9]*$' AND account_id ~ '^[1-9][0-9]*$' AND installation_id ~ '^[1-9][0-9]*$' "
@@ -159,6 +164,16 @@ REQUIRED_CHECKS = {
         "cardinality(allowed_actions) > 0 AND allowed_actions <@ ARRAY['requested','in_progress','completed']::text[]",
         "replay_window > interval '0'",
         "revision > 0 AND scope_revision ~ '^[A-Za-z0-9._:-]{1,128}$'",
+    ],
+    # DD-028: login consent records, expressions as in Ingestion V6.
+    'consent_records': [
+        "github_user_id ~ '^[1-9][0-9]*$'",
+        "source IN ('LOGIN_CHECKBOX')",
+        "btrim(correlation_id) <> ''",
+        'accepted_at <= recorded_at',
+        "documents_version <= (accepted_at AT TIME ZONE 'UTC')::date + 1",
+        "(revoked_at IS NULL) = (revocation_reference IS NULL) AND (revocation_reference IS NULL OR "
+        "btrim(revocation_reference) <> '')",
     ],
 }
 
