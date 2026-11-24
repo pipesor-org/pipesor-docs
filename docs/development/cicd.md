@@ -44,8 +44,9 @@ checks y Environments con revisores, que antes no estaban disponibles. Desde el 
 | `publish-container.yml` | Solo push a `main`: carga el archivo verificado, mantiene privado el paquete, publica sin reconstruir y registra `candidate-<run>-<attempt>/candidate.json` (90 días). |
 | `service-ci.yml` | Compone las cuatro piezas anteriores con la sintaxis `uses: $/...`. |
 | `actions/release` | Nombra un digest existente con `vX.Y.Z[-rc.N]` y una GitHub Release; nunca reconstruye ni re-etiqueta el registro. |
+| `registry-retention.yml` | Retención semanal de GHCR por repositorio (dry-run por defecto); ver más abajo. |
 
-Los consumidores fijan el SHA completo del tag (`v1.0.0`) con un comentario de versión; Dependabot
+Los consumidores fijan el SHA completo del tag (hoy `v1.1.0`) con un comentario de versión; Dependabot
 (`github-actions`, semanal, cooldown de 7 días) propone actualizaciones. Todas las acciones de terceros
 están fijadas por SHA y las imágenes de herramientas por digest.
 
@@ -89,7 +90,7 @@ end note
 | 5 servicios Java | `service-ci.yml` (Maven) | Imagen + `candidate.json` | Publicando desde `main`; release deshabilitado en código; Correlation y Recommendation tienen una excepción Trivy (CVE-2026-109518, apt de la imagen base) con vencimiento 06/12/2026 e issue de remediación (#31 y #24, respectivamente) |
 | `pipesor-nlp-log-processor`, `pipesor-rag-retrieval` | `service-ci.yml` (Python) | Imagen + `candidate.json` | Publicando; release deshabilitado en código; sus validadores propios fueron reemplazados por commitlint; RAG ya no re-etiqueta GHCR (`promote-release` retirado) |
 | `pipesor-frontend` | `service-ci.yml` (Bun) | Imagen nginx + `candidate.json` | Build Once: el contenedor genera `/config.js` y la CSP desde `PIPESOR_*_URL` al arrancar; IaC define esas variables; release deshabilitado en código |
-| `pipesor-iac` | `conventions.yml` + matriz Terraform + tooling | — | Sin credenciales ni plan real en CI |
+| `pipesor-iac` | `conventions.yml` + matriz Terraform + tooling | `environments/<env>/images.json` | Sin credenciales ni plan real en CI; el archivo de imágenes por entorno se valida en CI |
 | `pipesor-docs` | `conventions.yml` + validadores de modelos y de presentación + `make test` | — | Suite restaurada ([#36](https://github.com/pipesor-org/pipesor-docs/issues/36), cerrado el 23/11/2026); los required checks de `main` son `conventions` y `validate`, todavía sin `test` |
 | `pipesor-landing` | `conventions.yml` + checks/test/build/dry-run | Workers | El despliegue sigue en Workers Builds |
 | `pipesor-validation-scenarios` | `conventions.yml` + pruebas del harness | Resultados versionados en `results/` | Workflows `Scenarios` y `pipesor-report` (OIDC de GitHub Actions) para la evaluación OE3-I2 |
@@ -108,9 +109,17 @@ creciente; desde 1.x, breaking → major, feat → minor, el resto → patch. La
 sobrescriben. Stable exige validación preprod retenida para el mismo digest, así que en dev-only no se
 publica stable. El hotfix organizacional no está implementado.
 
-GHCR conserva las imágenes; **no hay limpieza automática**. `pipesor-pipeline-service` mantiene el
-preview local de retención (sin capacidad de borrado). Las evidencias de candidato y aseguramiento
-duran 90 días; si se necesita más para una promoción o recuperación, se revalida. La retención
+**Retención de GHCR (desde el 24/11/2026).** Cada repositorio con imagen ejecuta los lunes el
+workflow compartido `registry-retention.yml`. Conserva toda versión que cumpla alguna regla: digest
+actual o uno de los 3 anteriores distintos de cualquier `environments/*/images.json` de pipesor-iac
+(según su historial Git), digest de una Release o commit con tag `v*`, tags no técnicos, uno de los 10
+candidatos más nuevos o con menos de 30 días, o manifiesto hijo (plataforma/atestación) de un índice
+conservado; las imágenes antiguas son índices OCI cuyos hijos GitHub lista como versiones sin tag, y
+borrarlos rompería la imagen. Los hijos de un índice eliminado se borran después de él. Cualquier dato
+ilegible detiene la corrida antes de borrar y un plan de más de 100 versiones se rechaza. **Funciona en
+dry-run** (reporte de 90 días y resumen) hasta que el repositorio defina `REGISTRY_RETENTION_DELETE=true`
+y otorgue a su repositorio el rol Admin en *Manage Actions access* del paquete; GitHub permite restaurar
+una versión borrada durante 30 días. Las evidencias de candidato y aseguramiento duran 90 días; si se necesita más para una promoción o recuperación, se revalida. La retención
 funcional de [ADR-013](../architecture/decisions/ADR-013-retention-365-days.md) no se satisface ni
 redefine con estas retenciones técnicas.
 
@@ -124,12 +133,17 @@ Azure ni runner self-hosted en repositorios públicos de aplicación, y un flujo
 despliegue integral de dev. Por eso se retiraron los `deploy.yml`, el adaptador ACA image-only y su
 rollback de los cinco servicios Java.
 
-- **Desplegar:** tomar el `image@digest` de `candidate.json`, ponerlo en `workloads.images` del root,
-  generar un plan nuevo, revisar que solo cambie la Container App esperada y aplicarlo con
+Las imágenes desplegadas se versionan en Git como `environments/<env>/images.json` de pipesor-iac
+(schema 1, misma identidad que `candidate.json`); su historial es el registro de despliegues de cada
+entorno y alimenta la retención. `bun tools/images.js` lo valida y lo actualiza.
+
+- **Desplegar:** `bun tools/images.js set <env> <workload> --run <id> --attempt <n>` (o `--release`),
+  PR, y luego un plan nuevo revisado que solo cambie la Container App esperada, aplicado con
   autorización.
-- **Promover:** el mismo digest en el root del siguiente entorno, con su propio plan revisado; nunca se
-  reutiliza un plan ni un state.
-- **Rollback:** un plan revisado nuevo con el digest anterior. No hay downgrade SQL ni restauración de
+- **Promover:** `bun tools/images.js promote <origen> <destino> <workload>`: el mismo digest en el root
+  del siguiente entorno, con su propio plan revisado; nunca se reutiliza un plan ni un state.
+- **Rollback:** un PR que restaura la entrada anterior (del historial del archivo) y un plan revisado
+  nuevo. No hay downgrade SQL ni restauración de
   state implícitos; una incompatibilidad de esquema o configuración obliga a revisar un forward fix.
 - **Configuración:** variables y referencias a secretos las aporta el root; ningún valor secreto vive
   en la imagen ni en los manifiestos. El frontend lee sus orígenes en runtime para que su digest sea
