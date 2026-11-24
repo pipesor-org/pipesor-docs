@@ -63,6 +63,8 @@ class PersistenceTests(unittest.TestCase):
                     value = "'" + enums[c['enum']] + "'"
                 elif c['name'] == 'content_hash':
                     value = "repeat('a',64)"
+                elif c['type'].startswith('varchar('):
+                    value = "'synthetic'"  # DD-027 bounded strings
                 else:
                     value = {'uuid': f"'{ONE}'", 'uuid[]': f"ARRAY['{ONE}'::uuid]", 'text': "'synthetic'",
                              'integer': '1', 'bigint': '1', 'boolean': 'TRUE', 'timestamptz': 'now()',
@@ -501,12 +503,50 @@ VALUES ('{TWO}','other-scope','{ONE}','{ONE}',now(),now());"""
         self.rejected("UPDATE diagnosis.human_reviews SET decision='PENDING'", '22P02')
         self.rejected("UPDATE knowledge.knowledge_documents SET provenance=' '")
         self.rejected("UPDATE diagnosis.human_reviews SET decision='CORRECTED', actual_cause=NULL")
-        self.rejected(f"INSERT INTO diagnosis.diagnoses SELECT '{TWO}', incident_id, version, status, probable_cause, explanation, limitations, confidence, diagnosis_ready_at, correlation_id, created_at FROM diagnosis.diagnoses", '23505')
-        self.rejected(f"INSERT INTO diagnosis.diagnoses SELECT '{TWO}', incident_id, 2, 'DIAGNOSIS_READY', NULL, explanation, limitations, confidence, NULL, correlation_id, created_at FROM diagnosis.diagnoses")
+        self.rejected(f"INSERT INTO diagnosis.diagnoses SELECT '{TWO}', incident_id, version, status, probable_cause, explanation, limitations, confidence, diagnosis_ready_at, correlation_id, authorization_scope, output, created_at, admission_fingerprint, context_id, execution_id FROM diagnosis.diagnoses", '23505')
+        self.rejected(f"INSERT INTO diagnosis.diagnoses SELECT '{TWO}', incident_id, 2, 'DIAGNOSIS_READY', NULL, explanation, limitations, confidence, NULL, correlation_id, authorization_scope, output, created_at, admission_fingerprint, context_id, execution_id FROM diagnosis.diagnoses")
 
     def test_logical_refs_are_not_physical_foreign_keys(self):
         self.accepted(f"UPDATE evidence.evidence_items SET incident_id='{TWO}'")
         self.rejected(f"UPDATE knowledge.knowledge_chunks SET document_id='{TWO}'", '23503')
+
+    def test_dd027_reconciled_columns_keep_implemented_constraints(self):
+        three, four = '00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000004'
+        def diagnosis(id_, version, context, fingerprint="repeat('a',64)", output_context=None):
+            output = '{"contextId":"%s","executionId":"%s"}' % (output_context or context, ONE)
+            return ("INSERT INTO diagnosis.diagnoses(id,incident_id,version,status,correlation_id,authorization_scope,"
+                    "output,created_at,admission_fingerprint,context_id,execution_id) "
+                    f"VALUES ('{id_}','{ONE}',{version},'ANALYZING','synthetic','{{}}'::jsonb,'{output}'::jsonb,now(),"
+                    f"{fingerprint},'{context}','{ONE}')")
+        self.accepted(diagnosis(three, 2, three) + '; ' + diagnosis(four, 3, four))
+        self.accepted(diagnosis(three, 2, three) + '; ' + diagnosis(four, 3, three, fingerprint='NULL'))
+        self.rejected(diagnosis(three, 2, three) + '; ' + diagnosis(four, 3, three), '23505', 'diagnoses_admitted_context_uq')
+        self.rejected(diagnosis(three, 2, three, output_context=four), constraint='diagnoses_context_matches_output_ck')
+        self.rejected(diagnosis(three, 2, three, fingerprint="'ABC'"), constraint='diagnoses_admission_fingerprint_check')
+        self.rejected('UPDATE diagnosis.human_reviews SET revision=0', constraint='human_reviews_revision_check')
+        self.rejected("UPDATE diagnosis.human_reviews SET actual_cause='not a correction'", constraint='human_reviews_check')
+        self.rejected("UPDATE diagnosis.human_reviews SET decision='CORRECTED', actual_cause='cause', corrected_recommendation=' '",
+                      constraint='human_reviews_check')
+        self.accepted("UPDATE diagnosis.human_reviews SET decision='CORRECTED', actual_cause='cause', corrected_recommendation='fix'")
+        self.rejected(f"INSERT INTO diagnosis.human_reviews SELECT '{TWO}', diagnostic_id, revision, reviewer_ref, decision, timestamp, "
+                      "correlation_id, actual_cause, comment, corrected_recommendation, created_at FROM diagnosis.human_reviews", '23505')
+        self.rejected('UPDATE ops.incidents SET display_number=NULL', '23502')
+        self.rejected("UPDATE knowledge.knowledge_chunks SET content=' '", constraint='knowledge_chunks_content_ck')
+        self.rejected("UPDATE knowledge.knowledge_documents SET source_id=repeat('s',257)", '22001')
+        self.accepted("UPDATE evidence.evidence_items SET source_locator=NULL")
+
+    def test_receipt_signal_accepts_only_a_shaped_source_locator(self):
+        locator = 'v2:job:42:member:0_build%2Fstep.txt:lines:3-7:sha256:' + 'a' * 64
+        signal = dict(evidence_id=ONE, origin_context_id=ONE, correlation_id="synthetic-correlation",
+                      stage="BUILD", summary="protected summary", content="protected content")
+        for value, expected in [(locator, True), (locator.replace('v2:', 'v1:'), False),
+                                (locator.replace('a' * 64, 'A' * 64), False), (None, False),
+                                ('v2:job:42:member:' + 'm' * 830 + ':lines:3-7:sha256:' + 'a' * 64, False)]:
+            with self.subTest(locator=None if value is None else value[:40]):
+                item = dict(signal, source_locator=value)
+                self.accepted("DO $$ BEGIN IF diagnosis.valid_correlated_signals('" + json.dumps([item]) +
+                              f"'::jsonb, ARRAY['{ONE}'::uuid]) IS DISTINCT FROM {str(expected).lower()} THEN "
+                              "RAISE EXCEPTION 'Synthetic source locator assertion failed'; END IF; END; $$;")
 
     def test_open_vector_and_review_correction(self):
         self.accepted("UPDATE knowledge.knowledge_chunks SET embedding='[1,2,3]'")

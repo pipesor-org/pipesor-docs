@@ -310,7 +310,12 @@ classes:
       - {name: confidence, type: Object, domain_attribute: confidence, nullable: true}
       - {name: diagnosisReadyAt, type: Instant, domain_attribute: diagnosis_ready_at, nullable: true}
       - {name: correlationId, type: String, domain_attribute: correlation_id, nullable: false}
+      - {name: authorizationScope, type: Object, domain_attribute: authorization_scope, nullable: false}
+      - {name: output, type: Object, domain_attribute: output, nullable: false}
       - {name: createdAt, type: Instant, domain_attribute: created_at, nullable: false}
+      - {name: admissionFingerprint, type: String, domain_attribute: admission_fingerprint, nullable: true}
+      - {name: contextId, type: UUID, domain_attribute: context_id, nullable: false}
+      - {name: executionId, type: UUID, domain_attribute: execution_id, nullable: false}
     methods:
       - {name: assertReadySnapshot, parameters: [], returns: void, effect: pure}
     notes: ["append-only; current = highest version per incident"]
@@ -484,12 +489,14 @@ classes:
     attributes:
       - {name: id, type: UUID, domain_attribute: id, nullable: false}
       - {name: diagnosticId, type: UUID, domain_attribute: diagnostic_id, nullable: false}
+      - {name: revision, type: int, domain_attribute: revision, nullable: false}
       - {name: reviewerRef, type: String, domain_attribute: reviewer_ref, nullable: false}
       - {name: decision, type: HumanReviewDecision, domain_attribute: decision, nullable: false}
       - {name: timestamp, type: Instant, domain_attribute: timestamp, nullable: false}
       - {name: correlationId, type: String, domain_attribute: correlation_id, nullable: false}
       - {name: actualCause, type: String, domain_attribute: actual_cause, nullable: true}
       - {name: comment, type: String, domain_attribute: comment, nullable: true}
+      - {name: correctedRecommendation, type: String, domain_attribute: corrected_recommendation, nullable: true}
       - {name: createdAt, type: Instant, domain_attribute: created_at, nullable: false}
     methods:
       - {name: record, parameters: [{name: command, type: RecordHumanReviewCommand}], returns: HumanReview, effect: pure}

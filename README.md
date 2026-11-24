@@ -217,3 +217,15 @@ crean: `ops.execution_event_receipts`, `ops.incident_diagnoses`,
 Cumple las notas pendientes de ADR-023 y ADR-027. Los recibos de eventos y la cola de
 diagnóstico quedan `inferred` porque ningún ADR aprueba esas tablas; las referencias
 entre schemas siguen siendo lógicas. Modelar no acredita despliegue ni migraciones de entorno.
+
+## Columnas reconciliadas con las migraciones — 24/11/2026
+
+[DD-027](model/domain_decisions.md#DD-027) y `domain.yml` 1.10.0 corrigen tablas ya
+modeladas para que reflejen las migraciones de main de cada servicio, sin añadir tablas
+(siguen siendo 35). Son columnas, CHECK y únicas de `ops.incidents`,
+`evidence.evidence_items`, `evidence.correlated_contexts`, `diagnosis.diagnoses`,
+`diagnosis.human_reviews` y `knowledge.*`, el localizador opcional de las señales de
+Recommendation y el tipo `varchar(n)` de RAG. DD-027 enumera las divergencias que
+quedan para decisión del responsable: columnas de `diagnoses` que la tabla real no
+tiene, tres tablas de `diagnosis` sin implementar, el comentario obligatorio en REJECTED
+y ON DELETE CASCADE. Modelar no acredita despliegue ni migraciones de entorno.

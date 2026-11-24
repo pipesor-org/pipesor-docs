@@ -1,5 +1,5 @@
 # SSOT del dominio persistente. DBML/SQL/ER/diccionario se generan; no editar derivados.
-model_version: 1.9.0
+model_version: 1.10.0
 source_authority:
   scope: SRC_CHARTER
   architecture:
@@ -574,6 +574,19 @@ entities:
     source:
     - SRC_ADR_013
     - DD-015
+  - name: display_number
+    type: bigint
+    pk: false
+    nullable: false
+    unique: true
+    er_visible: false
+    assumption: null
+    description_es: Número de presentación INC-<n>, solo para mostrar; la identidad sigue siendo id. Lo
+      asigna la secuencia ops.incident_display_number_seq (DEFAULT y secuencia no representados, DD-027).
+    source:
+    - 'pipesor-pipeline-service@dcaa002: V7__add_incident_display_number.sql'
+    - docs/architecture/contracts/mvp-http-api-v1.md
+    - DD-027
   traceability_required: true
   retention_policy: null
   domain_constraints:
@@ -1117,6 +1130,20 @@ entities:
     assumption: null
     description_es: Revisión de captura original. Su presencia no otorga permiso actual.
     source: [DD-025]
+  - name: source_locator
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Localizador agregado de la evidencia protegida 2.1/2.2, conservado con el vínculo
+      de ejecución; nulo en 2.0. Es procedencia, no autorización. La gramática vive en el contrato.
+    source:
+    - 'pipesor-log-event-service@31a86e0: V3__retain_aggregate_source_locator.sql'
+    - docs/architecture/contracts/protected-evidence-v2.1.md
+    - docs/architecture/contracts/protected-evidence-v2.2.md
+    - DD-027
   traceability_required: true
   retention_policy: RET-001
   checks:
@@ -1384,6 +1411,19 @@ entities:
     er_visible: false
     assumption: null
     description_es: Revisión histórica inmutable del alcance; reautorización vigente separada.
+  - name: signal_source_locator
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Localizador de la señal del miembro incorporado, reenviado sin cambios desde NLP;
+      nulo para evidencia 2.0. Procedencia, no autorización.
+    source:
+    - 'pipesor-evidence-correlation-engine@533fa53: V5__retain_signal_source_locator.sql'
+    - docs/architecture/contracts/protected-evidence-v2.1.md
+    - DD-027
   unique_constraints:
   - name: correlated_contexts_group_id_uq
     columns:
@@ -1781,6 +1821,29 @@ entities:
     description_es: Identificador de correlación end-to-end; no contiene información sensible.
     source:
     - architecture.yml#CTRL-003
+  - name: authorization_scope
+    type: jsonb
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Ámbito de autorización verificado con el que se admitió el diagnóstico.
+    source:
+    - 'pipesor-recommendation-service@3d53d26: V2__persist_diagnostic_reviews.sql'
+    - DD-027
+  - name: output
+    type: jsonb
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Salida diagnóstica inmutable tal como la persiste Recommendation (hipótesis,
+      evidencia y fuentes por ID). DD-027 registra su divergencia con las columnas de DD-003/DD-004/DD-007/DD-010.
+    source:
+    - 'pipesor-recommendation-service@3d53d26: V2__persist_diagnostic_reviews.sql'
+    - DD-027
   - name: created_at
     type: timestamptz
     pk: false
@@ -1792,6 +1855,43 @@ entities:
     source:
     - SRC_ADR_013
     - DD-015
+  - name: admission_fingerprint
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: SHA-256 hexadecimal de la admisión del contexto; nulo en diagnósticos anteriores
+      a la admisión.
+    source:
+    - 'pipesor-recommendation-service@3d53d26: V3__identify_admitted_diagnoses.sql'
+    - DD-027
+  - name: context_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Contexto correlacionado recibido; copia de output.contextId. Referencia lógica dentro
+      del schema, sin FK, como en la migración.
+    logical_ref: diagnosis.correlated_context_receipts.context_id
+    source:
+    - 'pipesor-recommendation-service@3d53d26: V6__index_diagnosis_context_and_execution.sql'
+    - DD-027
+  - name: execution_id
+    type: uuid
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Ejecución diagnosticada; copia de output.executionId. Referencia lógica cross-schema.
+    logical_ref: ops.pipeline_executions.id
+    source:
+    - 'pipesor-recommendation-service@3d53d26: V6__index_diagnosis_context_and_execution.sql'
+    - DD-027
   traceability_required: true
   retention_policy: RET-001
   unique_constraints:
@@ -1805,6 +1905,17 @@ entities:
   - name: diagnoses_check_2
     expression: status <> 'DIAGNOSIS_READY' OR (probable_cause IS NOT NULL AND btrim(probable_cause) <>
       '' AND diagnosis_ready_at IS NOT NULL)
+  - name: diagnoses_admission_fingerprint_check
+    expression: admission_fingerprint IS NULL OR admission_fingerprint ~ '^[0-9a-f]{64}$'
+  - name: diagnoses_context_matches_output_ck
+    expression: context_id = (output->>'contextId')::uuid
+  - name: diagnoses_execution_matches_output_ck
+    expression: execution_id = (output->>'executionId')::uuid
+  partial_unique_constraints:
+  - name: diagnoses_admitted_context_uq
+    columns:
+    - context_id
+    where: admission_fingerprint IS NOT NULL
   domain_constraints:
   - append_only
 - id: recommendations
@@ -2043,6 +2154,17 @@ entities:
     assumption: null
     description_es: Versión revisada; conserva el nombre contractual diagnostic_id de ADR-011.
     fk: diagnosis.diagnoses.id
+  - name: revision
+    type: integer
+    pk: false
+    nullable: false
+    unique: false
+    er_visible: true
+    assumption: null
+    description_es: Revisión positiva de la revisión humana, única por diagnóstico.
+    source:
+    - 'pipesor-recommendation-service@3d53d26: V2__persist_diagnostic_reviews.sql'
+    - DD-027
   - name: reviewer_ref
     type: text
     pk: false
@@ -2095,6 +2217,17 @@ entities:
     er_visible: false
     assumption: null
     description_es: Comentario saneado del revisor.
+  - name: corrected_recommendation
+    type: text
+    pk: false
+    nullable: true
+    unique: false
+    er_visible: false
+    assumption: null
+    description_es: Recomendación corregida opcional; solo admitida en CORRECTED.
+    source:
+    - 'pipesor-recommendation-service@3d53d26: V2__persist_diagnostic_reviews.sql'
+    - DD-027
   - name: created_at
     type: timestamptz
     pk: false
@@ -2108,9 +2241,20 @@ entities:
     - DD-015
   traceability_required: true
   retention_policy: RET-001
+  unique_constraints:
+  - columns:
+    - diagnostic_id
+    - revision
+    name: human_reviews_diagnostic_id_revision_key
   checks:
   - name: human_reviews_check_1
     expression: decision <> 'CORRECTED' OR (actual_cause IS NOT NULL AND btrim(actual_cause) <> '')
+  - name: human_reviews_revision_check
+    expression: revision > 0
+  - name: human_reviews_check
+    expression: (decision = 'CORRECTED' AND actual_cause IS NOT NULL AND btrim(actual_cause) <> '' AND
+      (corrected_recommendation IS NULL OR btrim(corrected_recommendation) <> '')) OR (decision <> 'CORRECTED'
+      AND actual_cause IS NULL AND corrected_recommendation IS NULL)
 - id: diagnosis_jobs
   table: diagnosis_jobs
   schema: diagnosis
@@ -2306,7 +2450,7 @@ entities:
     assumption: A-001
     description_es: Identificador estable asignado por el servicio propietario.
   - name: corpus_kind
-    type: text
+    type: varchar(64)
     pk: false
     nullable: false
     unique: false
@@ -2347,17 +2491,17 @@ entities:
     unique: false
     er_visible: true
     assumption: null
-    description_es: Tenant autorizado del documento; no se deriva de similitud semÃ¡ntica.
+    description_es: Tenant autorizado del documento; no se deriva de similitud semántica.
   - name: github_installation_id
-    type: text
+    type: varchar(32)
     pk: false
     nullable: false
     unique: false
     er_visible: false
     assumption: null
-    description_es: InstalaciÃ³n GitHub verificada para el alcance del corpus.
+    description_es: Instalación GitHub verificada para el alcance del corpus.
   - name: github_repository_id
-    type: text
+    type: varchar(32)
     pk: false
     nullable: false
     unique: false
@@ -2371,18 +2515,18 @@ entities:
     unique: false
     er_visible: true
     assumption: null
-    description_es: Pipeline opcional del alcance; referencia lÃ³gica, sin FK cross-schema.
+    description_es: Pipeline opcional del alcance; referencia lógica, sin FK cross-schema.
     logical_ref: ops.pipelines.id
   - name: scope_revision
-    type: text
+    type: varchar(128)
     pk: false
     nullable: false
     unique: false
     er_visible: false
     assumption: null
-    description_es: RevisiÃ³n opaca del alcance autorizado entregado por Recommendation.
+    description_es: Revisión opaca del alcance autorizado entregado por Recommendation.
   - name: source_id
-    type: text
+    type: varchar(256)
     pk: false
     nullable: false
     unique: false
@@ -2390,21 +2534,21 @@ entities:
     assumption: null
     description_es: Identidad estable de la fuente administrativa autorizada.
   - name: source_version
-    type: text
+    type: varchar(128)
     pk: false
     nullable: false
     unique: false
     er_visible: false
     assumption: null
-    description_es: VersiÃ³n opaca usada para importaciÃ³n idempotente.
+    description_es: Versión opaca usada para importación idempotente.
   - name: content_hash
-    type: text
+    type: varchar(64)
     pk: false
     nullable: false
     unique: false
     er_visible: false
     assumption: null
-    description_es: SHA-256 hexadecimal del contenido canÃ³nico importado.
+    description_es: SHA-256 hexadecimal del contenido canónico importado.
   - name: authorization_reference
     type: text
     pk: false
@@ -2412,7 +2556,7 @@ entities:
     unique: false
     er_visible: false
     assumption: null
-    description_es: Evidencia no secreta de autorizaciÃ³n de la fuente.
+    description_es: Evidencia no secreta de autorización de la fuente.
   - name: active
     type: boolean
     pk: false
@@ -2420,9 +2564,9 @@ entities:
     unique: false
     er_visible: false
     assumption: null
-    description_es: Solo la versiÃ³n activa participa en recuperaciÃ³n.
+    description_es: Solo la versión activa participa en recuperación.
   - name: correlation_id
-    type: text
+    type: varchar(128)
     pk: false
     nullable: false
     unique: false
@@ -2523,7 +2667,7 @@ entities:
     assumption: null
     description_es: Embedding pgvector de 1536 dimensiones para text-embedding-3-small.
   - name: embedding_model
-    type: text
+    type: varchar(128)
     pk: false
     nullable: false
     unique: false
@@ -2531,7 +2675,7 @@ entities:
     assumption: null
     description_es: Modelo que generó el vector; debe ser text-embedding-3-small en el contrato v0.1.
   - name: embedding_model_version
-    type: text
+    type: varchar(128)
     pk: false
     nullable: false
     unique: false
@@ -2539,7 +2683,7 @@ entities:
     assumption: null
     description_es: Versión opaca del modelo/deployment usada para impedir mezcla de vectores incompatibles.
   - name: correlation_id
-    type: text
+    type: varchar(128)
     pk: false
     nullable: false
     unique: false
@@ -2571,6 +2715,8 @@ entities:
     expression: chunk_index >= 0
   - name: knowledge_chunks_check_2
     expression: btrim(provenance) <> ''
+  - name: knowledge_chunks_content_ck
+    expression: btrim(content) <> ''
 - id: audit_events
   table: audit_events
   schema: audit
@@ -4832,6 +4978,22 @@ relationships:
   kind: logical_ref
   cardinality: many_to_one
   source: *id009
+- id: diagnoses_context_id
+  from: diagnosis.diagnoses.context_id
+  to: diagnosis.correlated_context_receipts.context_id
+  kind: logical_ref
+  cardinality: many_to_one
+  source:
+  - 'pipesor-recommendation-service@3d53d26: V6__index_diagnosis_context_and_execution.sql'
+  - DD-027
+- id: diagnoses_execution_id
+  from: diagnosis.diagnoses.execution_id
+  to: ops.pipeline_executions.id
+  kind: logical_ref
+  cardinality: many_to_one
+  source:
+  - 'pipesor-recommendation-service@3d53d26: V6__index_diagnosis_context_and_execution.sql'
+  - DD-027
 - id: correlated_context_receipts_context_id
   from: diagnosis.correlated_context_receipts.context_id
   to: evidence.correlated_contexts.id
