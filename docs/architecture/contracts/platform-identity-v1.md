@@ -140,8 +140,13 @@ modified and its audiences limit where it is accepted.
 
 ## 5. Login flow (Ingestion)
 
-1. `GET /api/v1/auth/github/start?return_to=<allowed dashboard path>` creates a
-   one-time attempt (random `state`, PKCE S256 verifier kept server-side, 10 min
+1. `GET /api/v1/auth/github/start?return_to=<allowed dashboard path>&consent_version=<YYYY-MM-DD>`
+   requires `consent_version`, the version of the Privacy Policy and Terms of Use the
+   person accepted on the sign-in screen (ADR-029). If it is missing, not a valid ISO date,
+   later than tomorrow (UTC) or repeated, it redirects to
+   `<dashboard origin>/auth/complete?error=consent_required` without creating an attempt
+   or contacting GitHub. Otherwise it creates a
+   one-time attempt that also stores the version and the acceptance time (random `state`, PKCE S256 verifier kept server-side, 10 min
    expiry) and redirects to GitHub's authorize URL for the App's client id.
    `return_to` is optional (default `/`) and must match
    `^/(?!/)[A-Za-z0-9/_.~-]{0,255}$`; an invalid value returns `400 INVALID_REQUEST`
@@ -153,9 +158,13 @@ modified and its audiences limit where it is accepted.
    redirects to `<dashboard origin>/auth/complete?handoff=<one-time opaque value>`.
    The handoff value is single-use and expires in 60 s. On failure it redirects to
    `<dashboard origin>/auth/complete?error=<code>`, where `code` is `invalid_state`,
-   `access_denied` or `unavailable`.
+   `access_denied` or `unavailable`. A successful callback appends, in the same
+   transaction, one row to `ingestion.consent_records` (principal, GitHub user id,
+   version, acceptance and recording times, source `LOGIN_CHECKBOX`); if it cannot be
+   written the login fails with `unavailable` (ADR-029).
 3. The dashboard calls `POST /api/v1/auth/session` with `{"handoff": "..."}` and
-   receives `{"accessToken", "expiresAt", "user": {"githubUserId", "login"}, "returnTo"}`
+   receives `{"accessToken", "expiresAt", "user": {"githubUserId", "login"}, "returnTo",
+   "consent": {"documentsVersion", "acceptedAt"}}`
    with `Cache-Control: no-store`; `returnTo` is the path validated in step 1. An
    unknown, used or expired handoff is `400 INVALID_HANDOFF`, a malformed body
    `400 INVALID_REQUEST` and a storage or link failure `503 LOGIN_UNAVAILABLE`.
@@ -164,6 +173,11 @@ modified and its audiences limit where it is accepted.
    the server-side link generation and returns `204`. It does not revoke the session
    token, which stays valid until `exp` (there is no revocation list, ADR-022);
    requests that need the user's GitHub link fail from then on.
+5. `GET /api/v1/auth/consent` (session with `GitHub.Self`) returns
+   `200 {"documentsVersion", "acceptedAt", "source": "LOGIN_CHECKBOX"}` for the person's
+   latest consent if it is not revoked, otherwise `404 CONSENT_NOT_FOUND`, with
+   `Cache-Control: no-store`. The dashboard asks for consent again when its current
+   documents are newer. Revocation is a manual, audited operator procedure (ADR-029).
 
 Callback and dashboard origins are explicit configuration. Tokens, codes and handoff
 values are never logged or placed in fragments.
