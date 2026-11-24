@@ -30,6 +30,8 @@ simulated caller auth) are allowed only in automated tests.
 | Variable | Meaning |
 |---|---|
 | `SPRING_PROFILES_ACTIVE` / `PIPESOR_ENVIRONMENT` | `local` or `azure` |
+| `SERVER_ADDRESS` / `SERVER_PORT` | bind address and port: `127.0.0.1` and the local host port below (`local`), `0.0.0.0` and `8080` (`azure`) |
+| `AZURE_CLIENT_ID` | client id of the workload's user-assigned managed identity (`azure`) |
 | `PIPESOR_TENANT_ID` | environment tenant UUID |
 | `PIPESOR_WORKLOAD_ID` | workload id from the identity contract |
 | `PIPESOR_SIGNING_KEY_FILE` or `PIPESOR_SIGNING_KEY_ID` | signing key (see profiles) |
@@ -40,14 +42,27 @@ simulated caller auth) are allowed only in automated tests.
 | `PIPESOR_ENDPOINTS_<TARGET>` | outbound base URL per target workload, e.g. `PIPESOR_ENDPOINTS_LOGEVENT` |
 | `PIPESOR_SERVICE_BUS_TOPIC` / `PIPESOR_SERVICE_BUS_SUBSCRIPTION` | `workflow-evidence` / own subscription |
 | `PIPESOR_DASHBOARD_ORIGIN` | CORS origin (services with human APIs) |
-| `PIPESOR_DATABASE_URL` / user / password (local only) | PostgreSQL, database `pipesor` |
+| `PIPESOR_DATABASE_URL` / `PIPESOR_DATABASE_USERNAME` / `PIPESOR_DATABASE_PASSWORD` (password local only) | PostgreSQL, database `pipesor`; in `azure` Java services use the workload identity name as username and append the Entra token plugin to the JDBC URL, and RAG puts that principal in its URL |
 | `PIPESOR_SERVICE_BUS_NAMESPACE` or `PIPESOR_SERVICE_BUS_CONNECTION_STRING` (local only) | messaging |
-| `PIPESOR_INFERENCE_ENDPOINT`, `PIPESOR_INFERENCE_DEPLOYMENT` | Recommendation only: Foundry account origin (`https://<account>.services.ai.azure.com`) and chat deployment (`pipesor-dev-diagnostics`) |
+| `PIPESOR_INFERENCE_ENDPOINT`, `PIPESOR_INFERENCE_DEPLOYMENT` | Recommendation only: Foundry account origin (`https://<account>.services.ai.azure.com`) and chat deployment (`pipesor-dev-diagnostics-luna`, gpt-6-luna, [ADR-026](../architecture/decisions/ADR-026-diagnosis-model-gpt-6-luna.md); `pipesor-dev-diagnostics`, gpt-4o, was the earlier DEV smoke-test baseline) |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | optional telemetry (azure) |
 
 Container port is `8080` for every service. Java health: `/actuator/health/liveness`,
-`/actuator/health/readiness`. Python health: `/health/live`, `/health/ready`. Health and
-`/.well-known/jwks.json` are the only unauthenticated routes.
+`/actuator/health/readiness`. Python health: `/health/live`, `/health/ready`. Routes without
+a bearer token: health, `/.well-known/jwks.json`, Ingestion's sign-in flow
+(`GET /api/v1/auth/github/start`, `GET /api/v1/auth/github/callback`,
+`POST /api/v1/auth/session`) and, when enabled, the GitHub webhook
+`POST /webhooks/v1/github/workflow-runs`, authenticated by its HMAC signature.
+
+## Service-specific settings
+
+| Service | Variables |
+|---|---|
+| `ingestion` | `PIPESOR_GITHUB_APP_ID`, `PIPESOR_GITHUB_CAPTURE_DOMAIN`, `PIPESOR_GITHUB_CALLBACK_URL`; `local`: `PIPESOR_GITHUB_PRIVATE_KEY_FILE`, `PIPESOR_GITHUB_PRIVATE_KEY_SHA256`, `PIPESOR_GITHUB_CLIENT_SECRET_FILE`, `PIPESOR_GITHUB_CUSTODY_DIRECTORY`; `azure`: `PIPESOR_GITHUB_KEY_VAULT_URL`, `PIPESOR_GITHUB_PRIVATE_KEY_SECRET_NAME`/`_VERSION`, `PIPESOR_GITHUB_CLIENT_SECRET_NAME`/`_VERSION`, `PIPESOR_GITHUB_CUSTODY_VAULT_URL`; optional webhook `PIPESOR_GITHUB_WEBHOOK_ENABLED` with `PIPESOR_GITHUB_WEBHOOK_SECRET_NAME`/`_VERSION` (or `_SECRET_FILE` locally); `PIPESOR_GITHUB_AUTHORITY_FILE` only for the operator admission import (ADR-023/024) |
+| `rag` | `PIPESOR_RAG_AUTHENTICATION_MODE=platform`, `PIPESOR_RAG_STORAGE_BACKEND=postgresql`, `PIPESOR_RAG_EMBEDDING_BACKEND=azure_openai`, `PIPESOR_RAG_AZURE_OPENAI_ENDPOINT`, `PIPESOR_RAG_AZURE_OPENAI_DEPLOYMENT` (`pipesor-dev-embeddings`), `PIPESOR_RAG_EMBEDDING_MODEL_VERSION` |
+| dashboard image | `PIPESOR_INGESTION_URL`, `PIPESOR_PIPELINE_URL`, `PIPESOR_RECOMMENDATION_URL` (bare HTTPS origins) and optional `PIPESOR_GITHUB_APP_INSTALL_URL`, rendered into `/config.js` and the CSP at startup; `VITE_PIPESOR_*_URL` is only a local development override |
+
+Each service README lists its complete settings.
 
 ## Services
 
@@ -59,11 +74,23 @@ Container port is `8080` for every service. Java health: `/actuator/health/liven
 | `nlp` | internal (health + JWKS only) | 8084 | none | none | receives subscription `nlp` | correlation |
 | `correlation` | internal | 8085 | `evidence` correlation tables | Flyway at startup, history `flyway_history_correlation` | none | pipeline, log-event, recommendation |
 | `recommendation` | external | 8086 | `diagnosis` | Flyway at startup | none | rag, pipeline, Foundry chat |
-| `rag` | internal | 8087 | `knowledge` | Alembic job (ADR-021 principal split) | none | Foundry embeddings |
-| dashboard | Static Web Apps | 5173 | — | — | — | ingestion, pipeline, recommendation |
+| `rag` | internal | 8087 | `knowledge` | Alembic job `job-rag-migrations` (ADR-021 principal split; see the divergence below) | none | Foundry embeddings |
+| dashboard | Static Web Apps (ADR-008; see the divergence below) | 5173 (Vite) | — | — | — | ingestion, pipeline, recommendation |
 
 Ingress hosts in Azure: `https://<workload>.<env-domain>` (external) and
 `https://<workload>.internal.<env-domain>` (internal). Local hosts: `http://127.0.0.1:<port>`.
+
+**Divergences pending decision (24/11/2026).** These rows describe the decisions; the
+[pipesor-iac `workloads` module](https://github.com/pipesor-org/pipesor-iac/blob/388e5a7252bd70650e6715a4e6591cb5a5f2ab7e/modules/workloads/main.tf) differs and no ADR records the change:
+
+- **Dashboard hosting.** IaC serves the dashboard as an external Container App
+  (`https://dashboard.<env-domain>`, unprivileged nginx on port 8080, identity
+  `id-pipesor-<env>-dashboard`) because Static Web Apps is not offered in the allowed regions;
+  ADR-008 selects Static Web Apps.
+- **RAG database principals.** [ADR-021](../architecture/decisions/ADR-021-rag-runtime-contract-v0.1.md)
+  separates runtime read, administrative import write and migration DDL principals and names a
+  system-assigned identity. IaC runs `job-rag-migrations` and the RAG app with the same
+  user-assigned `rag` identity.
 
 ## Messaging topology
 
@@ -82,16 +109,21 @@ Dead-lettered messages keep their reason; replay is an operator action.
 
 | Workload | Role assignments |
 |---|---|
-| `ingestion` | Service Bus Data Sender (topic); Key Vault Crypto User (keys `pipesor-ingestion-signing`, `pipesor-session-signing`); Key Vault Secrets User (`github-app-private-key`, `github-app-client-secret`, `github-webhook-secret`); Key Vault Secrets Officer on the separate OAuth custody vault |
+| `ingestion` | Service Bus Data Sender (topic); Key Vault Crypto User (keys `pipesor-ingestion-signing`, `pipesor-session-signing`); Key Vault Secrets User (`github-app-private-key`, `github-app-client-secret`, the authority document secret used by the admission import job, `github-webhook-secret` when the webhook is enabled); Key Vault Secrets Officer on the separate OAuth custody vault |
 | `pipeline` | Service Bus Data Receiver (`pipeline`); Key Vault Crypto User (`pipesor-pipeline-signing`) |
 | `log-event` | Service Bus Data Receiver (`log-event`); Key Vault Crypto User (`pipesor-log-event-signing`) |
 | `nlp` | Service Bus Data Receiver (`nlp`); Key Vault Crypto User (`pipesor-nlp-signing`) |
 | `correlation` | Key Vault Crypto User (`pipesor-correlation-signing`) |
 | `recommendation` | Key Vault Crypto User (`pipesor-recommendation-signing`); Cognitive Services OpenAI User (Foundry account) |
-| `rag` | Cognitive Services OpenAI User (Foundry account) |
+| `rag` | Key Vault Crypto User (`pipesor-rag-signing`); Cognitive Services OpenAI User (Foundry account) |
+| dashboard | Key Vault Secrets User (registry token secret only) |
+| `db-admin` | Additional Entra administrator of the PostgreSQL server, used only by the manual `job-database-setup` (principals, database, `vector` extension and schema grants) |
 
-Each identity is an Entra PostgreSQL principal that owns only its schema(s). All apps
-pull images from GHCR with a registry credential stored as a Container Apps secret.
+Every workload and the dashboard also hold Key Vault Secrets User on the registry token
+secret (`registry.password_secret_name` in IaC). Each workload identity is an Entra
+PostgreSQL principal that owns only its schema(s); RAG also creates Alembic's version table in
+`public`. All apps pull images from GHCR with that registry credential, referenced from Key
+Vault as a Container Apps secret.
 
 ## Local stack
 
@@ -99,12 +131,14 @@ pull images from GHCR with a registry credential stored as a Container Apps secr
 
 - `postgres`: `pgvector/pgvector:pg17`, host port `55432`, database `pipesor`, the
   `vector` extension created at init;
-- `servicebus-emulator` with its SQL Edge dependency, configured with the topology
-  above, AMQP on host port `5672`;
+- the Service Bus emulator with its SQL Server dependency (compose service `sqledge`),
+  configured with the topology above, AMQP on host port `5672`;
 - `tools/local_stack.py init`, which writes one PEM per workload plus the session key
   under `~/.config/pipesor-local/keys/`, stack credentials, and one
   `~/.config/pipesor-local/env/<workload>.env` per service with the settings above
-  (all mode 0600, directories 0700). `up`, `down` and `status` manage the containers.
+  (all mode 0600, directories 0700). `up`, `down` and `status` manage the containers;
+  `services-start`, `services-stop` and `services-ps` run the Java services built in sibling
+  checkouts.
 
 Services run from their repositories with the `local` profile against this stack. The
 historical `pipesor-local-postgres` container (port `55433`) is not part of the stack.

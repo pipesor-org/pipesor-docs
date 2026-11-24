@@ -1,6 +1,6 @@
 # CI/CD en Pipesor
 
-Estado al 22/11/2026. Esta guía resume las prácticas acordadas y lo implementado en todos los
+Estado al 24/11/2026 (primera versión del 22/11/2026). Esta guía resume las prácticas acordadas y lo implementado en todos los
 repositorios. **No es un ADR Accepted** ni autoriza operaciones en Azure. Los comandos, versiones y
 contratos de cada pieza viven en su repositorio: [pipesor-ci](https://github.com/pipesor-org/pipesor-ci)
 para el pipeline compartido, el README de cada servicio para su verificación y el
@@ -86,12 +86,13 @@ end note
 
 | Repositorio | CI | Artefacto | Estado |
 |---|---|---|---|
-| 5 servicios Java | `service-ci.yml` (Maven) | Imagen + `candidate.json` | Publicando desde `main`; release deshabilitado en código; excepciones Trivy con vencimiento 06/12/2026 (apt de la base y `proton-j`) con issues de remediación |
-| `pipesor-nlp-log-processor`, `pipesor-rag-retrieval` | `service-ci.yml` (Python) | Imagen + `candidate.json` | Publicando; sus validadores propios fueron reemplazados por commitlint; RAG ya no re-etiqueta GHCR (`promote-release` retirado) |
-| `pipesor-frontend` | `service-ci.yml` (Bun) | Imagen nginx + `candidate.json` | Build Once: el contenedor genera `/config.js` y la CSP desde `PIPESOR_*_URL` al arrancar; IaC define esas variables |
+| 5 servicios Java | `service-ci.yml` (Maven) | Imagen + `candidate.json` | Publicando desde `main`; release deshabilitado en código; Correlation y Recommendation tienen una excepción Trivy (CVE-2026-109518, apt de la imagen base) con vencimiento 06/12/2026 e issue de remediación (#31 y #24, respectivamente) |
+| `pipesor-nlp-log-processor`, `pipesor-rag-retrieval` | `service-ci.yml` (Python) | Imagen + `candidate.json` | Publicando; release deshabilitado en código; sus validadores propios fueron reemplazados por commitlint; RAG ya no re-etiqueta GHCR (`promote-release` retirado) |
+| `pipesor-frontend` | `service-ci.yml` (Bun) | Imagen nginx + `candidate.json` | Build Once: el contenedor genera `/config.js` y la CSP desde `PIPESOR_*_URL` al arrancar; IaC define esas variables; release deshabilitado en código |
 | `pipesor-iac` | `conventions.yml` + matriz Terraform + tooling | — | Sin credenciales ni plan real en CI |
-| `pipesor-docs` | `conventions.yml` + validadores de modelos | — | `make test` y validaciones de presentación aún fallan en `main` ([#36](https://github.com/pipesor-org/pipesor-docs/issues/36)) |
+| `pipesor-docs` | `conventions.yml` + validadores de modelos y de presentación + `make test` | — | Suite restaurada ([#36](https://github.com/pipesor-org/pipesor-docs/issues/36), cerrado el 23/11/2026); los required checks de `main` son `conventions` y `validate`, todavía sin `test` |
 | `pipesor-landing` | `conventions.yml` + checks/test/build/dry-run | Workers | El despliegue sigue en Workers Builds |
+| `pipesor-validation-scenarios` | `conventions.yml` + pruebas del harness | Resultados versionados en `results/` | Workflows `Scenarios` y `pipesor-report` (OIDC de GitHub Actions) para la evaluación OE3-I2 |
 | `pipesor-workspace`, `.github`, `pipesor-ci` | `conventions.yml` + tests propios | — | La capa compartida anterior de workspace se retiró |
 
 ## Identidad, versiones y retención
@@ -231,8 +232,8 @@ end note
 paquetes/procesos repetibles entre entornos; [SemVer](https://semver.org/) define formato, precedencia
 e inmutabilidad. Los nombres/orden de entornos y los gates son decisiones del proyecto.
 
-Pendientes que esta guía no cierra: remediar las excepciones Trivy antes del 06/12/2026; restaurar la
-suite de pipesor-docs y añadirla a los required checks; configurar Environments con revisores
+Pendientes que esta guía no cierra: remediar las excepciones Trivy antes del 06/12/2026; añadir el job
+`test` de pipesor-docs a los required checks; configurar Environments con revisores
 independientes antes de qa/preprod/prod; productor de validaciones de candidato y retención de
 evidencia; despliegue automático a dev con OIDC; atestaciones de procedencia (SLSA) para las imágenes;
 PD-035 (contratos runtime y datos) y la recuperación cloud real.

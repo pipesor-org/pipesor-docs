@@ -1,6 +1,6 @@
 # Convenciones Java y Spring
 
-Acuerdo inicial del 2026-11-06, refinado por indicación del usuario tras la revisión de Clean Architecture de Pipeline Service en la misma fecha. El acuerdo y su refinamiento están integrados en main; revisiones consultadas: `d44b45b` y `18dacfb`, respectivamente. Aplicar junto con las [convenciones backend](backend-conventions.md). Alcance: ingestion_normalization_service, pipeline_service, log_event_service, evidence_correlation_engine y recommendation_service. Maven, Java/Spring Boot según ADR-018 y la base de desarrollo del servicio. Versiones exactas se comprobarán y fijarán al implementar.
+Acuerdo inicial del 2026-11-06, refinado por indicación del usuario tras la revisión de Clean Architecture de Pipeline Service en la misma fecha. El acuerdo y su refinamiento están integrados en main; revisiones consultadas: `d44b45b` y `18dacfb`, respectivamente. Aplicar junto con las [convenciones backend](backend-conventions.md). Alcance: ingestion_normalization_service, pipeline_service, log_event_service, evidence_correlation_engine y recommendation_service. Maven, Java/Spring Boot según ADR-018 y la base de desarrollo del servicio. Las versiones exactas están fijadas en el `pom.xml` de cada servicio (al 24/11/2026, Java 25 y Spring Boot 4.1.2).
 
 ## Estructura por funcionalidad
 
@@ -74,7 +74,7 @@ Flyway es la herramienta acordada para servicios Java con tablas propias. Migrac
 
 Derivar las migraciones del modelo fuente vigente y sus decisiones, preservando constraints e invariantes documentados. Probar aplicación de migraciones y restricciones sobre PostgreSQL aislado. El SQL generado por la documentación es un derivado, no la autoridad ni un historial Flyway.
 
-La selección de Flyway no decide ejecución automática en producción. Runner, credenciales, conectividad, tabla de historial por servicio, secuenciación, compatibilidad y recuperación se acuerdan en PD-035 antes del despliegue; no crear roles, grants o recursos desde una migración funcional por inferencia. Servicios sin tablas propias no incorporan Flyway por obligación.
+La selección de Flyway no decide ejecución automática en producción. Para el MVP, el [manifiesto de runtime](runtime-manifest.md) fija Flyway al arrancar y la tabla de historial de Log/Event y Correlation; credenciales, conectividad, secuenciación, compatibilidad y recuperación de otros entornos siguen en PD-035; no crear roles, grants o recursos desde una migración funcional por inferencia. Servicios sin tablas propias no incorporan Flyway por obligación.
 
 ## OpenAPI
 
@@ -86,4 +86,4 @@ Usar springdoc-openapi compatible con Spring Boot. Mantener anotaciones y recurs
 - [Spring Boot: inicialización y migraciones](https://docs.spring.io/spring-boot/how-to/data-initialization.html).
 - [Springdoc OpenAPI](https://springdoc.org/).
 
-Las APIs y versiones concretas se verifican al introducir dependencias; este acuerdo no certifica compatibilidad de una combinación todavía inexistente.
+Las APIs y versiones concretas se verifican al introducir o actualizar dependencias; este acuerdo no certifica la compatibilidad de la combinación fijada en cada servicio.
