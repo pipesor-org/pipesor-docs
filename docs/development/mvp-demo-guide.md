@@ -28,9 +28,9 @@ official run (report §3.4; `pipesor-validation-scenarios/results/review-2026-11
   `python3 tools/local_stack.py services-start`; NLP and RAG started from their repositories
   with `~/.config/pipesor-local/env/{nlp,rag}.env`.
 - `az login` with access to the Foundry account (diagnosis and embeddings deployments). ADR-026
-  selects `pipesor-dev-diagnostics-luna` (gpt-6-luna) for dev; `local_stack.py init` still writes
-  `PIPESOR_INFERENCE_DEPLOYMENT=pipesor-dev-diagnostics` (gpt-4o) into
-  `~/.config/pipesor-local/env/recommendation.env`, so change it there to reproduce the dev model.
+  selects `pipesor-dev-diagnostics-luna` (gpt-6-luna) for dev, and `local_stack.py init` writes it as
+  `PIPESOR_INFERENCE_DEPLOYMENT` into `~/.config/pipesor-local/env/recommendation.env`. An env file
+  generated before that change still names `pipesor-dev-diagnostics` (gpt-4o); edit it there.
 - `pipesor-frontend`: `bun install --frozen-lockfile` and
   `bun run dev -- --host 127.0.0.1 --port 5173 --strictPort` (the services accept only that
   dashboard origin).
