@@ -135,7 +135,7 @@ queue order (`createdAt` descending, then `id`) does not change.
 | `stage` | `BUILD`, `TESTING`, `QUALITY_GATE`, `DEPLOYMENT`, `CONTAINER`, `INFRASTRUCTURE` |
 | `status` | with `state=OPEN`: `OPEN`, `IN_REMEDIATION`, `VERIFICATION`; with `state=RESOLVED`: `RESOLVED` |
 | `diagnosis` | `PENDING`, `CONFIRMED`, `CORRECTED`, `REJECTED`, `ABSENT` (no admitted diagnosis projected) |
-| `q` | single value, at most 100 characters after trimming. `INC-123` or `123` (case-insensitive prefix, digits only, from one digit) matches `displayNumber` exactly; any other text needs at least 2 characters and is a case-insensitive partial match on the repository `fullName` or the workflow name (`%` and `_` are literal) |
+| `q` | single value, normalized (NFKC, trimmed, inner whitespace collapsed), at most 100 characters. `INC-123` or `123` (case-insensitive prefix, digits only, from one digit) matches `displayNumber` exactly. Any other text needs at least 2 characters and is split into words: an incident matches when **every** word is a case-insensitive substring of the repository `fullName` or of the workflow name (each word may match a different field; `%` and `_` are literal) |
 
 At most 100 values per filter. A value outside these sets, an empty value, a malformed UUID or
 repository id, a `status` not valid for `state`, or a `q` out of bounds is
@@ -161,7 +161,7 @@ with other values, or sending a malformed token, is `400 INVALID_PAGE_TOKEN`.
 
 - `total`: exact number of incidents that match and the caller may view (independent of the
   page). It is computed on every request, so it can change between pages if incidents change.
-- `appliedFilters`: normalized echo (deduplicated, sorted arrays; `[]` when absent; `q` trimmed
+- `appliedFilters`: normalized echo (deduplicated, sorted arrays; `[]` when absent; `q` normalized
   or `null`; `qMatch` is `DISPLAY_NUMBER`, `TEXT` or `null`). Spring ignores unknown query
   parameters, so clients use its presence to know that the server applied the filters.
 
