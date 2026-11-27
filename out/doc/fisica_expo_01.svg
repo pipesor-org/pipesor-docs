@@ -109,7 +109,7 @@
 <!-- ingestion_normalization_service&#45;&gt;github_actions -->
 <g id="rel_ingestion_github_actions_read" class="edge">
 <title>ingestion_normalization_service&#45;&gt;github_actions</title>
-<g id="a_rel_ingestion_github_actions_read"><a xlink:title="04: Queries logs and artifacts (GitHub API/HTTPS)">
+<g id="a_rel_ingestion_github_actions_read"><a xlink:title="04: Queries runs, jobs and logs (GitHub API/HTTPS)">
 <path fill="none" stroke="#475569" stroke-width="1.2" d="M240.32,-361.75C200.69,-382.45 155.44,-406.9 125.16,-424.08"/>
 <polygon fill="#475569" stroke="#475569" stroke-width="1.2" points="124.23,-421.79 119.37,-427.38 126.66,-426.04 124.23,-421.79"/>
 </a>

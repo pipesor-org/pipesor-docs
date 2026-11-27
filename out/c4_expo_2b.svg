@@ -12,142 +12,252 @@
 <!-- web_dashboard&#45;&gt;pipeline_service -->
 <g id="rel_dashboard_pipeline_service" class="edge">
 <title>web_dashboard&#45;&gt;pipeline_service</title>
-<g id="a_rel_dashboard_pipeline_service"><a xlink:title="07: Routes pipeline, execution, incident queue and insights queries, registration, grants and incident lifecycle commands (REST/HTTPS)">
-<path fill="none" stroke="#52647a" stroke-width="1.4" d="M569,-795C667,-795 765,-795 863,-795"/>
-<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="861.88,-797.45 868.88,-795 861.88,-792.55 861.88,-797.45"/>
+<g id="a_rel_dashboard_pipeline_service"><a xlink:title="10: Queries pipelines, executions, the incident queue and insights; registers workflows, grants access and changes incident state (REST/HTTPS)">
+<path fill="none" stroke="#52647a" stroke-width="1.4" d="M500,-708C500,-685.33 500,-662.67 500,-640 563.33,-640 626.67,-640 690,-640 690,-636.67 690,-633.33 690,-630"/>
+<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="692.45,-631.12 690,-624.12 687.55,-631.12 692.45,-631.12"/>
 </a>
 </g>
-<text xml:space="preserve" text-anchor="middle" x="720" y="-805.33" font-family="DejaVu Sans" font-size="14.00">07</text>
+<text xml:space="preserve" text-anchor="middle" x="600" y="-623.33" font-family="DejaVu Sans" font-size="14.00">10</text>
 </g>
 <!-- web_dashboard&#45;&gt;log_event_service -->
 <g id="rel_dashboard_log_event_service" class="edge">
 <title>web_dashboard&#45;&gt;log_event_service</title>
-<g id="a_rel_dashboard_log_event_service"><a xlink:title="08: Routes log, event and evidence queries (REST/HTTPS)">
-<path fill="none" stroke="#52647a" stroke-width="1.4" d="M569,-795C619.33,-795 669.67,-795 720,-795 720,-708.33 720,-621.67 720,-535 767.67,-535 815.33,-535 863,-535"/>
-<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="861.88,-537.45 868.88,-535 861.88,-532.55 861.88,-537.45"/>
+<g id="a_rel_dashboard_log_event_service"><a xlink:title="11: Queries logs, events and evidence (REST/HTTPS · not implemented)">
+<path fill="none" stroke="#b91c1c" stroke-width="2.2" d="M569,-795C577,-795 585,-795 593,-795"/>
+<polygon fill="#b91c1c" stroke="#b91c1c" stroke-width="2.2" points="590.67,-797.45 597.67,-795 590.67,-792.55 590.67,-797.45"/>
 </a>
 </g>
-<text xml:space="preserve" text-anchor="middle" x="720" y="-660.33" font-family="DejaVu Sans" font-size="14.00">08</text>
+<text xml:space="preserve" text-anchor="middle" x="585" y="-807.33" font-family="DejaVu Sans" font-size="14.00" fill="#b91c1c">11</text>
 </g>
 <!-- web_dashboard&#45;&gt;recommendation_service -->
 <g id="rel_dashboard_recommendation_service" class="edge">
 <title>web_dashboard&#45;&gt;recommendation_service</title>
-<g id="a_rel_dashboard_recommendation_service"><a xlink:title="09: Routes diagnosis and review queries and operations (REST/HTTPS)">
-<path fill="none" stroke="#52647a" stroke-width="1.4" d="M450,-708C450,-605.33 450,-502.67 450,-400 540,-400 630,-400 720,-400 720,-348.33 720,-296.67 720,-245 767.67,-245 815.33,-245 863,-245"/>
-<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="861.88,-247.45 868.88,-245 861.88,-242.55 861.88,-247.45"/>
+<g id="a_rel_dashboard_recommendation_service"><a xlink:title="12: Reads diagnoses and records human reviews (REST/HTTPS)">
+<path fill="none" stroke="#52647a" stroke-width="1.4" d="M450,-882C450,-889.67 450,-897.33 450,-905 630,-905 810,-905 990,-905 990,-900 990,-895 990,-890"/>
+<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="992.45,-891.12 990,-884.12 987.55,-891.12 992.45,-891.12"/>
 </a>
 </g>
-<text xml:space="preserve" text-anchor="middle" x="720" y="-345.32" font-family="DejaVu Sans" font-size="14.00">09</text>
+<text xml:space="preserve" text-anchor="middle" x="720" y="-910.33" font-family="DejaVu Sans" font-size="14.00">12</text>
+</g>
+<!-- web_dashboard&#45;&gt;ingestion_normalization_service -->
+<g id="rel_dashboard_ingestion_github_connection" class="edge">
+<title>web_dashboard&#45;&gt;ingestion_normalization_service</title>
+<g id="a_rel_dashboard_ingestion_github_connection"><a xlink:title="15: Starts GitHub sign&#45;in with recorded consent, exchanges it for a session, discovers repositories, workflows and collaborators, and requests run analysis (REST/HTTPS)">
+<path fill="none" stroke="#52647a" stroke-width="1.4" d="M420,-708C420,-682 420,-656 420,-630"/>
+<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="422.45,-631.12 420,-624.12 417.55,-631.12 422.45,-631.12"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="402" y="-685.33" font-family="DejaVu Sans" font-size="14.00">15</text>
 </g>
 <!-- web_dashboard&#45;&gt;github -->
 <g id="rel_dashboard_github_sign_in" class="edge">
 <title>web_dashboard&#45;&gt;github</title>
-<g id="a_rel_dashboard_github_sign_in"><a xlink:title="06: Sends users to GitHub to authorize sign&#45;in (OAuth 2.0/HTTPS (authorization code + PKCE S256))">
-<path fill="none" stroke="#52647a" stroke-width="1.4" d="M450,-708C450,-693.67 450,-679.33 450,-665 395,-665 340,-665 285,-665 285,-525 285,-385 285,-245 282.33,-245 279.67,-245 277,-245"/>
-<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="278.12,-242.55 271.12,-245 278.12,-247.45 278.12,-242.55"/>
+<g id="a_rel_dashboard_github_sign_in"><a xlink:title="09: Sends users to GitHub to authorize sign&#45;in (OAuth 2.0/HTTPS (authorization code + PKCE S256) · partial)">
+<path fill="none" stroke="#b45309" stroke-width="2.2" d="M331,-755C317.33,-755 303.67,-755 290,-755 290,-600 290,-445 290,-290 285.67,-290 281.33,-290 277,-290"/>
+<polygon fill="#b45309" stroke="#b45309" stroke-width="2.2" points="279.33,-287.55 272.33,-290 279.33,-292.45 279.33,-287.55"/>
 </a>
 </g>
-<text xml:space="preserve" text-anchor="middle" x="285" y="-395.32" font-family="DejaVu Sans" font-size="14.00">06</text>
+<text xml:space="preserve" text-anchor="middle" x="302" y="-715.33" font-family="DejaVu Sans" font-size="14.00" fill="#b45309">09</text>
 </g>
 <!-- pipeline_service&#45;&gt;postgresql_operational_store -->
 <g id="rel_pipeline_service_postgresql" class="edge">
 <title>pipeline_service&#45;&gt;postgresql_operational_store</title>
-<g id="a_rel_pipeline_service_postgresql"><a xlink:title="01: Persists pipelines, stages, states and execution metadata (PostgreSQL)">
-<path fill="none" stroke="#52647a" stroke-width="1.4" d="M1109,-795C1159.33,-795 1209.67,-795 1260,-795 1260,-740 1260,-685 1260,-630"/>
-<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="1262.45,-631.12 1260,-624.12 1257.55,-631.12 1262.45,-631.12"/>
+<g id="a_rel_pipeline_service_postgresql"><a xlink:title="03: Persists pipelines, stages, states and execution metadata (PostgreSQL)">
+<path fill="none" stroke="#52647a" stroke-width="1.4" d="M750,-448C750,-432 750,-416 750,-400 820,-400 890,-400 960,-400 960,-380 960,-360 960,-340"/>
+<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="962.45,-341.12 960,-334.12 957.55,-341.12 962.45,-341.12"/>
 </a>
 </g>
-<text xml:space="preserve" text-anchor="middle" x="1215" y="-805.33" font-family="DejaVu Sans" font-size="14.00">01</text>
+<text xml:space="preserve" text-anchor="middle" x="790" y="-407.32" font-family="DejaVu Sans" font-size="14.00">03</text>
+</g>
+<!-- pipeline_service&#45;&gt;ingestion_normalization_service -->
+<g id="rel_pipeline_ingestion_github_access" class="edge">
+<title>pipeline_service&#45;&gt;ingestion_normalization_service</title>
+<g id="a_rel_pipeline_ingestion_github_access"><a xlink:title="21: Requests verified user access and workflow metadata without GitHub credentials; synchronizes workflow capture scopes (REST/HTTPS)">
+<path fill="none" stroke="#52647a" stroke-width="1.4" d="M601,-565C593,-565 585,-565 577,-565"/>
+<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="578.12,-562.55 571.12,-565 578.12,-567.45 578.12,-562.55"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="585" y="-593.33" font-family="DejaVu Sans" font-size="14.00">21</text>
+</g>
+<!-- pipeline_service&#45;&gt;ingestion_normalization_service -->
+<g id="rel_pipeline_ingestion_machine_scope" class="edge">
+<title>pipeline_service&#45;&gt;ingestion_normalization_service</title>
+<g id="a_rel_pipeline_ingestion_machine_scope"><a xlink:title="23: Verifies current machine permission for an exact protected evidence capture scope (REST/HTTPS)">
+<path fill="none" stroke="#52647a" stroke-width="1.4" d="M601,-505C593,-505 585,-505 577,-505"/>
+<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="578.12,-502.55 571.12,-505 578.12,-507.45 578.12,-502.55"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="585" y="-469.32" font-family="DejaVu Sans" font-size="14.00">23</text>
+</g>
+<!-- pipeline_service&#45;&gt;azure_key_vault -->
+<g id="rel_pipeline_key_vault" class="edge">
+<title>pipeline_service&#45;&gt;azure_key_vault</title>
+<g id="a_rel_pipeline_key_vault"><a xlink:title="18: Signs its workload tokens with its own non&#45;exportable key (Azure Key Vault API/HTTPS)">
+<path fill="none" stroke="#52647a" stroke-width="1.4" d="M839,-535C937,-535 1035,-535 1133,-535"/>
+<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="1131.88,-537.45 1138.88,-535 1131.88,-532.55 1131.88,-537.45"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="1095" y="-542.33" font-family="DejaVu Sans" font-size="14.00">18</text>
 </g>
 <!-- log_event_service&#45;&gt;pipeline_service -->
 <g id="rel_log_event_pipeline_operational_evidence" class="edge">
 <title>log_event_service&#45;&gt;pipeline_service</title>
-<g id="a_rel_log_event_pipeline_operational_evidence"><a xlink:title="12: Checks committed operational membership before evidence registration (REST/HTTPS)">
-<path fill="none" stroke="#52647a" stroke-width="1.4" d="M990,-622C990,-648 990,-674 990,-700"/>
-<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="987.55,-698.88 990,-705.88 992.45,-698.88 987.55,-698.88"/>
+<g id="a_rel_log_event_pipeline_operational_evidence"><a xlink:title="22: Checks committed operational membership before evidence registration (REST/HTTPS)">
+<path fill="none" stroke="#52647a" stroke-width="1.4" d="M720,-708C720,-682 720,-656 720,-630"/>
+<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="722.45,-631.12 720,-624.12 717.55,-631.12 722.45,-631.12"/>
 </a>
 </g>
-<text xml:space="preserve" text-anchor="middle" x="1010" y="-660.33" font-family="DejaVu Sans" font-size="14.00">12</text>
+<text xml:space="preserve" text-anchor="middle" x="735" y="-685.33" font-family="DejaVu Sans" font-size="14.00">22</text>
 </g>
 <!-- log_event_service&#45;&gt;postgresql_operational_store -->
 <g id="rel_log_event_service_postgresql" class="edge">
 <title>log_event_service&#45;&gt;postgresql_operational_store</title>
-<g id="a_rel_log_event_service_postgresql"><a xlink:title="02: Persists and queries normalized evidence metadata and references (PostgreSQL)">
-<path fill="none" stroke="#52647a" stroke-width="1.4" d="M1109,-535C1117,-535 1125,-535 1133,-535"/>
-<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="1131.88,-537.45 1138.88,-535 1131.88,-532.55 1131.88,-537.45"/>
+<g id="a_rel_log_event_service_postgresql"><a xlink:title="04: Persists and queries normalized evidence metadata and references (PostgreSQL)">
+<path fill="none" stroke="#52647a" stroke-width="1.4" d="M839,-745C844.33,-745 849.67,-745 855,-745 855,-623.33 855,-501.67 855,-380 881.67,-380 908.33,-380 935,-380 935,-366.67 935,-353.33 935,-340"/>
+<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="937.45,-341.12 935,-334.12 932.55,-341.12 937.45,-341.12"/>
 </a>
 </g>
-<text xml:space="preserve" text-anchor="middle" x="1125" y="-545.33" font-family="DejaVu Sans" font-size="14.00">02</text>
+<text xml:space="preserve" text-anchor="middle" x="868" y="-465.32" font-family="DejaVu Sans" font-size="14.00">04</text>
+</g>
+<!-- log_event_service&#45;&gt;azure_key_vault -->
+<g id="rel_log_event_key_vault" class="edge">
+<title>log_event_service&#45;&gt;azure_key_vault</title>
+<g id="a_rel_log_event_key_vault"><a xlink:title="19: Signs its workload tokens with its own non&#45;exportable key (Azure Key Vault API/HTTPS)">
+<path fill="none" stroke="#52647a" stroke-width="1.4" d="M780,-708C780,-702 780,-696 780,-690 920,-690 1060,-690 1200,-690 1200,-670 1200,-650 1200,-630"/>
+<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="1202.45,-631.12 1200,-624.12 1197.55,-631.12 1202.45,-631.12"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="1150" y="-697.33" font-family="DejaVu Sans" font-size="14.00">19</text>
 </g>
 <!-- recommendation_service&#45;&gt;pipeline_service -->
 <g id="rel_recommendation_pipeline_diagnosis_entitlement" class="edge">
 <title>recommendation_service&#45;&gt;pipeline_service</title>
-<g id="a_rel_recommendation_pipeline_diagnosis_entitlement"><a xlink:title="13: Resolves the user&#39;s diagnosis read entitlement and the incident&#39;s ORIGIN execution (REST/HTTPS)">
-<path fill="none" stroke="#52647a" stroke-width="1.4" d="M871,-295C854,-295 837,-295 820,-295 820,-445 820,-595 820,-745 834.33,-745 848.67,-745 863,-745"/>
-<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="861.88,-747.45 868.88,-745 861.88,-742.55 861.88,-747.45"/>
+<g id="a_rel_recommendation_pipeline_diagnosis_entitlement"><a xlink:title="24: Resolves the user&#39;s diagnosis read entitlement and the incident&#39;s ORIGIN execution (REST/HTTPS)">
+<path fill="none" stroke="#52647a" stroke-width="1.4" d="M930,-708C930,-663.67 930,-619.33 930,-575 902.33,-575 874.67,-575 847,-575"/>
+<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="848.12,-572.55 841.12,-575 848.12,-577.45 848.12,-572.55"/>
 </a>
 </g>
-<text xml:space="preserve" text-anchor="middle" x="820" y="-445.32" font-family="DejaVu Sans" font-size="14.00">13</text>
+<text xml:space="preserve" text-anchor="middle" x="905" y="-582.33" font-family="DejaVu Sans" font-size="14.00">24</text>
 </g>
 <!-- recommendation_service&#45;&gt;pipeline_service -->
 <g id="rel_recommendation_pipeline_diagnosis_summary" class="edge">
 <title>recommendation_service&#45;&gt;pipeline_service</title>
-<g id="a_rel_recommendation_pipeline_diagnosis_summary"><a xlink:title="14: Projects the incident diagnosis summary into Pipeline&#39;s incident queue read model (REST/HTTPS)">
-<path fill="none" stroke="#52647a" stroke-width="1.4" d="M871,-270C862.33,-270 853.67,-270 845,-270 845,-436.67 845,-603.33 845,-770 851,-770 857,-770 863,-770"/>
-<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="861.88,-772.45 868.88,-770 861.88,-767.55 861.88,-772.45"/>
+<g id="a_rel_recommendation_pipeline_diagnosis_summary"><a xlink:title="25: Projects the incident diagnosis summary into Pipeline&#39;s incident queue read model (REST/HTTPS · differs)">
+<path fill="none" stroke="#6d28d9" stroke-width="2.2" d="M950,-708C950,-670.33 950,-632.67 950,-595 915.67,-595 881.33,-595 847,-595"/>
+<polygon fill="#6d28d9" stroke="#6d28d9" stroke-width="2.2" points="849.33,-592.55 842.33,-595 849.33,-597.45 849.33,-592.55"/>
 </a>
 </g>
-<text xml:space="preserve" text-anchor="middle" x="845" y="-625.33" font-family="DejaVu Sans" font-size="14.00">14</text>
+<text xml:space="preserve" text-anchor="middle" x="905" y="-602.33" font-family="DejaVu Sans" font-size="14.00" fill="#6d28d9">25</text>
 </g>
 <!-- recommendation_service&#45;&gt;postgresql_operational_store -->
 <g id="rel_recommendation_service_postgresql" class="edge">
 <title>recommendation_service&#45;&gt;postgresql_operational_store</title>
-<g id="a_rel_recommendation_service_postgresql"><a xlink:title="03: Persists diagnosis, recommendations and evidence links (PostgreSQL)">
-<path fill="none" stroke="#52647a" stroke-width="1.4" d="M1109,-245C1114.33,-245 1119.67,-245 1125,-245 1125,-341.67 1125,-438.33 1125,-535 1127.67,-535 1130.33,-535 1133,-535"/>
-<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="1131.88,-537.45 1138.88,-535 1131.88,-532.55 1131.88,-537.45"/>
+<g id="a_rel_recommendation_service_postgresql"><a xlink:title="05: Persists diagnoses with their recommendation and cited evidence (PostgreSQL)">
+<path fill="none" stroke="#52647a" stroke-width="1.4" d="M1000,-708C1000,-585.33 1000,-462.67 1000,-340"/>
+<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="1002.45,-341.12 1000,-334.12 997.55,-341.12 1002.45,-341.12"/>
 </a>
 </g>
-<text xml:space="preserve" text-anchor="middle" x="1125" y="-345.32" font-family="DejaVu Sans" font-size="14.00">03</text>
+<text xml:space="preserve" text-anchor="middle" x="1013" y="-465.32" font-family="DejaVu Sans" font-size="14.00">05</text>
 </g>
 <!-- recommendation_service&#45;&gt;postgresql_operational_store -->
 <g id="rel_human_review_postgresql" class="edge">
 <title>recommendation_service&#45;&gt;postgresql_operational_store</title>
-<g id="a_rel_human_review_postgresql"><a xlink:title="10: Persists human review decisions and traceability (PostgreSQL)">
-<path fill="none" stroke="#52647a" stroke-width="1.4" d="M990,-332C990,-351.33 990,-370.67 990,-390 1065,-390 1140,-390 1215,-390 1215,-405 1215,-420 1215,-435 1230,-435 1245,-435 1260,-435 1260,-436.67 1260,-438.33 1260,-440"/>
+<g id="a_rel_human_review_postgresql"><a xlink:title="13: Persists human review decisions and traceability (PostgreSQL)">
+<path fill="none" stroke="#52647a" stroke-width="1.4" d="M1030,-708C1030,-585.33 1030,-462.67 1030,-340"/>
+<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="1032.45,-341.12 1030,-334.12 1027.55,-341.12 1032.45,-341.12"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="1043" y="-425.32" font-family="DejaVu Sans" font-size="14.00">13</text>
+</g>
+<!-- recommendation_service&#45;&gt;azure_key_vault -->
+<g id="rel_recommendation_key_vault" class="edge">
+<title>recommendation_service&#45;&gt;azure_key_vault</title>
+<g id="a_rel_recommendation_key_vault"><a xlink:title="20: Signs its workload tokens with its own non&#45;exportable key (Azure Key Vault API/HTTPS)">
+<path fill="none" stroke="#52647a" stroke-width="1.4" d="M1109,-755C1159.33,-755 1209.67,-755 1260,-755 1260,-713.33 1260,-671.67 1260,-630"/>
+<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="1262.45,-631.12 1260,-624.12 1257.55,-631.12 1262.45,-631.12"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="1190" y="-762.33" font-family="DejaVu Sans" font-size="14.00">20</text>
+</g>
+<!-- ingestion_normalization_service&#45;&gt;postgresql_operational_store -->
+<g id="rel_ingestion_postgresql_connector_metadata" class="edge">
+<title>ingestion_normalization_service&#45;&gt;postgresql_operational_store</title>
+<g id="a_rel_ingestion_postgresql_connector_metadata"><a xlink:title="02: Persists connector metadata and durable capture/publication ledger with temporary protected output bytes; no credential values (PostgreSQL)">
+<path fill="none" stroke="#52647a" stroke-width="1.4" d="M490,-448C490,-380.33 490,-312.67 490,-245 614.33,-245 738.67,-245 863,-245"/>
+<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="861.88,-247.45 868.88,-245 861.88,-242.55 861.88,-247.45"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="690" y="-252.32" font-family="DejaVu Sans" font-size="14.00">02</text>
+</g>
+<!-- ingestion_normalization_service&#45;&gt;azure_key_vault -->
+<g id="rel_ingestion_key_vault" class="edge">
+<title>ingestion_normalization_service&#45;&gt;azure_key_vault</title>
+<g id="a_rel_ingestion_key_vault"><a xlink:title="17: Signs workload and session tokens, reads GitHub App material and keeps GitHub user tokens and PKCE verifiers in custody (Azure Key Vault API/HTTPS)">
+<path fill="none" stroke="#52647a" stroke-width="1.4" d="M450,-448C450,-347 450,-246 450,-145 720,-145 990,-145 1260,-145 1260,-243.33 1260,-341.67 1260,-440"/>
 <polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="1257.55,-438.88 1260,-445.88 1262.45,-438.88 1257.55,-438.88"/>
 </a>
 </g>
-<text xml:space="preserve" text-anchor="middle" x="1140" y="-385.32" font-family="DejaVu Sans" font-size="14.00">10</text>
+<text xml:space="preserve" text-anchor="middle" x="1150" y="-152.32" font-family="DejaVu Sans" font-size="14.00">17</text>
+</g>
+<!-- ingestion_normalization_service&#45;&gt;github -->
+<g id="rel_ingestion_github_connection" class="edge">
+<title>ingestion_normalization_service&#45;&gt;github</title>
+<g id="a_rel_ingestion_github_connection"><a xlink:title="16: Exchanges sign&#45;in codes with the PKCE verifier and verifies GitHub identity, installations, repository access and collaborators (OAuth/HTTPS + REST/HTTPS)">
+<path fill="none" stroke="#52647a" stroke-width="1.4" d="M410,-448C410,-425.33 410,-402.67 410,-380 343.33,-380 276.67,-380 210,-380 210,-366.67 210,-353.33 210,-340"/>
+<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="212.45,-341.12 210,-334.12 207.55,-341.12 212.45,-341.12"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="330" y="-387.32" font-family="DejaVu Sans" font-size="14.00">16</text>
+</g>
+<!-- ingestion_normalization_service&#45;&gt;github_actions -->
+<g id="rel_ingestion_github_actions_read" class="edge">
+<title>ingestion_normalization_service&#45;&gt;github_actions</title>
+<g id="a_rel_ingestion_github_actions_read"><a xlink:title="06: Retrieves authorized run metadata, jobs and logs (GitHub API/HTTPS)">
+<path fill="none" stroke="#52647a" stroke-width="1.4" d="M331,-505C313,-505 295,-505 277,-505"/>
+<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="278.12,-502.55 271.12,-505 278.12,-507.45 278.12,-502.55"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="310" y="-487.32" font-family="DejaVu Sans" font-size="14.00">06</text>
 </g>
 <!-- technical_users&#45;&gt;web_dashboard -->
 <g id="rel_technical_users_dashboard" class="edge">
 <title>technical_users&#45;&gt;web_dashboard</title>
-<g id="a_rel_technical_users_dashboard"><a xlink:title="05: Queries results and records human review (HTTPS)">
+<g id="a_rel_technical_users_dashboard"><a xlink:title="08: Queries results and records human review (HTTPS)">
 <path fill="none" stroke="#52647a" stroke-width="1.4" d="M269,-795C287,-795 305,-795 323,-795"/>
 <polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="321.88,-797.45 328.88,-795 321.88,-792.55 321.88,-797.45"/>
 </a>
 </g>
-<text xml:space="preserve" text-anchor="middle" x="300" y="-805.33" font-family="DejaVu Sans" font-size="14.00">05</text>
+<text xml:space="preserve" text-anchor="middle" x="300" y="-805.33" font-family="DejaVu Sans" font-size="14.00">08</text>
 </g>
 <!-- github&#45;&gt;github_actions -->
 <g id="rel_github_github_actions" class="edge">
 <title>github&#45;&gt;github_actions</title>
-<g id="a_rel_github_github_actions"><a xlink:title="04: Provides the repository, commits and CI/CD workflow definitions (GitHub API/HTTPS)">
+<g id="a_rel_github_github_actions"><a xlink:title="07: Provides the repository, commits and CI/CD workflow definitions (GitHub API/HTTPS)">
 <path fill="none" stroke="#52647a" stroke-width="1.4" stroke-dasharray="1,5" d="M150,-332C150,-368 150,-404 150,-440"/>
 <polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="147.55,-438.88 150,-445.88 152.45,-438.88 147.55,-438.88"/>
 </a>
 </g>
-<text xml:space="preserve" text-anchor="middle" x="170" y="-385.32" font-family="DejaVu Sans" font-size="14.00">04</text>
+<text xml:space="preserve" text-anchor="middle" x="168" y="-385.32" font-family="DejaVu Sans" font-size="14.00">07</text>
 </g>
 <!-- github_actions&#45;&gt;recommendation_service -->
 <g id="rel_github_actions_diagnostic" class="edge">
 <title>github_actions&#45;&gt;recommendation_service</title>
-<g id="a_rel_github_actions_diagnostic"><a xlink:title="11: Queries diagnostic_output to publish the workflow artifact (REST/HTTPS)">
-<path fill="none" stroke="#52647a" stroke-width="1.4" d="M269,-535C281,-535 293,-535 305,-535 305,-401.67 305,-268.33 305,-135 533.33,-135 761.67,-135 990,-135 990,-140 990,-145 990,-150"/>
-<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="987.55,-148.88 990,-155.88 992.45,-148.88 987.55,-148.88"/>
+<g id="a_rel_github_actions_diagnostic"><a xlink:title="14: Queries diagnostic_output to publish the workflow artifact (REST/HTTPS)">
+<path fill="none" stroke="#52647a" stroke-width="1.4" d="M210,-622C210,-634.67 210,-647.33 210,-660 463.33,-660 716.67,-660 970,-660 970,-673.33 970,-686.67 970,-700"/>
+<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="967.55,-698.88 970,-705.88 972.45,-698.88 967.55,-698.88"/>
 </a>
 </g>
-<text xml:space="preserve" text-anchor="middle" x="720" y="-145.32" font-family="DejaVu Sans" font-size="14.00">11</text>
+<text xml:space="preserve" text-anchor="middle" x="840" y="-667.33" font-family="DejaVu Sans" font-size="14.00">14</text>
+</g>
+<!-- github_actions&#45;&gt;ingestion_normalization_service -->
+<g id="rel_github_actions_ingestion_event" class="edge">
+<title>github_actions&#45;&gt;ingestion_normalization_service</title>
+<g id="a_rel_github_actions_ingestion_event"><a xlink:title="01: Emits authorized workflow events (HTTPS/Webhook)">
+<path fill="none" stroke="#52647a" stroke-width="1.4" stroke-dasharray="1,5" d="M269,-565C287,-565 305,-565 323,-565"/>
+<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="321.88,-567.45 328.88,-565 321.88,-562.55 321.88,-567.45"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="310" y="-573.33" font-family="DejaVu Sans" font-size="14.00">01</text>
 </g>
 <!-- slide_title -->
 <g id="node1" class="node">
@@ -157,7 +267,7 @@
 <!-- slide_subtitle -->
 <g id="node2" class="node">
 <title>slide_subtitle</title>
-<text xml:space="preserve" text-anchor="middle" x="960" y="-989.55" font-family="DejaVu Sans" font-size="16.00">Proposed design · 8 nodes · 14 relationships · Numbers on arrows and in legend</text>
+<text xml:space="preserve" text-anchor="middle" x="960" y="-989.55" font-family="DejaVu Sans" font-size="16.00">Draft model view · 10 nodes · 25 relationships · Implementation state on 2026&#45;11&#45;27: red = not implemented, amber = partial, violet = implemented differently</text>
 </g>
 <!-- prototype_boundary -->
 <g id="node3" class="node">
@@ -186,12 +296,12 @@
 <g id="node6" class="node">
 <title>pipeline_service</title>
 <g id="a_node6"><a xlink:title="Pipeline Service | register_pipeline">
-<path fill="#eff6ff" stroke="#2563eb" stroke-width="1.6" d="M1097,-882C1097,-882 883,-882 883,-882 877,-882 871,-876 871,-870 871,-870 871,-720 871,-720 871,-714 877,-708 883,-708 883,-708 1097,-708 1097,-708 1103,-708 1109,-714 1109,-720 1109,-720 1109,-870 1109,-870 1109,-876 1103,-882 1097,-882"/>
-<text xml:space="preserve" text-anchor="start" x="958.88" y="-832.92" font-family="DejaVu Sans" font-size="11.00" fill="#172554">[Container]</text>
-<text xml:space="preserve" text-anchor="start" x="918.75" y="-808.67" font-family="DejaVu Sans" font-weight="bold" font-size="16.00" fill="#172554">Pipeline Service</text>
-<text xml:space="preserve" text-anchor="start" x="907.12" y="-784.98" font-family="DejaVu Sans" font-size="12.00" fill="#172554">Azure Container Apps · Java</text>
-<text xml:space="preserve" text-anchor="start" x="951.38" y="-770.73" font-family="DejaVu Sans" font-size="12.00" fill="#172554">/ Spring Boot</text>
-<text xml:space="preserve" text-anchor="start" x="916.88" y="-749.48" font-family="DejaVu Sans" font-size="12.00" fill="#172554">Pipelines and executions</text>
+<path fill="#eff6ff" stroke="#2563eb" stroke-width="1.6" d="M827,-622C827,-622 613,-622 613,-622 607,-622 601,-616 601,-610 601,-610 601,-460 601,-460 601,-454 607,-448 613,-448 613,-448 827,-448 827,-448 833,-448 839,-454 839,-460 839,-460 839,-610 839,-610 839,-616 833,-622 827,-622"/>
+<text xml:space="preserve" text-anchor="start" x="688.88" y="-572.92" font-family="DejaVu Sans" font-size="11.00" fill="#172554">[Container]</text>
+<text xml:space="preserve" text-anchor="start" x="648.75" y="-548.67" font-family="DejaVu Sans" font-weight="bold" font-size="16.00" fill="#172554">Pipeline Service</text>
+<text xml:space="preserve" text-anchor="start" x="637.12" y="-524.98" font-family="DejaVu Sans" font-size="12.00" fill="#172554">Azure Container Apps · Java</text>
+<text xml:space="preserve" text-anchor="start" x="681.38" y="-510.73" font-family="DejaVu Sans" font-size="12.00" fill="#172554">/ Spring Boot</text>
+<text xml:space="preserve" text-anchor="start" x="646.88" y="-489.48" font-family="DejaVu Sans" font-size="12.00" fill="#172554">Pipelines and executions</text>
 </a>
 </g>
 </g>
@@ -199,12 +309,13 @@
 <g id="node7" class="node">
 <title>log_event_service</title>
 <g id="a_node7"><a xlink:title="Log/Event Service | register_normalized_evidence">
-<path fill="#eff6ff" stroke="#2563eb" stroke-width="1.6" d="M1097,-622C1097,-622 883,-622 883,-622 877,-622 871,-616 871,-610 871,-610 871,-460 871,-460 871,-454 877,-448 883,-448 883,-448 1097,-448 1097,-448 1103,-448 1109,-454 1109,-460 1109,-460 1109,-610 1109,-610 1109,-616 1103,-622 1097,-622"/>
-<text xml:space="preserve" text-anchor="start" x="958.88" y="-572.92" font-family="DejaVu Sans" font-size="11.00" fill="#172554">[Container]</text>
-<text xml:space="preserve" text-anchor="start" x="909.38" y="-548.67" font-family="DejaVu Sans" font-weight="bold" font-size="16.00" fill="#172554">Log/Event Service</text>
-<text xml:space="preserve" text-anchor="start" x="907.12" y="-524.98" font-family="DejaVu Sans" font-size="12.00" fill="#172554">Azure Container Apps · Java</text>
-<text xml:space="preserve" text-anchor="start" x="951.38" y="-510.73" font-family="DejaVu Sans" font-size="12.00" fill="#172554">/ Spring Boot</text>
-<text xml:space="preserve" text-anchor="start" x="910.5" y="-489.48" font-family="DejaVu Sans" font-size="12.00" fill="#172554">Logs, events and evidence</text>
+<path fill="#eff6ff" stroke="#b45309" stroke-width="2.6" d="M827,-882C827,-882 613,-882 613,-882 607,-882 601,-876 601,-870 601,-870 601,-720 601,-720 601,-714 607,-708 613,-708 613,-708 827,-708 827,-708 833,-708 839,-714 839,-720 839,-720 839,-870 839,-870 839,-876 833,-882 827,-882"/>
+<text xml:space="preserve" text-anchor="start" x="688.88" y="-840.05" font-family="DejaVu Sans" font-size="11.00" fill="#172554">[Container]</text>
+<text xml:space="preserve" text-anchor="start" x="639.38" y="-815.8" font-family="DejaVu Sans" font-weight="bold" font-size="16.00" fill="#172554">Log/Event Service</text>
+<text xml:space="preserve" text-anchor="start" x="637.12" y="-792.1" font-family="DejaVu Sans" font-size="12.00" fill="#172554">Azure Container Apps · Java</text>
+<text xml:space="preserve" text-anchor="start" x="681.38" y="-777.85" font-family="DejaVu Sans" font-size="12.00" fill="#172554">/ Spring Boot</text>
+<text xml:space="preserve" text-anchor="start" x="640.5" y="-756.6" font-family="DejaVu Sans" font-size="12.00" fill="#172554">Logs, events and evidence</text>
+<text xml:space="preserve" text-anchor="start" x="696.38" y="-742.35" font-family="DejaVu Sans" font-size="12.00" fill="#172554">(partial)</text>
 </a>
 </g>
 </g>
@@ -212,13 +323,14 @@
 <g id="node8" class="node">
 <title>recommendation_service</title>
 <g id="a_node8"><a xlink:title="Diagnostic &amp; Recommendation Service | generate_initial_recommendations">
-<path fill="#eff6ff" stroke="#2563eb" stroke-width="1.6" d="M1097,-332C1097,-332 883,-332 883,-332 877,-332 871,-326 871,-320 871,-320 871,-170 871,-170 871,-164 877,-158 883,-158 883,-158 1097,-158 1097,-158 1103,-158 1109,-164 1109,-170 1109,-170 1109,-320 1109,-320 1109,-326 1103,-332 1097,-332"/>
-<text xml:space="preserve" text-anchor="start" x="958.88" y="-289.18" font-family="DejaVu Sans" font-size="11.00" fill="#172554">[Container]</text>
-<text xml:space="preserve" text-anchor="start" x="932.62" y="-264.93" font-family="DejaVu Sans" font-weight="bold" font-size="16.00" fill="#172554">Diagnostic &amp;</text>
-<text xml:space="preserve" text-anchor="start" x="876.75" y="-248.93" font-family="DejaVu Sans" font-weight="bold" font-size="16.00" fill="#172554">Recommendation Service</text>
-<text xml:space="preserve" text-anchor="start" x="907.12" y="-228.72" font-family="DejaVu Sans" font-size="12.00" fill="#172554">Azure Container Apps · Java</text>
-<text xml:space="preserve" text-anchor="start" x="951.38" y="-214.47" font-family="DejaVu Sans" font-size="12.00" fill="#172554">/ Spring Boot</text>
-<text xml:space="preserve" text-anchor="start" x="910.12" y="-193.22" font-family="DejaVu Sans" font-size="12.00" fill="#172554">Probable cause and review</text>
+<path fill="#eff6ff" stroke="#b45309" stroke-width="2.6" d="M1097,-882C1097,-882 883,-882 883,-882 877,-882 871,-876 871,-870 871,-870 871,-720 871,-720 871,-714 877,-708 883,-708 883,-708 1097,-708 1097,-708 1103,-708 1109,-714 1109,-720 1109,-720 1109,-870 1109,-870 1109,-876 1103,-882 1097,-882"/>
+<text xml:space="preserve" text-anchor="start" x="958.88" y="-846.3" font-family="DejaVu Sans" font-size="11.00" fill="#172554">[Container]</text>
+<text xml:space="preserve" text-anchor="start" x="932.62" y="-822.05" font-family="DejaVu Sans" font-weight="bold" font-size="16.00" fill="#172554">Diagnostic &amp;</text>
+<text xml:space="preserve" text-anchor="start" x="876.75" y="-806.05" font-family="DejaVu Sans" font-weight="bold" font-size="16.00" fill="#172554">Recommendation Service</text>
+<text xml:space="preserve" text-anchor="start" x="907.12" y="-785.85" font-family="DejaVu Sans" font-size="12.00" fill="#172554">Azure Container Apps · Java</text>
+<text xml:space="preserve" text-anchor="start" x="951.38" y="-771.6" font-family="DejaVu Sans" font-size="12.00" fill="#172554">/ Spring Boot</text>
+<text xml:space="preserve" text-anchor="start" x="910.12" y="-750.35" font-family="DejaVu Sans" font-size="12.00" fill="#172554">Probable cause and review</text>
+<text xml:space="preserve" text-anchor="start" x="966.38" y="-736.1" font-family="DejaVu Sans" font-size="12.00" fill="#172554">(partial)</text>
 </a>
 </g>
 </g>
@@ -226,18 +338,45 @@
 <g id="node9" class="node">
 <title>postgresql_operational_store</title>
 <g id="a_node9"><a xlink:title="PostgreSQL | pipelines">
+<path fill="#ecfdf5" stroke="#059669" stroke-width="1.6" d="M1109,-316.18C1109,-324.91 1055.66,-332 990,-332 924.34,-332 871,-324.91 871,-316.18 871,-316.18 871,-173.82 871,-173.82 871,-165.09 924.34,-158 990,-158 1055.66,-158 1109,-165.09 1109,-173.82 1109,-173.82 1109,-316.18 1109,-316.18"/>
+<path fill="none" stroke="#059669" stroke-width="1.6" d="M1109,-316.18C1109,-307.45 1055.66,-300.36 990,-300.36 924.34,-300.36 871,-307.45 871,-316.18"/>
+<text xml:space="preserve" text-anchor="start" x="944.62" y="-265.18" font-family="DejaVu Sans" font-size="11.00" fill="#064e3b">[Data container]</text>
+<text xml:space="preserve" text-anchor="start" x="937.12" y="-240.93" font-family="DejaVu Sans" font-weight="bold" font-size="16.00" fill="#064e3b">PostgreSQL</text>
+<text xml:space="preserve" text-anchor="start" x="939.38" y="-217.22" font-family="DejaVu Sans" font-size="12.00" fill="#064e3b">Operational data</text>
+</a>
+</g>
+</g>
+<!-- ingestion_normalization_service -->
+<g id="node10" class="node">
+<title>ingestion_normalization_service</title>
+<g id="a_node10"><a xlink:title="Ingestion and Normalization Service | authorized_capture">
+<path fill="#eff6ff" stroke="#2563eb" stroke-width="1.6" d="M557,-622C557,-622 343,-622 343,-622 337,-622 331,-616 331,-610 331,-610 331,-460 331,-460 331,-454 337,-448 343,-448 343,-448 557,-448 557,-448 563,-448 569,-454 569,-460 569,-460 569,-610 569,-610 569,-616 563,-622 557,-622"/>
+<text xml:space="preserve" text-anchor="start" x="418.88" y="-579.17" font-family="DejaVu Sans" font-size="11.00" fill="#172554">[Container]</text>
+<text xml:space="preserve" text-anchor="start" x="388.88" y="-554.92" font-family="DejaVu Sans" font-weight="bold" font-size="16.00" fill="#172554">Ingestion and</text>
+<text xml:space="preserve" text-anchor="start" x="351.75" y="-538.92" font-family="DejaVu Sans" font-weight="bold" font-size="16.00" fill="#172554">Normalization Service</text>
+<text xml:space="preserve" text-anchor="start" x="367.12" y="-518.73" font-family="DejaVu Sans" font-size="12.00" fill="#172554">Azure Container Apps · Java</text>
+<text xml:space="preserve" text-anchor="start" x="411.38" y="-504.48" font-family="DejaVu Sans" font-size="12.00" fill="#172554">/ Spring Boot</text>
+<text xml:space="preserve" text-anchor="start" x="377.62" y="-483.23" font-family="DejaVu Sans" font-size="12.00" fill="#172554">Normalizes and protects</text>
+</a>
+</g>
+</g>
+<!-- azure_key_vault -->
+<g id="node11" class="node">
+<title>azure_key_vault</title>
+<g id="a_node11"><a xlink:title="Azure Key Vault | workload_token_signing_keys">
 <path fill="#ecfdf5" stroke="#059669" stroke-width="1.6" d="M1379,-606.18C1379,-614.91 1325.66,-622 1260,-622 1194.34,-622 1141,-614.91 1141,-606.18 1141,-606.18 1141,-463.82 1141,-463.82 1141,-455.09 1194.34,-448 1260,-448 1325.66,-448 1379,-455.09 1379,-463.82 1379,-463.82 1379,-606.18 1379,-606.18"/>
 <path fill="none" stroke="#059669" stroke-width="1.6" d="M1379,-606.18C1379,-597.45 1325.66,-590.36 1260,-590.36 1194.34,-590.36 1141,-597.45 1141,-606.18"/>
-<text xml:space="preserve" text-anchor="start" x="1214.62" y="-555.17" font-family="DejaVu Sans" font-size="11.00" fill="#064e3b">[Data container]</text>
-<text xml:space="preserve" text-anchor="start" x="1207.12" y="-530.92" font-family="DejaVu Sans" font-weight="bold" font-size="16.00" fill="#064e3b">PostgreSQL</text>
-<text xml:space="preserve" text-anchor="start" x="1209.38" y="-507.23" font-family="DejaVu Sans" font-size="12.00" fill="#064e3b">Operational data</text>
+<text xml:space="preserve" text-anchor="start" x="1214.62" y="-562.3" font-family="DejaVu Sans" font-size="11.00" fill="#064e3b">[Data container]</text>
+<text xml:space="preserve" text-anchor="start" x="1189.5" y="-538.05" font-family="DejaVu Sans" font-weight="bold" font-size="16.00" fill="#064e3b">Azure Key Vault</text>
+<text xml:space="preserve" text-anchor="start" x="1191" y="-514.35" font-family="DejaVu Sans" font-size="12.00" fill="#064e3b">Signing keys and token</text>
+<text xml:space="preserve" text-anchor="start" x="1236.75" y="-500.1" font-family="DejaVu Sans" font-size="12.00" fill="#064e3b">custody</text>
 </a>
 </g>
 </g>
 <!-- technical_users -->
-<g id="node10" class="node">
+<g id="node12" class="node">
 <title>technical_users</title>
-<g id="a_node10"><a xlink:title="Technical Users | Expose incidents, diagnoses, evidence, recommendations, metrics and human review.">
+<g id="a_node12"><a xlink:title="Technical Users | Expose incidents, diagnoses, evidence, recommendations, metrics and human review.">
 <ellipse fill="#f1f5f9" stroke="#64748b" stroke-width="1.6" cx="150" cy="-795" rx="119" ry="87"/>
 <text xml:space="preserve" text-anchor="start" x="127.12" y="-815.17" font-family="DejaVu Sans" font-size="11.00" fill="#334155">[Person]</text>
 <text xml:space="preserve" text-anchor="start" x="80.62" y="-790.92" font-family="DejaVu Sans" font-weight="bold" font-size="16.00" fill="#334155">Technical Users</text>
@@ -246,9 +385,9 @@
 </g>
 </g>
 <!-- github -->
-<g id="node11" class="node">
+<g id="node13" class="node">
 <title>github</title>
-<g id="a_node11"><a xlink:title="GitHub | source_control">
+<g id="a_node13"><a xlink:title="GitHub | source_control">
 <polygon fill="#f1f5f9" stroke="#64748b" stroke-width="1.6" stroke-dasharray="5,2" points="269,-332 31,-332 31,-158 269,-158 269,-332"/>
 <text xml:space="preserve" text-anchor="start" x="100.5" y="-265.18" font-family="DejaVu Sans" font-size="11.00" fill="#334155">[External system]</text>
 <text xml:space="preserve" text-anchor="start" x="118.88" y="-240.93" font-family="DejaVu Sans" font-weight="bold" font-size="16.00" fill="#334155">GitHub</text>
@@ -257,9 +396,9 @@
 </g>
 </g>
 <!-- github_actions -->
-<g id="node12" class="node">
+<g id="node14" class="node">
 <title>github_actions</title>
-<g id="a_node12"><a xlink:title="GitHub Actions | ci_cd_execution_and_evidence_source">
+<g id="a_node14"><a xlink:title="GitHub Actions | ci_cd_execution_and_evidence_source">
 <polygon fill="#f1f5f9" stroke="#64748b" stroke-width="1.6" stroke-dasharray="5,2" points="269,-622 31,-622 31,-448 269,-448 269,-622"/>
 <text xml:space="preserve" text-anchor="start" x="100.5" y="-562.3" font-family="DejaVu Sans" font-size="11.00" fill="#334155">[External system]</text>
 <text xml:space="preserve" text-anchor="start" x="82.5" y="-538.05" font-family="DejaVu Sans" font-weight="bold" font-size="16.00" fill="#334155">GitHub Actions</text>
@@ -269,59 +408,94 @@
 </g>
 </g>
 <!-- relation_legend -->
-<g id="node13" class="node">
+<g id="node15" class="node">
 <title>relation_legend</title>
-<text xml:space="preserve" text-anchor="start" x="1546.25" y="-785.77" font-family="DejaVu Sans" font-weight="bold" font-size="18.00">Relationships and protocols</text>
-<text xml:space="preserve" text-anchor="start" x="1546.25" y="-760.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">01</text>
-<text xml:space="preserve" text-anchor="start" x="1567.25" y="-760.88" font-family="DejaVu Sans" font-size="15.00"> Persists pipeline context</text>
-<text xml:space="preserve" text-anchor="start" x="1616.38" y="-748.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL</text>
-<text xml:space="preserve" text-anchor="start" x="1546.25" y="-727.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">02</text>
-<text xml:space="preserve" text-anchor="start" x="1567.25" y="-727.88" font-family="DejaVu Sans" font-size="15.00"> Evidence references</text>
-<text xml:space="preserve" text-anchor="start" x="1601" y="-715.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL</text>
-<text xml:space="preserve" text-anchor="start" x="1546.25" y="-694.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">03</text>
-<text xml:space="preserve" text-anchor="start" x="1567.25" y="-694.88" font-family="DejaVu Sans" font-size="15.00"> Diagnosis and recommendations</text>
-<text xml:space="preserve" text-anchor="start" x="1647.5" y="-682.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL</text>
-<text xml:space="preserve" text-anchor="start" x="1546.25" y="-661.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">04</text>
-<text xml:space="preserve" text-anchor="start" x="1567.25" y="-661.88" font-family="DejaVu Sans" font-size="15.00"> Repository and workflows</text>
-<text xml:space="preserve" text-anchor="start" x="1601.75" y="-649.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">GitHub API/HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="1546.25" y="-628.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">05</text>
-<text xml:space="preserve" text-anchor="start" x="1567.25" y="-628.88" font-family="DejaVu Sans" font-size="15.00"> Querying and human review</text>
-<text xml:space="preserve" text-anchor="start" x="1646.75" y="-616.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="1546.25" y="-595.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">06</text>
-<text xml:space="preserve" text-anchor="start" x="1567.25" y="-595.88" font-family="DejaVu Sans" font-size="15.00"> GitHub sign&#45;in (OAuth + PKCE)</text>
-<text xml:space="preserve" text-anchor="start" x="1546.25" y="-583.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">OAuth 2.0/HTTPS (authorization code + PKCE S256)</text>
-<text xml:space="preserve" text-anchor="start" x="1546.25" y="-562.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">07</text>
-<text xml:space="preserve" text-anchor="start" x="1567.25" y="-562.88" font-family="DejaVu Sans" font-size="15.00"> Queries pipelines and executions</text>
-<text xml:space="preserve" text-anchor="start" x="1647.12" y="-550.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="1546.25" y="-529.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">08</text>
-<text xml:space="preserve" text-anchor="start" x="1567.25" y="-529.88" font-family="DejaVu Sans" font-size="15.00"> Queries logs and evidence</text>
-<text xml:space="preserve" text-anchor="start" x="1622" y="-517.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="1546.25" y="-496.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">09</text>
-<text xml:space="preserve" text-anchor="start" x="1567.25" y="-496.88" font-family="DejaVu Sans" font-size="15.00"> Diagnosis and review</text>
-<text xml:space="preserve" text-anchor="start" x="1602.5" y="-484.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="1546.25" y="-463.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">10</text>
-<text xml:space="preserve" text-anchor="start" x="1567.25" y="-463.88" font-family="DejaVu Sans" font-size="15.00"> Persists human review</text>
-<text xml:space="preserve" text-anchor="start" x="1608.5" y="-451.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL</text>
-<text xml:space="preserve" text-anchor="start" x="1546.25" y="-430.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">11</text>
-<text xml:space="preserve" text-anchor="start" x="1567.25" y="-430.88" font-family="DejaVu Sans" font-size="15.00"> Queries result for artifact</text>
-<text xml:space="preserve" text-anchor="start" x="1616.75" y="-418.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="1546.25" y="-397.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">12</text>
-<text xml:space="preserve" text-anchor="start" x="1567.25" y="-397.88" font-family="DejaVu Sans" font-size="15.00"> Checks ORIGIN membership</text>
-<text xml:space="preserve" text-anchor="start" x="1628" y="-385.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="1546.25" y="-364.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">13</text>
-<text xml:space="preserve" text-anchor="start" x="1567.25" y="-364.88" font-family="DejaVu Sans" font-size="15.00"> Resolves diagnosis access</text>
-<text xml:space="preserve" text-anchor="start" x="1620.12" y="-352.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="1546.25" y="-331.88" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">14</text>
-<text xml:space="preserve" text-anchor="start" x="1567.25" y="-331.88" font-family="DejaVu Sans" font-size="15.00"> Projects diagnosis summary</text>
-<text xml:space="preserve" text-anchor="start" x="1627.25" y="-319.73" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-982.27" font-family="DejaVu Sans" font-weight="bold" font-size="18.00">Relationships and protocols</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-957.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">01</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-957.38" font-family="DejaVu Sans" font-size="15.00"> Workflow events</text>
+<text xml:space="preserve" text-anchor="start" x="1547.38" y="-945.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">HTTPS/Webhook</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-924.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">02</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-924.38" font-family="DejaVu Sans" font-size="15.00"> Metadata / protected buffer</text>
+<text xml:space="preserve" text-anchor="start" x="1603.62" y="-912.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-891.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">03</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-891.38" font-family="DejaVu Sans" font-size="15.00"> Persists pipeline context</text>
+<text xml:space="preserve" text-anchor="start" x="1591.62" y="-879.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-858.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">04</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-858.38" font-family="DejaVu Sans" font-size="15.00"> Evidence references</text>
+<text xml:space="preserve" text-anchor="start" x="1576.25" y="-846.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-825.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">05</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-825.38" font-family="DejaVu Sans" font-size="15.00"> Diagnosis and recommendations</text>
+<text xml:space="preserve" text-anchor="start" x="1622.75" y="-813.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-792.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">06</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-792.38" font-family="DejaVu Sans" font-size="15.00"> Queries runs, jobs and logs</text>
+<text xml:space="preserve" text-anchor="start" x="1583" y="-780.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">GitHub API/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-759.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">07</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-759.38" font-family="DejaVu Sans" font-size="15.00"> Repository and workflows</text>
+<text xml:space="preserve" text-anchor="start" x="1577" y="-747.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">GitHub API/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-726.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">08</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-726.38" font-family="DejaVu Sans" font-size="15.00"> Querying and human review</text>
+<text xml:space="preserve" text-anchor="start" x="1622" y="-714.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-693.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">09</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-693.38" font-family="DejaVu Sans" font-size="15.00"> GitHub sign&#45;in (OAuth + PKCE)</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-681.23" font-family="DejaVu Sans" font-size="12.00" fill="#b45309">OAuth 2.0/HTTPS (authorization code + PKCE S256) · partial</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-660.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">10</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-660.38" font-family="DejaVu Sans" font-size="15.00"> Queries pipelines and executions</text>
+<text xml:space="preserve" text-anchor="start" x="1622.38" y="-648.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-627.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">11</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-627.38" font-family="DejaVu Sans" font-size="15.00"> Queries logs and evidence</text>
+<text xml:space="preserve" text-anchor="start" x="1540.25" y="-615.23" font-family="DejaVu Sans" font-size="12.00" fill="#b91c1c">REST/HTTPS · not implemented</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-594.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">12</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-594.38" font-family="DejaVu Sans" font-size="15.00"> Diagnosis and review</text>
+<text xml:space="preserve" text-anchor="start" x="1577.75" y="-582.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-561.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">13</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-561.38" font-family="DejaVu Sans" font-size="15.00"> Persists human review</text>
+<text xml:space="preserve" text-anchor="start" x="1583.75" y="-549.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">PostgreSQL</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-528.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">14</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-528.38" font-family="DejaVu Sans" font-size="15.00"> Queries result for artifact</text>
+<text xml:space="preserve" text-anchor="start" x="1592" y="-516.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-495.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">15</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-495.38" font-family="DejaVu Sans" font-size="15.00"> Sign&#45;in, session and GitHub</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-480.38" font-family="DejaVu Sans" font-size="15.00">discovery</text>
+<text xml:space="preserve" text-anchor="start" x="1601.38" y="-468.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-447.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">16</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-447.38" font-family="DejaVu Sans" font-size="15.00"> PKCE code exchange and access checks</text>
+<text xml:space="preserve" text-anchor="start" x="1599.5" y="-435.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">OAuth/HTTPS + REST/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-414.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">17</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-414.38" font-family="DejaVu Sans" font-size="15.00"> Session signing, App material,</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-399.38" font-family="DejaVu Sans" font-size="15.00">custody</text>
+<text xml:space="preserve" text-anchor="start" x="1568.75" y="-387.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">Azure Key Vault API/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-366.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">18</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-366.38" font-family="DejaVu Sans" font-size="15.00"> Signs workload tokens</text>
+<text xml:space="preserve" text-anchor="start" x="1539.12" y="-354.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">Azure Key Vault API/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-333.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">19</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-333.38" font-family="DejaVu Sans" font-size="15.00"> Signs workload tokens</text>
+<text xml:space="preserve" text-anchor="start" x="1539.12" y="-321.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">Azure Key Vault API/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-300.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">20</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-300.38" font-family="DejaVu Sans" font-size="15.00"> Signs workload tokens</text>
+<text xml:space="preserve" text-anchor="start" x="1539.12" y="-288.23" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">Azure Key Vault API/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-267.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">21</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-267.38" font-family="DejaVu Sans" font-size="15.00"> Verifies GitHub user access</text>
+<text xml:space="preserve" text-anchor="start" x="1599.12" y="-255.22" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-234.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">22</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-234.38" font-family="DejaVu Sans" font-size="15.00"> Checks ORIGIN membership</text>
+<text xml:space="preserve" text-anchor="start" x="1603.25" y="-222.22" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-201.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">23</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-201.38" font-family="DejaVu Sans" font-size="15.00"> Checks capture scope</text>
+<text xml:space="preserve" text-anchor="start" x="1580" y="-189.22" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-168.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">24</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-168.38" font-family="DejaVu Sans" font-size="15.00"> Resolves diagnosis access</text>
+<text xml:space="preserve" text-anchor="start" x="1595.38" y="-156.22" font-family="DejaVu Sans" font-size="12.00" fill="#52647a">REST/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="1521.5" y="-135.38" font-family="DejaVu Sans" font-weight="bold" font-size="15.00">25</text>
+<text xml:space="preserve" text-anchor="start" x="1542.5" y="-135.38" font-family="DejaVu Sans" font-size="15.00"> Projects diagnosis summary</text>
+<text xml:space="preserve" text-anchor="start" x="1578.12" y="-123.22" font-family="DejaVu Sans" font-size="12.00" fill="#6d28d9">REST/HTTPS · differs</text>
 </g>
 <!-- slide_footer -->
-<g id="node14" class="node">
+<g id="node16" class="node">
 <title>slide_footer</title>
 <text xml:space="preserve" text-anchor="middle" x="960" y="-80.33" font-family="DejaVu Sans" font-size="14.00">Blue: prototype · Gray: actors/external systems · Green: persistence | Solid: synchronous · Dashed: asynchronous · Dotted: event</text>
 </g>
 <!-- slide_note -->
-<g id="node15" class="node">
+<g id="node17" class="node">
 <title>slide_note</title>
 <text xml:space="preserve" text-anchor="middle" x="960" y="-39.75" font-family="DejaVu Sans" font-size="15.00">Human review within Diagnostic &amp; Recommendation Service. Actions publishes the artifact through its own workflow.</text>
 </g>

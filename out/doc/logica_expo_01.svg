@@ -9,51 +9,52 @@
 <g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(10.8 1047.27)">
 <title>logica_expo_01</title>
 <polygon fill="white" stroke="none" points="-10.8,10.8 -10.8,-1047.27 585.63,-1047.27 585.63,10.8 -10.8,10.8"/>
-<text xml:space="preserve" text-anchor="start" x="31.12" y="-374.45" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">01</text>
-<text xml:space="preserve" text-anchor="start" x="57.62" y="-373.45" font-family="DejaVu Sans" font-size="14.00">Workflow events</text>
-<text xml:space="preserve" text-anchor="start" x="57.62" y="-356.2" font-family="DejaVu Sans" font-size="14.00" fill="#475569">HTTPS/Webhook</text>
-<text xml:space="preserve" text-anchor="start" x="31.12" y="-325.56" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">02</text>
-<text xml:space="preserve" text-anchor="start" x="57.62" y="-324.56" font-family="DejaVu Sans" font-size="14.00">Execution context</text>
-<text xml:space="preserve" text-anchor="start" x="57.62" y="-307.31" font-family="DejaVu Sans" font-size="14.00" fill="#475569">Azure Service Bus</text>
-<text xml:space="preserve" text-anchor="start" x="31.12" y="-276.66" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">03</text>
-<text xml:space="preserve" text-anchor="start" x="57.62" y="-275.66" font-family="DejaVu Sans" font-size="14.00">Normalized evidence</text>
-<text xml:space="preserve" text-anchor="start" x="57.62" y="-258.41" font-family="DejaVu Sans" font-size="14.00" fill="#475569">Azure Service Bus</text>
-<text xml:space="preserve" text-anchor="start" x="31.12" y="-227.77" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">04</text>
-<text xml:space="preserve" text-anchor="start" x="57.62" y="-226.77" font-family="DejaVu Sans" font-size="14.00">Queries logs and artifacts</text>
-<text xml:space="preserve" text-anchor="start" x="57.62" y="-209.52" font-family="DejaVu Sans" font-size="14.00" fill="#475569">GitHub API/HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="31.12" y="-178.88" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">05</text>
-<text xml:space="preserve" text-anchor="start" x="57.62" y="-177.88" font-family="DejaVu Sans" font-size="14.00">Protected evidence</text>
-<text xml:space="preserve" text-anchor="start" x="57.62" y="-160.63" font-family="DejaVu Sans" font-size="14.00" fill="#475569">Azure Service Bus</text>
-<text xml:space="preserve" text-anchor="start" x="31.12" y="-129.99" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">06</text>
-<text xml:space="preserve" text-anchor="start" x="57.62" y="-128.99" font-family="DejaVu Sans" font-size="14.00">Repository and workflows</text>
-<text xml:space="preserve" text-anchor="start" x="57.62" y="-111.74" font-family="DejaVu Sans" font-size="14.00" fill="#475569">GitHub API/HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="31.12" y="-81.09" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">07</text>
-<text xml:space="preserve" text-anchor="start" x="57.62" y="-80.09" font-family="DejaVu Sans" font-size="14.00">Authorized telemetry</text>
-<text xml:space="preserve" text-anchor="start" x="57.62" y="-62.84" font-family="DejaVu Sans" font-size="14.00" fill="#475569">REST/HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="279.12" y="-374.45" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">08</text>
-<text xml:space="preserve" text-anchor="start" x="305.62" y="-373.45" font-family="DejaVu Sans" font-size="14.00">Connects and verifies</text>
-<text xml:space="preserve" text-anchor="start" x="305.62" y="-356.2" font-family="DejaVu Sans" font-size="14.00">GitHub access</text>
-<text xml:space="preserve" text-anchor="start" x="305.62" y="-338.95" font-family="DejaVu Sans" font-size="14.00" fill="#475569">OAuth/HTTPS + REST/HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="279.12" y="-315.7" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">09</text>
-<text xml:space="preserve" text-anchor="start" x="305.62" y="-314.7" font-family="DejaVu Sans" font-size="14.00">Signing keys, App</text>
-<text xml:space="preserve" text-anchor="start" x="305.62" y="-297.45" font-family="DejaVu Sans" font-size="14.00">material, token custody</text>
-<text xml:space="preserve" text-anchor="start" x="305.62" y="-280.2" font-family="DejaVu Sans" font-size="14.00" fill="#475569">Azure Key Vault API/HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="279.12" y="-256.95" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">10</text>
-<text xml:space="preserve" text-anchor="start" x="305.62" y="-255.95" font-family="DejaVu Sans" font-size="14.00">Signs workload tokens</text>
-<text xml:space="preserve" text-anchor="start" x="305.62" y="-238.7" font-family="DejaVu Sans" font-size="14.00" fill="#475569">Azure Key Vault API/HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="279.12" y="-215.45" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">11</text>
-<text xml:space="preserve" text-anchor="start" x="305.62" y="-214.45" font-family="DejaVu Sans" font-size="14.00">Signs workload tokens</text>
-<text xml:space="preserve" text-anchor="start" x="305.62" y="-197.2" font-family="DejaVu Sans" font-size="14.00" fill="#475569">Azure Key Vault API/HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="279.12" y="-173.95" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">12</text>
-<text xml:space="preserve" text-anchor="start" x="305.62" y="-172.95" font-family="DejaVu Sans" font-size="14.00">Verifies GitHub user</text>
-<text xml:space="preserve" text-anchor="start" x="305.62" y="-155.7" font-family="DejaVu Sans" font-size="14.00">access</text>
-<text xml:space="preserve" text-anchor="start" x="305.62" y="-138.45" font-family="DejaVu Sans" font-size="14.00" fill="#475569">REST/HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="279.12" y="-115.2" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">13</text>
-<text xml:space="preserve" text-anchor="start" x="305.62" y="-114.2" font-family="DejaVu Sans" font-size="14.00">Checks ORIGIN membership</text>
-<text xml:space="preserve" text-anchor="start" x="305.62" y="-96.95" font-family="DejaVu Sans" font-size="14.00" fill="#475569">REST/HTTPS</text>
-<text xml:space="preserve" text-anchor="start" x="279.12" y="-73.7" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">14</text>
-<text xml:space="preserve" text-anchor="start" x="305.62" y="-72.7" font-family="DejaVu Sans" font-size="14.00">Checks capture scope</text>
-<text xml:space="preserve" text-anchor="start" x="305.62" y="-55.45" font-family="DejaVu Sans" font-size="14.00" fill="#475569">REST/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="31.31" y="-374.45" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">01</text>
+<text xml:space="preserve" text-anchor="start" x="57.81" y="-373.45" font-family="DejaVu Sans" font-size="14.00">Workflow events</text>
+<text xml:space="preserve" text-anchor="start" x="57.81" y="-356.2" font-family="DejaVu Sans" font-size="14.00" fill="#475569">HTTPS/Webhook</text>
+<text xml:space="preserve" text-anchor="start" x="31.31" y="-328.02" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">02</text>
+<text xml:space="preserve" text-anchor="start" x="57.81" y="-327.02" font-family="DejaVu Sans" font-size="14.00">Execution context</text>
+<text xml:space="preserve" text-anchor="start" x="57.81" y="-309.77" font-family="DejaVu Sans" font-size="14.00" fill="#475569">Azure Service Bus</text>
+<text xml:space="preserve" text-anchor="start" x="31.31" y="-281.59" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">03</text>
+<text xml:space="preserve" text-anchor="start" x="57.81" y="-280.59" font-family="DejaVu Sans" font-size="14.00">Normalized evidence</text>
+<text xml:space="preserve" text-anchor="start" x="57.81" y="-263.34" font-family="DejaVu Sans" font-size="14.00" fill="#475569">Azure Service Bus</text>
+<text xml:space="preserve" text-anchor="start" x="31.31" y="-235.16" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">04</text>
+<text xml:space="preserve" text-anchor="start" x="57.81" y="-234.16" font-family="DejaVu Sans" font-size="14.00">Queries runs, jobs and</text>
+<text xml:space="preserve" text-anchor="start" x="57.81" y="-216.91" font-family="DejaVu Sans" font-size="14.00">logs</text>
+<text xml:space="preserve" text-anchor="start" x="57.81" y="-199.66" font-family="DejaVu Sans" font-size="14.00" fill="#475569">GitHub API/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="31.31" y="-171.49" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">05</text>
+<text xml:space="preserve" text-anchor="start" x="57.81" y="-170.49" font-family="DejaVu Sans" font-size="14.00">Protected evidence</text>
+<text xml:space="preserve" text-anchor="start" x="57.81" y="-153.24" font-family="DejaVu Sans" font-size="14.00" fill="#475569">Azure Service Bus</text>
+<text xml:space="preserve" text-anchor="start" x="31.31" y="-125.06" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">06</text>
+<text xml:space="preserve" text-anchor="start" x="57.81" y="-124.06" font-family="DejaVu Sans" font-size="14.00">Repository and workflows</text>
+<text xml:space="preserve" text-anchor="start" x="57.81" y="-106.81" font-family="DejaVu Sans" font-size="14.00" fill="#475569">GitHub API/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="31.31" y="-78.63" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">07</text>
+<text xml:space="preserve" text-anchor="start" x="57.81" y="-77.63" font-family="DejaVu Sans" font-size="14.00">Authorized telemetry</text>
+<text xml:space="preserve" text-anchor="start" x="57.81" y="-60.38" font-family="DejaVu Sans" font-size="14.00" fill="#475569">REST/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="278.94" y="-374.45" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">08</text>
+<text xml:space="preserve" text-anchor="start" x="305.44" y="-373.45" font-family="DejaVu Sans" font-size="14.00">Connects and verifies</text>
+<text xml:space="preserve" text-anchor="start" x="305.44" y="-356.2" font-family="DejaVu Sans" font-size="14.00">GitHub access</text>
+<text xml:space="preserve" text-anchor="start" x="305.44" y="-338.95" font-family="DejaVu Sans" font-size="14.00" fill="#475569">OAuth/HTTPS + REST/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="278.94" y="-315.7" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">09</text>
+<text xml:space="preserve" text-anchor="start" x="305.44" y="-314.7" font-family="DejaVu Sans" font-size="14.00">Signing keys, App</text>
+<text xml:space="preserve" text-anchor="start" x="305.44" y="-297.45" font-family="DejaVu Sans" font-size="14.00">material, token custody</text>
+<text xml:space="preserve" text-anchor="start" x="305.44" y="-280.2" font-family="DejaVu Sans" font-size="14.00" fill="#475569">Azure Key Vault API/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="278.94" y="-256.95" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">10</text>
+<text xml:space="preserve" text-anchor="start" x="305.44" y="-255.95" font-family="DejaVu Sans" font-size="14.00">Signs workload tokens</text>
+<text xml:space="preserve" text-anchor="start" x="305.44" y="-238.7" font-family="DejaVu Sans" font-size="14.00" fill="#475569">Azure Key Vault API/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="278.94" y="-215.45" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">11</text>
+<text xml:space="preserve" text-anchor="start" x="305.44" y="-214.45" font-family="DejaVu Sans" font-size="14.00">Signs workload tokens</text>
+<text xml:space="preserve" text-anchor="start" x="305.44" y="-197.2" font-family="DejaVu Sans" font-size="14.00" fill="#475569">Azure Key Vault API/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="278.94" y="-173.95" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">12</text>
+<text xml:space="preserve" text-anchor="start" x="305.44" y="-172.95" font-family="DejaVu Sans" font-size="14.00">Verifies GitHub user</text>
+<text xml:space="preserve" text-anchor="start" x="305.44" y="-155.7" font-family="DejaVu Sans" font-size="14.00">access</text>
+<text xml:space="preserve" text-anchor="start" x="305.44" y="-138.45" font-family="DejaVu Sans" font-size="14.00" fill="#475569">REST/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="278.94" y="-115.2" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">13</text>
+<text xml:space="preserve" text-anchor="start" x="305.44" y="-114.2" font-family="DejaVu Sans" font-size="14.00">Checks ORIGIN membership</text>
+<text xml:space="preserve" text-anchor="start" x="305.44" y="-96.95" font-family="DejaVu Sans" font-size="14.00" fill="#475569">REST/HTTPS</text>
+<text xml:space="preserve" text-anchor="start" x="278.94" y="-73.7" font-family="DejaVu Sans" font-weight="bold" font-size="14.00">14</text>
+<text xml:space="preserve" text-anchor="start" x="305.44" y="-72.7" font-family="DejaVu Sans" font-size="14.00">Checks capture scope</text>
+<text xml:space="preserve" text-anchor="start" x="305.44" y="-55.45" font-family="DejaVu Sans" font-size="14.00" fill="#475569">REST/HTTPS</text>
 <text xml:space="preserve" text-anchor="start" x="12" y="-29.2" font-family="DejaVu Sans" font-size="14.00" fill="#334155">Blue: prototype · Gray: actors and external systems · Green: persistence ·</text>
 <text xml:space="preserve" text-anchor="start" x="12" y="-11.95" font-family="DejaVu Sans" font-size="14.00" fill="#334155">Solid: synchronous · Dashed: asynchronous · Dotted: event</text>
 <g id="clust1" class="cluster">
@@ -154,7 +155,7 @@
 <!-- ingestion_normalization_service&#45;&gt;github_actions -->
 <g id="rel_ingestion_github_actions_read" class="edge">
 <title>ingestion_normalization_service&#45;&gt;github_actions</title>
-<g id="a_rel_ingestion_github_actions_read"><a xlink:title="04: Queries logs and artifacts (GitHub API/HTTPS)">
+<g id="a_rel_ingestion_github_actions_read"><a xlink:title="04: Queries runs, jobs and logs (GitHub API/HTTPS)">
 <path fill="none" stroke="#475569" stroke-width="1.2" d="M145.87,-797.53C130.78,-807.91 115.84,-820.84 105.5,-836.08 98.65,-846.18 95.02,-859.14 93.1,-870.48"/>
 <polygon fill="#475569" stroke="#475569" stroke-width="1.2" points="90.69,-870.08 92.15,-877.35 95.54,-870.75 90.69,-870.08"/>
 </a>

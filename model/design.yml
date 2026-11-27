@@ -1,24 +1,50 @@
-# SSOT exclusivo del diseño de clases; no describe código implementado.
-model_version: 1.1.0
+# SSOT del diseño de clases. Las clases `proposed` siguen siendo propuesta; las `implemented` se
+# transcriben del código en las revisiones de model/implementation_status.yml (DC-007).
+model_version: 1.2.0
 design_rules:
-  container: recommendation_service
-  language: Java
-  framework: Spring Boot
   max_nodes_per_diagram: 15
-  cqrs: logical
-  persistence: postgresql_operational_store
-  event_sourcing: false
-  separate_read_write_databases: false
-  autonomous_remediation: false
-  github_access: read_only
-  artifact_publisher: github_actions
-  navigation_views: [c4_context, c4_container_processing, c4_component_diagnostic]
-  source: [model/architecture.yml, model/domain.yml, SRC_ADR_018]
+  source: [model/architecture.yml, model/domain.yml, model/implementation_status.yml, SRC_ADR_018]
+  # Una entrada por contenedor descrito. recommendation_service conserva las reglas de la propuesta (CD-1..CD-3);
+  # los demás contenedores solo aportan clases transcritas del código (status: implemented).
+  containers:
+    recommendation_service:
+      language: Java
+      framework: Spring Boot
+      repository: recommendation
+      base_package: com.pipesor.recommendation
+      cqrs: logical
+      persistence: postgresql_operational_store
+      event_sourcing: false
+      separate_read_write_databases: false
+      autonomous_remediation: false
+      github_access: read_only
+      artifact_publisher: github_actions
+      navigation_views: [c4_context, c4_container_processing, c4_component_diagnostic]
+    pipeline_service:
+      {language: Java, framework: Spring Boot, repository: pipeline, base_package: org.pipesor.pipeline,
+       persistence: postgresql_operational_store, navigation_views: [c4_context, c4_container_processing]}
+    ingestion_normalization_service:
+      {language: Java, framework: Spring Boot, repository: ingestion, base_package: org.pipesor.ingestion,
+       persistence: postgresql_operational_store, navigation_views: [c4_context, c4_container_processing]}
+    log_event_service:
+      {language: Java, framework: Spring Boot, repository: log_event, base_package: org.pipesor.logevent,
+       persistence: postgresql_operational_store, navigation_views: [c4_context, c4_container_processing]}
+    evidence_correlation_engine:
+      {language: Java, framework: Spring Boot, repository: correlation, base_package: org.pipesor.correlation,
+       persistence: postgresql_operational_store, navigation_views: [c4_context, c4_container_processing]}
+    nlp_log_processor:
+      {language: Python, framework: FastAPI, repository: nlp, base_package: pipesor_nlp_log_processor,
+       persistence: none, navigation_views: [c4_context, c4_container_processing]}
+    rag_retrieval:
+      {language: Python, framework: FastAPI, repository: rag, base_package: pipesor_rag_retrieval,
+       persistence: pgvector_knowledge_store, navigation_views: [c4_context, c4_container_processing]}
 
 # Las clases compartidas se definen una sola vez. elements es la membresía exacta.
 class_diagrams:
   - id: CD-1
     title: "CD-1 — Diagnostic API and CQRS"
+    kind: component_design
+    container: recommendation_service
     zoom_target: diagnostic_api_component
     elements:
       - DiagnosisCommandController
@@ -41,8 +67,16 @@ class_diagrams:
       - "Correlated context is received via REST/HTTPS; the architecture does not specify a URI."
       - "Review and query operations already derive from IA/ADR; no additional endpoints."
       - "The orchestrator and repository are detailed in CD-2; human review is detailed in CD-3."
+    # A4 print parts (DC-007): together they keep every member and relationship of the figure.
+    print_parts:
+      - {suffix: a, title: diagnosis command side, elements: [DiagnosisCommandController, GenerateDiagnosisCommandService, GenerateDiagnosisCommand, GenerateDiagnosisCommandServiceImpl, DiagnosticOrchestrator, DiagnosisRepository]}
+      - {suffix: b, title: diagnosis query contract, elements: [DiagnosisQueryController, DiagnosisQueryService, GetDiagnosisQuery, DiagnosisQueryServiceImpl]}
+      - {suffix: c, title: diagnosis query projection, elements: [DiagnosisQueryServiceImpl, DiagnosticView, DiagnosisRepository]}
+      - {suffix: d, title: human review entry points, elements: [HumanReviewCommandController, HumanReviewQueryController, HumanReviewCommandService, HumanReviewQueryService]}
   - id: CD-2
     title: "CD-2 — Diagnostic Orchestration, RAG and LLM"
+    kind: component_design
+    container: recommendation_service
     zoom_target: diagnostic_orchestrator_component
     elements:
       - DiagnosticOrchestrator
@@ -65,8 +99,18 @@ class_diagrams:
       - "Only sanitized evidence, authorized context and RAG knowledge reach the gateway."
       - "Each diagnostic snapshot is immutable; DIAGNOSIS_READY requires a probable cause and a timestamp."
       - "Recommendations and links are inserted with the snapshot; logical IDs connect contexts."
+    # A4 print parts (DC-007): together they keep every member and relationship of the figure.
+    print_parts:
+      - {suffix: a, title: RAG retrieval port and adapter, elements: [DiagnosticOrchestrator, KnowledgeRetrievalPort, RagRetrievalHttpAdapter, RagRetrievalExternal]}
+      - {suffix: b, title: LLM gateway and Azure OpenAI adapter, elements: [DiagnosticOrchestrator, DiagnosticLlmGateway, SanitizedDiagnosticContext, AzureOpenAiDiagnosticAdapter, AzureOpenAiExternal, LlmResponseTranslator]}
+      - {suffix: c, title: output composition, elements: [DiagnosticOrchestrator, DiagnosticOutputComposer, Diagnosis]}
+      - {suffix: d, title: response translation and probable cause, elements: [LlmResponseTranslator, Diagnosis, ProbableCause]}
+      - {suffix: e, title: snapshot persistence, elements: [JpaDiagnosisRepositoryAdapter, Diagnosis, Recommendation]}
+      - {suffix: f, title: repository port, elements: [DiagnosticOrchestrator, DiagnosisRepository, JpaDiagnosisRepositoryAdapter]}
   - id: CD-3
     title: "CD-3 — Human Review and Diagnostic Governance"
+    kind: component_design
+    container: recommendation_service
     zoom_target: human_review_component
     elements:
       - HumanReviewCommandController
@@ -88,6 +132,233 @@ class_diagrams:
       - "PENDING is derived from the absence of a review; it is not persisted in HumanReview."
       - "Risk classification and critical marking require an approved policy; no invented thresholds."
       - "Cross-cutting auditing to audit.audit_events with sanitized metadata and correlation IDs."
+    # A4 print parts (DC-007): together they keep every member and relationship of the figure.
+    print_parts:
+      - {suffix: a, title: review command, elements: [HumanReviewCommandController, HumanReviewCommandService, RecordHumanReviewCommand, HumanReviewCommandServiceImpl, RiskClassificationService]}
+      - {suffix: b, title: audit trail, elements: [HumanReviewCommandServiceImpl, AuditTrailPort, PostgresAuditTrailAdapter]}
+      - {suffix: c, title: review query contract, elements: [HumanReviewQueryController, HumanReviewQueryService, HumanReviewQueryServiceImpl]}
+      - {suffix: d, title: review query projection, elements: [HumanReviewQueryServiceImpl, HumanReviewRepository, HumanReview]}
+      - {suffix: e, title: review aggregate and persistence, elements: [HumanReviewCommandServiceImpl, HumanReview, HumanReviewDecision, HumanReviewRepository, JpaHumanReviewRepositoryAdapter]}
+  - id: CD-4
+    title: "CD-4 — Pipeline: Incident aggregate"
+    kind: bounded_context
+    container: pipeline_service
+    zoom_target: pipeline_service
+    elements:
+      - Incident
+      - IncidentDetails
+      - IncidentLifecycle
+      - ExecutionOutcome
+      - VerificationExecution
+      - IncidentAction
+      - IncidentStatus
+      - Severity
+      - PipelineStage
+      - IncidentStore
+      - JpaIncidentStore
+      - IncidentJpaEntity
+      - IncidentRunJpaEntity
+      - IncidentRunRole
+      - GitHubRepository
+    notes:
+      - "Incident is the aggregate root; its value objects are Java records."
+      - "Tables without a domain class (pipelines, executions, stages, grants, event receipts, incident_diagnoses) are not drawn."
+    # A4 print parts (DC-007): together they keep every member and relationship of the figure.
+    print_parts:
+      - {suffix: a, title: root and its value objects, elements: [Incident, IncidentDetails, IncidentLifecycle, ExecutionOutcome]}
+      - {suffix: b, title: transitions, elements: [Incident, VerificationExecution, IncidentAction]}
+      - {suffix: c, title: enums and repository catalog, elements: [IncidentDetails, IncidentLifecycle, IncidentStatus, Severity, PipelineStage, GitHubRepository]}
+      - {suffix: d, title: store port, elements: [IncidentStore, JpaIncidentStore, Incident]}
+      - {suffix: e, title: JPA rows, elements: [JpaIncidentStore, IncidentJpaEntity, IncidentRunJpaEntity, IncidentRunRole]}
+  - id: CD-5
+    title: "CD-5 — Ingestion: GitHubConnection aggregate"
+    kind: bounded_context
+    container: ingestion_normalization_service
+    zoom_target: ingestion_normalization_service
+    elements:
+      - GitHubConnection
+      - ConnectionRoot
+      - ConnectionGeneration
+      - ConnectionAttempt
+      - ConnectionOperation
+      - ConnectionIdentity
+      - SecretReference
+      - StateDigest
+      - GenerationState
+      - AttemptPhase
+      - OperationKind
+      - OperationPhase
+      - ConnectionRepository
+      - JpaConnectionRepository
+    notes:
+      - "The entities are immutable records of ConnectionRecords, changed only through GitHubConnection."
+      - "Not drawn: enums CleanupState, Result and Scope (ConnectionRecords.java:14-18) and the four ConnectionJpaEntities rows."
+    # A4 print parts (DC-007): together they keep every member and relationship of the figure.
+    print_parts:
+      - {suffix: a, title: root record, elements: [GitHubConnection, ConnectionRoot]}
+      - {suffix: b, title: repository, elements: [ConnectionRepository, JpaConnectionRepository, GitHubConnection]}
+      - {suffix: c, title: generations, elements: [GitHubConnection, ConnectionGeneration]}
+      - {suffix: d, title: generation and root value objects, elements: [ConnectionGeneration, GenerationState, SecretReference, ConnectionRoot, ConnectionIdentity]}
+      - {suffix: e, title: authorization attempts, elements: [GitHubConnection, ConnectionAttempt]}
+      - {suffix: f, title: attempt value objects, elements: [ConnectionAttempt, StateDigest, AttemptPhase, SecretReference]}
+      - {suffix: g, title: credential operations, elements: [GitHubConnection, ConnectionOperation, OperationKind, OperationPhase]}
+  - id: CD-6
+    title: "CD-6 — Ingestion: CaptureReceipt aggregate and WorkflowObservation"
+    kind: bounded_context
+    container: ingestion_normalization_service
+    zoom_target: ingestion_normalization_service
+    elements:
+      - CaptureReceipt
+      - CaptureScope
+      - WorkflowObservation
+      - ObservationCaptureContext
+      - ObservationPipeline
+      - ObservationExecution
+      - ObservationStage
+      - ObservationFailure
+      - ObservationEvidence
+      - ObservationStageName
+      - CaptureLedger
+      - JpaCaptureLedger
+    notes:
+      - "CaptureReceipt.phase is a String in the code."
+      - "Not drawn: sign-in, consent, admission and workflow-scope tables, written by JDBC adapters without domain classes."
+    # A4 print parts (DC-007): together they keep every member and relationship of the figure.
+    print_parts:
+      - {suffix: a, title: receipt and scope, elements: [JpaCaptureLedger, CaptureReceipt, CaptureScope]}
+      - {suffix: b, title: ledger port, elements: [CaptureLedger, JpaCaptureLedger]}
+      - {suffix: c, title: prepared observation check, elements: [CaptureReceipt, WorkflowObservation]}
+      - {suffix: d, title: observation persistence, elements: [JpaCaptureLedger, WorkflowObservation]}
+      - {suffix: e, title: scope to capture context, elements: [CaptureScope, ObservationCaptureContext]}
+      - {suffix: f, title: capture context and pipeline, elements: [WorkflowObservation, ObservationCaptureContext, ObservationPipeline]}
+      - {suffix: g, title: execution and stages, elements: [WorkflowObservation, ObservationExecution, ObservationStage, ObservationStageName]}
+      - {suffix: h, title: failure and evidence, elements: [WorkflowObservation, ObservationFailure, ObservationEvidence]}
+  - id: CD-7
+    title: "CD-7 — Log/Event: evidence registration without an aggregate"
+    kind: bounded_context
+    container: log_event_service
+    zoom_target: log_event_service
+    elements:
+      - RegisterEvidenceHandler
+      - EvidenceInput
+      - EvidenceScope
+      - EvidencePipelineStage
+      - EvidenceIdentity
+      - EvidenceStore
+      - JdbcEvidenceStore
+    notes:
+      - "No aggregate or entity: the EvidenceInput command record carries the evidence.evidence_items row."
+    # A4 print parts (DC-007): together they keep every member and relationship of the figure.
+    print_parts:
+      - {suffix: a, title: registration, elements: [RegisterEvidenceHandler, EvidenceInput, EvidenceStore, JdbcEvidenceStore]}
+      - {suffix: b, title: evidence value objects, elements: [EvidenceInput, EvidenceScope, EvidencePipelineStage, EvidenceIdentity]}
+  - id: CD-8
+    title: "CD-8 — Correlation: CorrelationGroup aggregate"
+    kind: bounded_context
+    container: evidence_correlation_engine
+    zoom_target: evidence_correlation_engine
+    elements:
+      - CorrelationGroup
+      - CorrelationContext
+      - CorrelationContribution
+      - EvidenceSignal
+      - ScopeEnvelope
+      - CorrelationSourceLocator
+      - DurableCorrelationStore
+      - CorrelatedContextEntity
+    notes:
+      - "A group's evidenceIds are stored in correlated_contexts.evidence_ids; its revision is the size of the set."
+    # A4 print parts (DC-007): together they keep every member and relationship of the figure.
+    print_parts:
+      - {suffix: a, title: group and contribution, elements: [CorrelationGroup, CorrelationContext, CorrelationContribution]}
+      - {suffix: b, title: contribution value objects, elements: [CorrelationContribution, EvidenceSignal, ScopeEnvelope, CorrelationSourceLocator]}
+      - {suffix: c, title: durable store, elements: [DurableCorrelationStore, CorrelationGroup, CorrelationContribution]}
+      - {suffix: d, title: correlated context snapshot, elements: [DurableCorrelationStore, CorrelatedContextEntity]}
+  - id: CD-9
+    title: "CD-9 — Recommendation: implemented records against the proposed aggregates"
+    kind: bounded_context
+    container: recommendation_service
+    zoom_target: recommendation_service
+    summary_members: [Diagnosis, HumanReview, Recommendation]
+    elements:
+      - OrchestratorDiagnosis
+      - OrchestratorHypothesis
+      - OrchestratorEvidence
+      - OrchestratorSource
+      - OrchestratorModel
+      - Diagnosis
+      - Recommendation
+      - ReviewRecord
+      - ReviewSubmission
+      - ReviewDecision
+      - HumanReview
+      - AdmittedContext
+      - ReceiptSubmission
+      - DiagnosisJob
+      - SummaryClaim
+    notes:
+      - "The code has no aggregate root: diagnoses, reviews, receipts, jobs and outbox are records handled by JDBC stores."
+      - "Proposed classes are shown without members; CD-2 and CD-3 detail them."
+      - "Hypothesis.recommendation (String) stands in for the proposed Recommendation entity."
+    # A4 print parts (DC-007): together they keep every member and relationship of the figure.
+    print_parts:
+      - {suffix: a, title: "diagnosis record, hypothesis and model", elements: [OrchestratorDiagnosis, OrchestratorHypothesis, OrchestratorModel, Diagnosis, Recommendation]}
+      - {suffix: b, title: cited evidence and sources, elements: [OrchestratorDiagnosis, OrchestratorEvidence, OrchestratorSource]}
+      - {suffix: c, title: review record, elements: [ReviewRecord, ReviewDecision, HumanReview]}
+      - {suffix: d, title: review submission, elements: [ReviewSubmission, ReviewDecision]}
+      - {suffix: e, title: correlated context receipts, elements: [AdmittedContext, ReceiptSubmission]}
+      - {suffix: f, title: jobs and outbox, elements: [DiagnosisJob, SummaryClaim]}
+  - id: CD-10
+    title: "CD-10 — NLP: protected evidence value objects"
+    kind: bounded_context
+    container: nlp_log_processor
+    zoom_target: nlp_log_processor
+    elements:
+      - LogEnvelope
+      - ParsedTemplate
+      - ProcessedLog
+      - ProtectedEvidenceMessage
+      - NlpCaptureContext
+      - NlpPipelineContext
+      - NlpExecutionContext
+      - NlpCommitContext
+      - NlpEvidenceContext
+      - CorrelationEvidence
+    notes:
+      - "Frozen dataclasses; the service persists nothing."
+    # A4 print parts (DC-007): together they keep every member and relationship of the figure.
+    print_parts:
+      - {suffix: a, title: inbound protected evidence, elements: [ProtectedEvidenceMessage, NlpCaptureContext, NlpPipelineContext, NlpExecutionContext, NlpCommitContext, NlpEvidenceContext]}
+      - {suffix: b, title: outbound correlation evidence, elements: [CorrelationEvidence, NlpCaptureContext, NlpPipelineContext, NlpExecutionContext, NlpCommitContext]}
+      - {suffix: c, title: log processing, elements: [LogEnvelope, ParsedTemplate, ProcessedLog]}
+  - id: CD-11
+    title: "CD-11 — RAG: knowledge chunks and SQLAlchemy records"
+    kind: bounded_context
+    container: rag_retrieval
+    zoom_target: rag_retrieval
+    elements:
+      - KnowledgeChunk
+      - RagAuthorizationScope
+      - RagCorpusKind
+      - KnowledgeRepository
+      - PostgreSQLKnowledgeRepository
+      - KnowledgeDocumentRecord
+      - KnowledgeChunkRecord
+      - CorpusStore
+      - PostgreSQLCorpusStore
+      - CorpusImport
+      - PreparedDocument
+      - PreparedChunk
+    notes:
+      - "There is no KnowledgeDocument domain class: KnowledgeChunk joins chunk and document fields."
+      - "Ports are typing.Protocol classes; the adapters conform structurally."
+    # A4 print parts (DC-007): together they keep every member and relationship of the figure.
+    print_parts:
+      - {suffix: a, title: knowledge chunk, elements: [KnowledgeChunk, RagAuthorizationScope, RagCorpusKind]}
+      - {suffix: b, title: retrieval repository, elements: [KnowledgeRepository, PostgreSQLKnowledgeRepository, KnowledgeChunk]}
+      - {suffix: c, title: SQLAlchemy records, elements: [PostgreSQLKnowledgeRepository, KnowledgeDocumentRecord, KnowledgeChunkRecord]}
+      - {suffix: d, title: corpus store, elements: [CorpusStore, PostgreSQLCorpusStore, PreparedDocument, PreparedChunk]}
+      - {suffix: e, title: corpus import, elements: [PreparedDocument, CorpusImport, RagAuthorizationScope, RagCorpusKind]}
 
 classes:
   - id: DiagnosisCommandController
@@ -103,6 +374,12 @@ classes:
     ingress:
       architecture_relationship: rel_correlation_diagnostic_api
       protocol: REST/HTTPS
+    implementation:
+      status: divergent
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/receipt/interfaces/rest/CorrelatedContextController.java:29-42
+        - recommendation:src/main/java/com/pipesor/recommendation/receipt/ReceiptStore.java:59
+      note: "CorrelatedContextController receives POST /internal/v1/correlated-contexts, stores the receipt and a diagnosis_jobs row in one transaction and answers accepted/duplicate; it dispatches no command service."
   - id: DiagnosisQueryController
     name: DiagnosisQueryController
     package: interfaces.rest
@@ -116,6 +393,11 @@ classes:
     ingress:
       architecture_relationship: rel_dashboard_diagnostic_api
       protocol: REST/HTTPS
+    implementation:
+      status: implemented
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/IncidentDiagnosisController.java:18-28
+      note: "IncidentDiagnosisController, GET /api/v1/incidents/{incidentId}/diagnosis; calls the query handler directly."
   - id: GenerateDiagnosisCommand
     name: GenerateDiagnosisCommand
     package: domain.model.commands
@@ -131,6 +413,12 @@ classes:
       - {name: correlationId, type: String}
       - {name: sanitizedPrioritizedEvidence, type: 'List<String>'}
     methods: []
+    implementation:
+      status: not_implemented
+      reason: "No command record: the asynchronous worker claims DiagnosisJobs.Job and rebuilds AdmittedContext."
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/ports/DiagnosisJobs.java:20
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/model/AdmittedContext.java:10-11
   - id: GenerateDiagnosisCommandService
     name: GenerateDiagnosisCommandService
     package: application.internal.commandservices
@@ -142,6 +430,9 @@ classes:
     attributes: []
     methods:
       - {name: handle, parameters: [{name: command, type: GenerateDiagnosisCommand}], returns: UUID, effect: write}
+    implementation:
+      status: not_implemented
+      reason: No use-case interface; DiagnosisWorker calls DiagnoseAdmittedContextsHandler.runOnce().
   - id: GenerateDiagnosisCommandServiceImpl
     name: GenerateDiagnosisCommandServiceImpl
     package: application.internal.commandservices
@@ -152,6 +443,14 @@ classes:
     attributes: []
     methods:
       - {name: handle, parameters: [{name: command, type: GenerateDiagnosisCommand}], returns: UUID, effect: write}
+    implementation:
+      status: divergent
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/commandhandlers/DiagnoseAdmittedContextsHandler.java:23
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/commandhandlers/DiagnoseAdmittedContextsHandler.java:60-64
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/PersistedDiagnosticWorkflow.java:18-40
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/DiagnosisWorker.java:18
+      note: "Asynchronous: DiagnosisWorker (SmartLifecycle) polls diagnosis_jobs; DiagnoseAdmittedContextsHandler rebuilds the admitted context and PersistedDiagnosticWorkflow diagnoses and admits it."
   - id: GetDiagnosisQuery
     name: GetDiagnosisQuery
     package: domain.model.queries
@@ -162,6 +461,11 @@ classes:
     attributes:
       - {name: incidentId, type: UUID}
     methods: []
+    implementation:
+      status: not_implemented
+      reason: "No query record; the handler receives incidentId, subject token and correlation ID as arguments."
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/queryhandlers/IncidentDiagnosisQueryHandler.java:34
   - id: DiagnosisQueryService
     name: DiagnosisQueryService
     package: application.internal.queryservices
@@ -173,6 +477,9 @@ classes:
     attributes: []
     methods:
       - {name: handle, parameters: [{name: query, type: GetDiagnosisQuery}], returns: DiagnosticView, effect: read}
+    implementation:
+      status: not_implemented
+      reason: No query-service interface.
   - id: DiagnosisQueryServiceImpl
     name: DiagnosisQueryServiceImpl
     package: application.internal.queryservices
@@ -183,6 +490,11 @@ classes:
     attributes: []
     methods:
       - {name: handle, parameters: [{name: query, type: GetDiagnosisQuery}], returns: DiagnosticView, effect: read}
+    implementation:
+      status: implemented
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/queryhandlers/IncidentDiagnosisQueryHandler.java:24-34
+      note: "IncidentDiagnosisQueryHandler, concrete class; it also resolves Pipeline entitlements before reading."
   - id: DiagnosticView
     name: DiagnosticView
     package: application.internal.queryservices
@@ -203,6 +515,12 @@ classes:
       - {name: confidence, type: Object}
     methods: []
     notes: ["diagnostic_output read model; application projection"]
+    implementation:
+      status: partial
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/queries/DiagnosisProjection.java:11-26
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/queries/Projections.java:22
+      note: "DiagnosisProjection lacks executionContext, failureSummary and confidence and carries one recommendation String; it adds version, contextId, model, evidence content and reviews. PENDING is derived as designed."
 
   - id: DiagnosticOrchestrator
     name: DiagnosticOrchestrator
@@ -214,6 +532,11 @@ classes:
     attributes: []
     methods:
       - {name: diagnose, parameters: [{name: command, type: GenerateDiagnosisCommand}], returns: UUID, effect: write}
+    implementation:
+      status: partial
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/DiagnosticOrchestrator.java:17-57
+      note: "Same name: retrieves knowledge, infers, validates citations and composes the Diagnosis record; it neither persists (PersistedDiagnosticWorkflow/ReviewStore do) nor classifies risk."
   - id: KnowledgeRetrievalPort
     name: KnowledgeRetrievalPort
     package: application.internal.outboundservices
@@ -225,6 +548,11 @@ classes:
     attributes: []
     methods:
       - {name: retrieveAuthorizedKnowledge, parameters: [{name: context, type: SanitizedDiagnosticContext}], returns: 'List<Map<String, Object>>', effect: read}
+    implementation:
+      status: implemented
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/retrieval/application/ports/RagKnowledgeRetriever.java:6-8
+      note: "RagKnowledgeRetriever.retrieve(RetrievalQuery): RetrievalResult."
   - id: RagRetrievalHttpAdapter
     name: RagRetrievalHttpAdapter
     package: infrastructure.clients
@@ -235,6 +563,11 @@ classes:
     attributes: []
     methods:
       - {name: retrieveAuthorizedKnowledge, parameters: [{name: context, type: SanitizedDiagnosticContext}], returns: 'List<Map<String, Object>>', effect: read}
+    implementation:
+      status: implemented
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/retrieval/infrastructure/RestRagKnowledgeRetriever.java:27-28
+      note: "RestRagKnowledgeRetriever, POST /internal/v1/retrieval/query."
   - id: DiagnosticLlmGateway
     name: DiagnosticLlmGateway
     package: application.internal.outboundservices
@@ -246,6 +579,11 @@ classes:
     attributes: []
     methods:
       - {name: infer, parameters: [{name: context, type: SanitizedDiagnosticContext}], returns: Diagnosis, effect: read}
+    implementation:
+      status: partial
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/DiagnosticOrchestrator.java:97-100
+      note: "Nested interface DiagnosticOrchestrator.Inference: infer(List<Evidence>, List<KnowledgeMatch>): Hypothesis; it receives evidence and knowledge but no correlated context."
   - id: AzureOpenAiDiagnosticAdapter
     name: AzureOpenAiDiagnosticAdapter
     package: infrastructure.clients
@@ -256,6 +594,12 @@ classes:
     attributes: []
     methods:
       - {name: infer, parameters: [{name: context, type: SanitizedDiagnosticContext}], returns: Diagnosis, effect: read}
+    implementation:
+      status: implemented
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/AzureOpenAiInference.java:29
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/AzureOpenAiInference.java:88
+      note: AzureOpenAiInference implements Inference against /openai/v1/chat/completions.
   - id: LlmResponseTranslator
     name: LlmResponseTranslator
     package: infrastructure.acl
@@ -267,6 +611,11 @@ classes:
     methods:
       - {name: toDiagnosis, parameters: [{name: azureResponse, type: String}], returns: Diagnosis, effect: pure}
     notes: ["ACL; Azure response converted to internal types"]
+    implementation:
+      status: not_implemented
+      reason: Absorbed by the private AzureOpenAiInference.decode() of the adapter.
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/AzureOpenAiInference.java:151
   - id: SanitizedDiagnosticContext
     name: SanitizedDiagnosticContext
     package: domain.model.valueobjects
@@ -280,6 +629,11 @@ classes:
       - {name: ragRetrievedKnowledge, type: 'List<Map<String, Object>>', contract_field: rag_retrieved_knowledge}
     methods: []
     notes: ["Sanitized evidence + authorized context + RAG with provenance"]
+    implementation:
+      status: not_implemented
+      reason: "No context value object; DiagnosticInput carries query and evidence, and the model receives no correlated context."
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/model/DiagnosticInput.java:10-11
   - id: DiagnosticOutputComposer
     name: DiagnosticOutputComposer
     package: domain.services
@@ -291,6 +645,11 @@ classes:
     methods:
       - {name: compose, parameters: [{name: inference, type: Diagnosis}, {name: context, type: SanitizedDiagnosticContext}], returns: Diagnosis, effect: pure}
     notes: ["Associates recommendations; evidence and sources by logical ID"]
+    implementation:
+      status: not_implemented
+      reason: "Absorbed by DiagnosticOrchestrator.diagnose(), which filters cited evidence and sources."
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/DiagnosticOrchestrator.java:53-56
   - id: Diagnosis
     name: Diagnosis
     package: domain.model.aggregates
@@ -319,6 +678,12 @@ classes:
     methods:
       - {name: assertReadySnapshot, parameters: [], returns: void, effect: pure}
     notes: ["append-only; current = highest version per incident"]
+    implementation:
+      status: divergent
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/DiagnosticOrchestrator.java:127-128
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:65-105
+      note: "DiagnosticOrchestrator.Diagnosis is an application record, not an aggregate: no id, version, status, confidence or readyAt; ReviewStore.admit() serializes it into diagnosis.diagnoses.output (JDBC)."
   - id: Recommendation
     name: Recommendation
     package: domain.model.entities
@@ -335,6 +700,11 @@ classes:
       - {name: correlationId, type: String, domain_attribute: correlation_id, nullable: false}
       - {name: createdAt, type: Instant, domain_attribute: created_at, nullable: false}
     methods: []
+    implementation:
+      status: not_implemented
+      reason: Hypothesis.recommendation is a single String; table diagnosis.recommendations does not exist (DD-027).
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/DiagnosticOrchestrator.java:110-111
   - id: ProbableCause
     name: ProbableCause
     package: domain.model.valueobjects
@@ -346,6 +716,11 @@ classes:
       - {name: value, type: String}
     methods: []
     notes: ["Wraps probable_cause text; no additional taxonomy"]
+    implementation:
+      status: not_implemented
+      reason: Hypothesis.probableCause is a plain String.
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/DiagnosticOrchestrator.java:110
   - id: DiagnosisRepository
     name: DiagnosisRepository
     package: domain.services
@@ -360,6 +735,12 @@ classes:
       - {name: findLatest, parameters: [{name: incidentId, type: UUID}], returns: 'Optional<Diagnosis>', effect: read}
       - {name: supportingEvidenceIds, parameters: [{name: diagnosticId, type: UUID}], returns: 'List<UUID>', effect: read}
       - {name: consultedSourceIds, parameters: [{name: diagnosticId, type: UUID}], returns: 'List<UUID>', effect: read}
+    implementation:
+      status: divergent
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:16-17
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/ports/DiagnosisReadModel.java:9-15
+      note: "No repository interface: writes in the concrete ReviewStore (package diagnosis.review), reads through the DiagnosisReadModel port; evidence and sources travel inside output."
   - id: JpaDiagnosisRepositoryAdapter
     name: JpaDiagnosisRepositoryAdapter
     package: infrastructure.persistence.jpa
@@ -374,6 +755,12 @@ classes:
       protocol: PostgreSQL
       architecture_relationship: rel_output_postgresql
       tables: [diagnosis.diagnoses, diagnosis.recommendations, diagnosis.diagnosis_evidence_links, diagnosis.diagnosis_source_links]
+    implementation:
+      status: divergent
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:65-112
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/persistence/JdbcDiagnosisReadModel.java:25
+      note: "JDBC (DataSource, JdbcTemplate) instead of JPA; writes only diagnosis.diagnoses and the summary outbox; the recommendation and link tables do not exist. Question 24 (JPA or JDBC) stays open."
   - id: RagRetrievalExternal
     name: RAG Retrieval
     package: external.rag_retrieval
@@ -383,6 +770,11 @@ classes:
     component_realized: rag_retrieval
     attributes: []
     methods: []
+    implementation:
+      status: implemented
+      evidence:
+        - rag:src/pipesor_rag_retrieval/api.py:142-143
+      note: pipesor-rag-retrieval serves POST /internal/v1/retrieval/query.
   - id: AzureOpenAiExternal
     name: Azure OpenAI Service
     package: external.azure_openai
@@ -392,6 +784,11 @@ classes:
     component_realized: pretrained_llm_diagnostic_service
     attributes: []
     methods: []
+    implementation:
+      status: external
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/AzureOpenAiInference.java:88
+      note: Azure OpenAI is outside the services' code; the adapter's route is the integration point.
 
   - id: HumanReviewCommandController
     name: HumanReviewCommandController
@@ -406,6 +803,12 @@ classes:
     ingress:
       architecture_relationship: rel_dashboard_diagnostic_api
       protocol: REST/HTTPS
+    implementation:
+      status: divergent
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/ReviewController.java:36-38
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/ReviewController.java:68-69
+      note: "Merged with the query side in ReviewController: POST /api/v1/diagnoses/{diagnosisId}/reviews."
   - id: HumanReviewQueryController
     name: HumanReviewQueryController
     package: interfaces.rest
@@ -419,6 +822,12 @@ classes:
     ingress:
       architecture_relationship: rel_dashboard_diagnostic_api
       protocol: REST/HTTPS
+    implementation:
+      status: divergent
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/ReviewController.java:36-38
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/ReviewController.java:61-62
+      note: "Merged with the command side in ReviewController: GET /api/v1/diagnoses/{diagnosisId}/reviews."
   - id: RecordHumanReviewCommand
     name: RecordHumanReviewCommand
     package: domain.model.commands
@@ -435,6 +844,11 @@ classes:
       - {name: actualCause, type: String}
       - {name: comment, type: String}
     methods: []
+    implementation:
+      status: partial
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:220-221
+      note: "ReviewStore.Submission has diagnosisVersion, expectedRevision and correctedRecommendation; diagnosticId, reviewer, timestamp and correlationId are passed separately."
   - id: HumanReviewCommandService
     name: HumanReviewCommandService
     package: application.internal.commandservices
@@ -446,6 +860,9 @@ classes:
     attributes: []
     methods:
       - {name: handle, parameters: [{name: command, type: RecordHumanReviewCommand}], returns: UUID, effect: write}
+    implementation:
+      status: not_implemented
+      reason: No command-service interface.
   - id: HumanReviewCommandServiceImpl
     name: HumanReviewCommandServiceImpl
     package: application.internal.commandservices
@@ -456,6 +873,12 @@ classes:
     attributes: []
     methods:
       - {name: handle, parameters: [{name: command, type: RecordHumanReviewCommand}], returns: UUID, effect: write}
+    implementation:
+      status: divergent
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/queryhandlers/ReviewAccessHandler.java:20
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/queryhandlers/ReviewAccessHandler.java:34-41
+      note: "ReviewAccessHandler.append(), one class in queryhandlers that also writes."
   - id: HumanReviewQueryService
     name: HumanReviewQueryService
     package: application.internal.queryservices
@@ -467,6 +890,9 @@ classes:
     attributes: []
     methods:
       - {name: findReviews, parameters: [{name: diagnosticId, type: UUID}], returns: 'Map<String, Object>', effect: read}
+    implementation:
+      status: not_implemented
+      reason: No query-service interface.
   - id: HumanReviewQueryServiceImpl
     name: HumanReviewQueryServiceImpl
     package: application.internal.queryservices
@@ -478,6 +904,12 @@ classes:
     methods:
       - {name: findReviews, parameters: [{name: diagnosticId, type: UUID}], returns: 'Map<String, Object>', effect: read}
     notes: ["Review projection; absence implies PENDING"]
+    implementation:
+      status: divergent
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/queryhandlers/ReviewAccessHandler.java:20
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/queryhandlers/ReviewAccessHandler.java:30-32
+      note: "ReviewAccessHandler.read(), shared with the command side."
   - id: HumanReview
     name: HumanReview
     package: domain.model.aggregates
@@ -502,6 +934,12 @@ classes:
       - {name: record, parameters: [{name: command, type: RecordHumanReviewCommand}], returns: HumanReview, effect: pure}
       - {name: validateDecision, parameters: [], returns: void, effect: pure}
     notes: ["CORRECTED requires a nonempty actualCause; preserves the original version"]
+    implementation:
+      status: partial
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:222-223
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/ReviewController.java:124-131
+      note: "ReviewStore.Review lacks diagnosticId and createdAt, names reviewer instead of reviewerRef and uses OffsetDateTime; no record()/validateDecision(): ReviewController.parse() and CHECKs validate, and REJECTED requires a comment, against DD-029."
   - id: HumanReviewDecision
     name: HumanReviewDecision
     package: domain.model.valueobjects
@@ -513,6 +951,11 @@ classes:
     attributes: []
     methods: []
     values: [CONFIRMED, CORRECTED, REJECTED]
+    implementation:
+      status: implemented
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:219
+      note: ReviewStore.Decision with the same three values.
   - id: RiskClassificationService
     name: RiskClassificationService
     package: domain.services
@@ -524,6 +967,9 @@ classes:
     methods:
       - {name: isCritical, parameters: [{name: recommendation, type: Recommendation}], returns: boolean, effect: pure}
     notes: ["Critical marking follows the approved policy; does not derive incident severity"]
+    implementation:
+      status: not_implemented
+      reason: No risk classification and no critical flag in the code.
   - id: HumanReviewRepository
     name: HumanReviewRepository
     package: domain.services
@@ -536,6 +982,12 @@ classes:
     methods:
       - {name: appendReview, parameters: [{name: review, type: HumanReview}], returns: UUID, effect: write}
       - {name: findByDiagnosticId, parameters: [{name: diagnosticId, type: UUID}], returns: 'List<HumanReview>', effect: read}
+    implementation:
+      status: divergent
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:116-120
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:153
+      note: "ReviewStore.read()/append(), a concrete class without an interface."
   - id: JpaHumanReviewRepositoryAdapter
     name: JpaHumanReviewRepositoryAdapter
     package: infrastructure.persistence.jpa
@@ -550,6 +1002,11 @@ classes:
       protocol: PostgreSQL
       architecture_relationship: rel_human_review_postgresql
       tables: [diagnosis.human_reviews]
+    implementation:
+      status: divergent
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:153-200
+      note: "ReviewStore inserts into diagnosis.human_reviews with JDBC, optimistic expectedRevision and idempotent requestId."
   - id: AuditTrailPort
     name: AuditTrailPort
     package: application.internal.outboundservices
@@ -571,6 +1028,11 @@ classes:
         returns: void
         effect: write
     notes: ["Only IDs and sanitized metadata; no evidence content or comment"]
+    implementation:
+      status: not_implemented
+      reason: Recommendation writes no audit.audit_events; only Pipeline does (SqlAuditLog).
+      evidence:
+        - pipeline:src/main/java/org/pipesor/pipeline/shared/infrastructure/persistence/jpa/SqlAuditLog.java:12
   - id: PostgresAuditTrailAdapter
     name: PostgresAuditTrailAdapter
     package: infrastructure.persistence.jpa
@@ -586,6 +1048,1838 @@ classes:
       architecture_relationship: rel_human_review_postgresql
       tables: [audit.audit_events]
     notes: ["Documented cross-cutting technical exception; not a Bounded Context"]
+    implementation:
+      status: not_implemented
+      reason: No audit adapter in Recommendation; audit.audit_events is written by Pipeline only.
+      evidence:
+        - pipeline:src/main/java/org/pipesor/pipeline/shared/infrastructure/persistence/jpa/SqlAuditLog.java:12
+
+  # Clases transcritas del código para los diagramas por bounded context (DC-007).
+  - id: Incident
+    name: Incident
+    container: pipeline_service
+    package: org.pipesor.pipeline.incident.domain.model.aggregates
+    layer: domain
+    stereotype: Aggregate
+    status: implemented
+    attributes:
+      - {name: id, type: UUID}
+      - {name: pipelineId, type: UUID}
+      - {name: origin, type: ExecutionOutcome}
+      - {name: details, type: IncidentDetails}
+      - {name: lifecycle, type: IncidentLifecycle}
+    methods:
+      - {name: fromFailedExecution, parameters_elided: true, returns: Incident}
+      - {name: restore, parameters_elided: true, returns: Incident}
+      - {name: transition, parameters: [{name: action, type: IncidentAction}, {name: execution, type: VerificationExecution}, {name: now, type: Instant}], returns: void}
+    storage: {form: mapped, tables: [ops.incidents, ops.incident_runs], via: JpaIncidentStore, evidence: ['pipeline:src/main/java/org/pipesor/pipeline/incident/infrastructure/persistence/jpa/JpaIncidentStore.java:26-47']}
+    implementation:
+      status: implemented
+      evidence:
+        - pipeline:src/main/java/org/pipesor/pipeline/incident/domain/model/aggregates/Incident.java:17-46
+        - pipeline:src/main/java/org/pipesor/pipeline/incident/domain/model/aggregates/Incident.java:50-89
+        - pipeline:src/main/java/org/pipesor/pipeline/shared/domain/model/Entity.java:6-12
+    notes: [id inherited from shared Entity, Origin must be a failed execution of the same pipeline; transitions are guarded]
+  - id: IncidentDetails
+    name: IncidentDetails
+    container: pipeline_service
+    package: org.pipesor.pipeline.incident.domain.model.valueobjects
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: stage, type: PipelineStage}
+      - {name: summary, type: String}
+      - {name: detectedAt, type: Instant}
+      - {name: correlationId, type: String}
+      - {name: createdAt, type: Instant}
+      - {name: severity, type: Severity, nullable: true}
+    methods: []
+    storage: {form: flattened, tables: [ops.incidents], columns: [stage, summary, detected_at, correlation_id, created_at, severity]}
+    implementation:
+      status: implemented
+      evidence:
+        - pipeline:src/main/java/org/pipesor/pipeline/incident/domain/model/valueobjects/IncidentDetails.java:7-8
+  - id: IncidentLifecycle
+    name: IncidentLifecycle
+    container: pipeline_service
+    package: org.pipesor.pipeline.incident.domain.model.valueobjects
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: status, type: IncidentStatus}
+      - {name: remediationStartedAt, type: Instant, nullable: true}
+      - {name: verificationStartedAt, type: Instant, nullable: true}
+      - {name: resolvedAt, type: Instant, nullable: true}
+      - {name: verificationExecutionIds, type: Set<UUID>}
+    methods:
+      - {name: open, parameters: [], returns: IncidentLifecycle}
+    storage: {form: flattened, tables: [ops.incidents, ops.incident_runs], columns: [status, remediation_started_at, verification_started_at, resolved_at, execution_id, role], note: verificationExecutionIds are the VERIFICATION rows of incident_runs}
+    implementation:
+      status: implemented
+      evidence:
+        - pipeline:src/main/java/org/pipesor/pipeline/incident/domain/model/valueobjects/IncidentLifecycle.java:8-10
+  - id: VerificationExecution
+    name: VerificationExecution
+    container: pipeline_service
+    package: org.pipesor.pipeline.incident.domain.model.valueobjects
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: id, type: UUID}
+      - {name: pipelineId, type: UUID}
+      - {name: startedAt, type: Instant}
+      - {name: status, type: String}
+      - {name: conclusion, type: String}
+      - {name: failed, type: boolean}
+    methods:
+      - {name: successful, parameters: [], returns: boolean}
+    storage: {form: mapped, tables: [ops.pipeline_executions], evidence: ['pipeline:src/main/java/org/pipesor/pipeline/execution/infrastructure/persistence/jpa/JpaExecutionLookup.java:64'], note: read from pipeline_executions by JpaExecutionLookup}
+    implementation:
+      status: implemented
+      evidence:
+        - pipeline:src/main/java/org/pipesor/pipeline/incident/domain/model/valueobjects/VerificationExecution.java:7-8
+  - id: ExecutionOutcome
+    name: ExecutionOutcome
+    container: pipeline_service
+    package: org.pipesor.pipeline.execution.domain.model.valueobjects
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: executionId, type: UUID}
+      - {name: pipelineId, type: UUID}
+      - {name: failed, type: boolean}
+    methods: []
+    storage: {form: flattened, tables: [ops.incident_runs], columns: [execution_id, role], evidence: ['pipeline:src/main/java/org/pipesor/pipeline/incident/infrastructure/persistence/jpa/JpaIncidentStore.java:35-46'], note: restored from the ORIGIN row; failed is true by construction}
+    implementation:
+      status: implemented
+      evidence:
+        - pipeline:src/main/java/org/pipesor/pipeline/execution/domain/model/valueobjects/ExecutionOutcome.java:6
+  - id: IncidentStatus
+    name: IncidentStatus
+    container: pipeline_service
+    package: org.pipesor.pipeline.incident.domain.model.valueobjects
+    layer: domain
+    stereotype: Enum
+    kind: enum
+    status: implemented
+    attributes: []
+    methods: []
+    values: [OPEN, IN_REMEDIATION, VERIFICATION, RESOLVED]
+    domain_enum: IncidentStatus
+    implementation:
+      status: implemented
+      evidence:
+        - pipeline:src/main/java/org/pipesor/pipeline/incident/domain/model/valueobjects/IncidentStatus.java:3-5
+  - id: Severity
+    name: Severity
+    container: pipeline_service
+    package: org.pipesor.pipeline.incident.domain.model.valueobjects
+    layer: domain
+    stereotype: Enum
+    kind: enum
+    status: implemented
+    attributes: []
+    methods:
+      - {name: initialFor, parameters: [{name: pipelineCriticality, type: String}], returns: Severity}
+    values: [CRITICAL, HIGH, MEDIUM, LOW]
+    domain_enum: Severity
+    implementation:
+      status: implemented
+      evidence:
+        - pipeline:src/main/java/org/pipesor/pipeline/incident/domain/model/valueobjects/Severity.java:3-4
+  - id: IncidentRunRole
+    name: IncidentRunRole
+    container: pipeline_service
+    package: org.pipesor.pipeline.incident.domain.model.valueobjects
+    layer: domain
+    stereotype: Enum
+    kind: enum
+    status: implemented
+    attributes: []
+    methods: []
+    values: [ORIGIN, VERIFICATION]
+    domain_enum: IncidentRunRole
+    implementation:
+      status: implemented
+      evidence:
+        - pipeline:src/main/java/org/pipesor/pipeline/incident/domain/model/valueobjects/IncidentRunRole.java:3-5
+  - id: IncidentAction
+    name: IncidentAction
+    container: pipeline_service
+    package: org.pipesor.pipeline.incident.domain.model.valueobjects
+    layer: domain
+    stereotype: Enum
+    kind: enum
+    status: implemented
+    attributes: []
+    methods: []
+    values: [START_REMEDIATION, START_VERIFICATION, RETRY_REMEDIATION, RESOLVE]
+    implementation:
+      status: implemented
+      evidence:
+        - pipeline:src/main/java/org/pipesor/pipeline/incident/domain/model/valueobjects/IncidentAction.java:3
+  - id: PipelineStage
+    name: PipelineStage
+    container: pipeline_service
+    package: org.pipesor.pipeline.shared.domain.model.valueobjects
+    layer: domain
+    stereotype: Enum
+    kind: enum
+    status: implemented
+    attributes: []
+    methods: []
+    values: [BUILD, TESTING, QUALITY_GATE, DEPLOYMENT, CONTAINER, INFRASTRUCTURE]
+    domain_enum: PipelineStage
+    implementation:
+      status: implemented
+      evidence:
+        - pipeline:src/main/java/org/pipesor/pipeline/shared/domain/model/valueobjects/PipelineStage.java:3-5
+  - id: GitHubRepository
+    name: GitHubRepository
+    container: pipeline_service
+    package: org.pipesor.pipeline.catalog.domain.model.entities
+    layer: domain
+    stereotype: Entity
+    status: implemented
+    attributes:
+      - {name: id, type: UUID, domain_attribute: id, nullable: false}
+      - {name: githubRepositoryId, type: String, domain_attribute: github_repository_id, nullable: false}
+      - {name: fullName, type: String, domain_attribute: full_name, nullable: false}
+      - {name: defaultBranch, type: String, domain_attribute: default_branch, nullable: true}
+      - {name: createdAt, type: Instant, domain_attribute: created_at, nullable: false}
+    methods: []
+    persisted_as: ops.repositories
+    implementation:
+      status: implemented
+      evidence:
+        - pipeline:src/main/java/org/pipesor/pipeline/catalog/domain/model/entities/GitHubRepository.java:8-22
+        - pipeline:src/main/java/org/pipesor/pipeline/catalog/infrastructure/persistence/jpa/GitHubRepositoryJpaEntity.java:10
+    notes: [Catalog entity; reaches incidents only through pipeline IDs, 'Read by GitHubRepositoryJpaEntity, written by SqlPipelineRegistrationStore']
+  - id: IncidentStore
+    name: IncidentStore
+    container: pipeline_service
+    package: org.pipesor.pipeline.incident.application.ports
+    layer: application
+    stereotype: Port
+    kind: interface
+    status: implemented
+    attributes: []
+    methods:
+      - {name: save, parameters: [{name: incident, type: Incident}, {name: originRunId, type: UUID}], returns: void}
+      - {name: lock, parameters: [{name: id, type: UUID}], returns: Optional<Incident>}
+      - {name: update, parameters_elided: true, returns: void}
+    implementation:
+      status: implemented
+      evidence:
+        - pipeline:src/main/java/org/pipesor/pipeline/incident/application/ports/IncidentStore.java:8-12
+  - id: JpaIncidentStore
+    name: JpaIncidentStore
+    container: pipeline_service
+    package: org.pipesor.pipeline.incident.infrastructure.persistence.jpa
+    layer: infrastructure
+    stereotype: Adapter
+    status: implemented
+    attributes: []
+    methods:
+      - {name: save, parameters: [{name: incident, type: Incident}, {name: originRunId, type: UUID}], returns: void}
+      - {name: lock, parameters: [{name: id, type: UUID}], returns: Optional<Incident>}
+      - {name: update, parameters_elided: true, returns: void}
+    persistence: {store: postgresql_operational_store, protocol: PostgreSQL, architecture_relationship: rel_pipeline_service_postgresql, tables: [ops.incidents, ops.incident_runs]}
+    implementation:
+      status: implemented
+      evidence:
+        - pipeline:src/main/java/org/pipesor/pipeline/incident/infrastructure/persistence/jpa/JpaIncidentStore.java:17-18
+    notes: [JPA EntityManager; pessimistic lock on load]
+  - id: IncidentJpaEntity
+    name: IncidentJpaEntity
+    container: pipeline_service
+    package: org.pipesor.pipeline.incident.infrastructure.persistence.jpa
+    layer: infrastructure
+    stereotype: PersistenceModel
+    status: implemented
+    attributes:
+      - {name: id, type: UUID, domain_attribute: id, nullable: false}
+      - {name: pipelineId, type: UUID, domain_attribute: pipeline_id, nullable: false}
+      - {name: status, type: IncidentStatus, domain_attribute: status, nullable: false}
+      - {name: severity, type: Severity, domain_attribute: severity, nullable: true}
+      - {name: stage, type: PipelineStage, domain_attribute: stage, nullable: false}
+      - {name: summary, type: String, domain_attribute: summary, nullable: false}
+      - {name: assigneeRef, type: String, domain_attribute: assignee_ref, nullable: true}
+      - {name: assigneeDisplayNameSnapshot, type: String, domain_attribute: assignee_display_name_snapshot, nullable: true}
+      - {name: detectedAt, type: Instant, domain_attribute: detected_at, nullable: false}
+      - {name: remediationStartedAt, type: Instant, domain_attribute: remediation_started_at, nullable: true}
+      - {name: verificationStartedAt, type: Instant, domain_attribute: verification_started_at, nullable: true}
+      - {name: resolvedAt, type: Instant, domain_attribute: resolved_at, nullable: true}
+      - {name: correlationId, type: String, domain_attribute: correlation_id, nullable: false}
+      - {name: createdAt, type: Instant, domain_attribute: created_at, nullable: false}
+      - {name: displayNumber, type: Long, domain_attribute: display_number, nullable: false}
+    methods: []
+    persisted_as: ops.incidents
+    implementation:
+      status: implemented
+      evidence:
+        - pipeline:src/main/java/org/pipesor/pipeline/incident/infrastructure/persistence/jpa/IncidentJpaEntity.java:18-20
+        - pipeline:src/main/java/org/pipesor/pipeline/incident/infrastructure/persistence/jpa/IncidentJpaEntity.java:21-66
+        - pipeline:src/main/java/org/pipesor/pipeline/shared/infrastructure/persistence/jpa/CreatedJpaEntity.java:11-18
+    notes: [id and createdAt from CreatedJpaEntity, assignee and displayNumber exist only in this row]
+  - id: IncidentRunJpaEntity
+    name: IncidentRunJpaEntity
+    container: pipeline_service
+    package: org.pipesor.pipeline.incident.infrastructure.persistence.jpa
+    layer: infrastructure
+    stereotype: PersistenceModel
+    status: implemented
+    attributes:
+      - {name: id, type: UUID, domain_attribute: id, nullable: false}
+      - {name: incidentId, type: UUID, domain_attribute: incident_id, nullable: false}
+      - {name: executionId, type: UUID, domain_attribute: execution_id, nullable: false}
+      - {name: role, type: IncidentRunRole, domain_attribute: role, nullable: false}
+      - {name: correlationId, type: String, domain_attribute: correlation_id, nullable: false}
+      - {name: createdAt, type: Instant, domain_attribute: created_at, nullable: false}
+    methods: []
+    persisted_as: ops.incident_runs
+    implementation:
+      status: implemented
+      evidence:
+        - pipeline:src/main/java/org/pipesor/pipeline/incident/infrastructure/persistence/jpa/IncidentRunJpaEntity.java:16-18
+        - pipeline:src/main/java/org/pipesor/pipeline/incident/infrastructure/persistence/jpa/IncidentRunJpaEntity.java:19-33
+        - pipeline:src/main/java/org/pipesor/pipeline/shared/infrastructure/persistence/jpa/CreatedJpaEntity.java:11-18
+    notes: [id and createdAt from CreatedJpaEntity]
+  - id: GitHubConnection
+    name: GitHubConnection
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.github.domain.model.aggregates
+    layer: domain
+    stereotype: Aggregate
+    status: implemented
+    attributes:
+      - {name: id, type: UUID}
+      - {name: root, type: Root}
+      - {name: generations, type: 'Map<UUID, Generation>'}
+      - {name: attempts, type: 'Map<UUID, Attempt>'}
+      - {name: operations, type: 'Map<UUID, Operation>'}
+    methods:
+      - {name: create, parameters: [{name: id, type: UUID}, {name: identity, type: ConnectionIdentity}, {name: now, type: Instant}], returns: GitHubConnection}
+      - {name: prepare, parameters_elided: true, returns: void}
+      - {name: claim, parameters_elided: true, returns: Outcome}
+      - {name: activate, parameters_elided: true, returns: Outcome}
+      - {name: claimRefresh, parameters_elided: true, returns: void}
+      - {name: activateRefresh, parameters_elided: true, returns: Outcome}
+      - {name: disconnect, parameters: [{name: expectedRevision, type: long}, {name: now, type: Instant}], returns: void}
+      - {name: claimCleanup, parameters_elided: true, returns: void}
+      - {name: finishCleanup, parameters_elided: true, returns: void}
+    storage: {form: mapped, via: JpaConnectionRepository, tables: [ingestion.github_connections, ingestion.github_connection_generations, ingestion.github_authorization_attempts, ingestion.github_credential_operations], evidence: ['ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/persistence/jpa/JpaConnectionRepository.java:15-23']}
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/github/domain/model/aggregates/GitHubConnection.java:22-44
+    notes: [One Entra principal; children loaded per command, 'Outcome: CLAIMED, ACTIVATED, CONFLICT, EXPIRED']
+  - id: ConnectionRoot
+    name: ConnectionRecords.Root
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.github.domain.model.entities
+    layer: domain
+    stereotype: Entity
+    status: implemented
+    attributes:
+      - {name: id, type: UUID}
+      - {name: identity, type: ConnectionIdentity}
+      - {name: revision, type: long}
+      - {name: activeGenerationId, type: UUID, nullable: true}
+      - {name: createdAt, type: Instant}
+      - {name: updatedAt, type: Instant}
+    methods: []
+    storage: {form: mapped, tables: [ingestion.github_connections], via: JpaConnectionRepository, evidence: ['ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/persistence/jpa/ConnectionJpaEntities.java:16-18']}
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/github/domain/model/entities/ConnectionRecords.java:20-21
+  - id: ConnectionGeneration
+    name: ConnectionRecords.Generation
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.github.domain.model.entities
+    layer: domain
+    stereotype: Entity
+    status: implemented
+    attributes:
+      - {name: id, type: UUID}
+      - {name: connectionId, type: UUID}
+      - {name: githubUserId, type: String, nullable: true}
+      - {name: state, type: GenerationState}
+      - {name: secretObjectRef, type: SecretReference}
+      - {name: activeSecretVersionRef, type: SecretReference, nullable: true}
+      - {name: accessExpiresAt, type: Instant, nullable: true}
+      - {name: refreshExpiresAt, type: Instant, nullable: true}
+      - {name: activatedAt, type: Instant, nullable: true}
+      - {name: revision, type: long}
+      - {name: createdAt, type: Instant}
+      - {name: updatedAt, type: Instant}
+    methods: []
+    storage: {form: mapped, tables: [ingestion.github_connection_generations], via: JpaConnectionRepository, evidence: ['ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/persistence/jpa/ConnectionJpaEntities.java:42-44']}
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/github/domain/model/entities/ConnectionRecords.java:22-25
+  - id: ConnectionAttempt
+    name: ConnectionRecords.Attempt
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.github.domain.model.entities
+    layer: domain
+    stereotype: Entity
+    status: implemented
+    attributes:
+      - {name: id, type: UUID}
+      - {name: connectionId, type: UUID}
+      - {name: identity, type: ConnectionIdentity}
+      - {name: expectedConnectionRevision, type: long}
+      - {name: expectedGenerationId, type: UUID, nullable: true}
+      - {name: targetGenerationId, type: UUID}
+      - {name: stateDigest, type: StateDigest}
+      - {name: expiresAt, type: Instant}
+      - {name: phase, type: AttemptPhase}
+      - {name: consumedAt, type: Instant, nullable: true}
+      - {name: pkceSecretObjectRef, type: SecretReference}
+      - {name: pkceSecretVersionRef, type: SecretReference, nullable: true}
+      - {name: pkceCleanupState, type: CleanupState}
+      - {name: pkceCleanupResult, type: Result, nullable: true}
+      - {name: approvedReturnRef, type: String}
+      - {name: correlationId, type: String}
+      - {name: createdAt, type: Instant}
+      - {name: updatedAt, type: Instant}
+    methods: []
+    storage: {form: mapped, tables: [ingestion.github_authorization_attempts], via: JpaConnectionRepository, evidence: ['ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/persistence/jpa/ConnectionJpaEntities.java:84-86']}
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/github/domain/model/entities/ConnectionRecords.java:26-31
+  - id: ConnectionOperation
+    name: ConnectionRecords.Operation
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.github.domain.model.entities
+    layer: domain
+    stereotype: Entity
+    status: implemented
+    attributes:
+      - {name: id, type: UUID}
+      - {name: connectionId, type: UUID}
+      - {name: generationId, type: UUID}
+      - {name: expectedConnectionRevision, type: long}
+      - {name: expectedGenerationRevision, type: long}
+      - {name: kind, type: Kind}
+      - {name: phase, type: Phase}
+      - {name: ownerId, type: UUID, nullable: true}
+      - {name: fence, type: long}
+      - {name: startedAt, type: Instant, nullable: true}
+      - {name: deadlineAt, type: Instant, nullable: true}
+      - {name: candidateSecretVersionRef, type: SecretReference, nullable: true}
+      - {name: cleanupTargetVersionRef, type: SecretReference, nullable: true}
+      - {name: cleanupScope, type: Scope, nullable: true}
+      - {name: upstreamResult, type: Result, nullable: true}
+      - {name: vaultResult, type: Result, nullable: true}
+      - {name: completedAt, type: Instant, nullable: true}
+      - {name: createdAt, type: Instant}
+      - {name: updatedAt, type: Instant}
+    methods: []
+    storage: {form: mapped, tables: [ingestion.github_credential_operations], via: JpaConnectionRepository, evidence: ['ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/persistence/jpa/ConnectionJpaEntities.java:149-151']}
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/github/domain/model/entities/ConnectionRecords.java:32-37
+  - id: ConnectionIdentity
+    name: ConnectionIdentity
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.github.domain.model.valueobjects
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: tenantId, type: UUID}
+      - {name: objectId, type: UUID}
+    methods: []
+    storage: {form: flattened, tables: [ingestion.github_connections, ingestion.github_authorization_attempts], columns: [tenant_id, entra_object_id]}
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/github/domain/model/valueobjects/ConnectionIdentity.java:7
+  - id: SecretReference
+    name: SecretReference
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.github.domain.model.valueobjects
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: value, type: String}
+    methods:
+      - {name: generationObject, parameters: [{name: generationId, type: UUID}], returns: SecretReference}
+      - {name: pkceObject, parameters: [{name: attemptId, type: UUID}], returns: SecretReference}
+    storage: {form: flattened, tables: [ingestion.github_connection_generations, ingestion.github_authorization_attempts], columns: [secret_object_ref, active_secret_version_ref, pkce_secret_object_ref, pkce_secret_version_ref]}
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/github/domain/model/valueobjects/SecretReference.java:4
+    notes: ['Opaque Key Vault custody reference, never a secret value']
+  - id: StateDigest
+    name: StateDigest
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.github.domain.model.valueobjects
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: value, type: 'byte[]'}
+    methods:
+      - {name: value, parameters: [], returns: 'byte[]'}
+    storage: {form: flattened, tables: [ingestion.github_authorization_attempts], columns: [state_digest]}
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/github/domain/model/valueobjects/StateDigest.java:6-7
+  - id: GenerationState
+    name: ConnectionRecords.GenerationState
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.github.domain.model.entities
+    layer: domain
+    stereotype: Enum
+    kind: enum
+    status: implemented
+    attributes: []
+    methods: []
+    values: [PREPARING, ACTIVE, BLOCKED, INVALIDATED]
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/github/domain/model/entities/ConnectionRecords.java:12
+  - id: AttemptPhase
+    name: ConnectionRecords.AttemptPhase
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.github.domain.model.entities
+    layer: domain
+    stereotype: Enum
+    kind: enum
+    status: implemented
+    attributes: []
+    methods: []
+    values: [PREPARING, READY, CLAIMED, COMPLETED, FAILED, EXPIRED]
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/github/domain/model/entities/ConnectionRecords.java:13
+  - id: OperationKind
+    name: ConnectionRecords.Kind
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.github.domain.model.entities
+    layer: domain
+    stereotype: Enum
+    kind: enum
+    status: implemented
+    attributes: []
+    methods: []
+    values: [REFRESH, CLEANUP]
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/github/domain/model/entities/ConnectionRecords.java:16
+  - id: OperationPhase
+    name: ConnectionRecords.Phase
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.github.domain.model.entities
+    layer: domain
+    stereotype: Enum
+    kind: enum
+    status: implemented
+    attributes: []
+    methods: []
+    values: [PENDING, CLAIMED, REQUEST_MAY_BE_IN_FLIGHT, VERSION_SAVED, COMPLETED, BLOCKED]
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/github/domain/model/entities/ConnectionRecords.java:17
+  - id: ConnectionRepository
+    name: ConnectionRepository
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.github.application.ports
+    layer: application
+    stereotype: Port
+    kind: interface
+    status: implemented
+    attributes: []
+    methods:
+      - {name: connection, parameters: [{name: connectionId, type: UUID}], returns: GitHubConnection}
+      - {name: attempt, parameters: [{name: connectionId, type: UUID}, {name: attemptId, type: UUID}], returns: GitHubConnection}
+      - {name: operation, parameters: [{name: connectionId, type: UUID}, {name: operationId, type: UUID}], returns: GitHubConnection}
+      - {name: insert, parameters: [{name: connection, type: GitHubConnection}], returns: void}
+      - {name: save, parameters: [{name: connection, type: GitHubConnection}], returns: void}
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/github/application/ports/ConnectionRepository.java:7-14
+    notes: [Also connectionForDisconnect and generation lookups]
+  - id: JpaConnectionRepository
+    name: JpaConnectionRepository
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.github.infrastructure.persistence.jpa
+    layer: infrastructure
+    stereotype: Adapter
+    status: implemented
+    attributes: []
+    methods:
+      - {name: insert, parameters: [{name: connection, type: GitHubConnection}], returns: void}
+      - {name: save, parameters: [{name: connection, type: GitHubConnection}], returns: void}
+    persistence: {store: postgresql_operational_store, protocol: PostgreSQL, architecture_relationship: rel_ingestion_postgresql_connector_metadata, tables: [ingestion.github_connections, ingestion.github_connection_generations, ingestion.github_authorization_attempts, ingestion.github_credential_operations]}
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/persistence/jpa/JpaConnectionRepository.java:15
+    notes: [JPA EntityManager over the four ConnectionJpaEntities rows]
+  - id: CaptureReceipt
+    name: CaptureReceipt
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.capture.domain.model.aggregates
+    layer: domain
+    stereotype: Aggregate
+    status: implemented
+    attributes:
+      - {name: id, type: UUID}
+      - {name: scope, type: CaptureScope}
+      - {name: runId, type: String}
+      - {name: runAttempt, type: int}
+      - {name: correlationId, type: String}
+      - {name: snapshotMessageId, type: UUID}
+      - {name: evidenceMessageId, type: UUID}
+      - {name: phase, type: String}
+      - {name: observationId, type: UUID}
+      - {name: claimOwner, type: UUID}
+      - {name: claimFence, type: long}
+      - {name: leaseUntil, type: Instant}
+      - {name: blockedReason, type: String, nullable: true}
+    methods:
+      - {name: requireClaim, parameters: [{name: owner, type: UUID}, {name: fence, type: long}, {name: now, type: Instant}], returns: void}
+      - {name: requirePreparedObservation, parameters: [{name: observation, type: WorkflowObservation}, {name: snapshotId, type: UUID}, {name: evidenceId, type: UUID}], returns: void}
+    storage: {form: mapped, tables: [ingestion.capture_receipts], via: JpaCaptureLedger, evidence: ['ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jpa/CaptureJpaEntities.java:13-15']}
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/capture/domain/model/aggregates/CaptureReceipt.java:11-24
+        - ingestion:src/main/java/org/pipesor/ingestion/capture/domain/model/aggregates/CaptureReceipt.java:40-51
+    notes: ['Root of receipt, observation and closed publication plan', id inherited from shared Entity]
+  - id: CaptureScope
+    name: CaptureScope
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.capture.domain.model.valueobjects
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: captureDomain, type: String}
+      - {name: tenantId, type: UUID}
+      - {name: appId, type: String}
+      - {name: accountId, type: String}
+      - {name: installationId, type: String}
+      - {name: repositoryId, type: String}
+      - {name: workflowId, type: String}
+      - {name: scopeRevision, type: String}
+    methods:
+      - {name: context, parameters: [], returns: WorkflowObservation.CaptureContext}
+      - {name: pipeline, parameters: [], returns: WorkflowObservation.Pipeline}
+    storage: {form: flattened, tables: [ingestion.capture_receipts], columns: [capture_domain, tenant_id, app_id, account_id, installation_id, repository_id, workflow_id, scope_revision]}
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/capture/domain/model/valueobjects/CaptureScope.java:9-10
+  - id: WorkflowObservation
+    name: WorkflowObservation
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.normalization.domain.model.valueobjects
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: captureContext, type: CaptureContext}
+      - {name: pipeline, type: Pipeline}
+      - {name: execution, type: Execution}
+      - {name: commitSha, type: String}
+      - {name: service, type: String}
+      - {name: environment, type: String}
+      - {name: correlationId, type: String}
+      - {name: occurredAt, type: Instant}
+      - {name: sourceUpdatedAt, type: Instant}
+      - {name: stages, type: List<Stage>}
+      - {name: failure, type: Failure}
+      - {name: evidence, type: Evidence}
+    methods:
+      - {name: pipelineId, parameters: [], returns: UUID}
+      - {name: executionId, parameters: [], returns: UUID}
+      - {name: incidentId, parameters: [], returns: UUID}
+    storage: {form: mapped, via: JpaCaptureLedger, tables: [ingestion.capture_observations, ingestion.publication_outputs], columns: [observed_at, source_updated_at, payload], evidence: ['ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jpa/JpaCaptureLedger.java:143-163'], note: prepare() keeps identity and times in capture_observations and the encoded protected messages in publication_outputs.payload}
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/normalization/domain/model/valueobjects/WorkflowObservation.java:13-15
+    notes: [Whitelisted internal observation; logical IDs are derived (LogicalIds)]
+  - id: ObservationCaptureContext
+    name: WorkflowObservation.CaptureContext
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.normalization.domain.model.valueobjects
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: tenantId, type: UUID}
+      - {name: githubAccountId, type: String}
+      - {name: githubInstallationId, type: String}
+      - {name: scopeRevision, type: String}
+    methods: []
+    storage: {form: not_persisted, note: travels inside the encoded publication payload}
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/normalization/domain/model/valueobjects/WorkflowObservation.java:41
+  - id: ObservationPipeline
+    name: WorkflowObservation.Pipeline
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.normalization.domain.model.valueobjects
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: githubRepositoryId, type: String}
+      - {name: githubWorkflowId, type: String}
+    methods: []
+    storage: {form: not_persisted, note: travels inside the encoded publication payload}
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/normalization/domain/model/valueobjects/WorkflowObservation.java:51
+  - id: ObservationExecution
+    name: WorkflowObservation.Execution
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.normalization.domain.model.valueobjects
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: githubRunId, type: String}
+      - {name: runAttempt, type: int}
+      - {name: branch, type: String}
+      - {name: status, type: String}
+      - {name: conclusion, type: String}
+      - {name: startedAt, type: Instant}
+      - {name: completedAt, type: Instant, nullable: true}
+    methods: []
+    storage: {form: not_persisted, note: travels inside the encoded publication payload}
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/normalization/domain/model/valueobjects/WorkflowObservation.java:58-59
+  - id: ObservationStage
+    name: WorkflowObservation.Stage
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.normalization.domain.model.valueobjects
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: stage, type: StageName}
+      - {name: status, type: String}
+      - {name: startedAt, type: Instant}
+      - {name: completedAt, type: Instant}
+    methods: []
+    storage: {form: not_persisted, note: travels inside the encoded publication payload}
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/normalization/domain/model/valueobjects/WorkflowObservation.java:76
+  - id: ObservationFailure
+    name: WorkflowObservation.Failure
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.normalization.domain.model.valueobjects
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: stage, type: StageName}
+      - {name: summary, type: String}
+      - {name: detectedAt, type: Instant}
+    methods: []
+    storage: {form: not_persisted, note: travels inside the encoded publication payload}
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/normalization/domain/model/valueobjects/WorkflowObservation.java:83
+  - id: ObservationEvidence
+    name: WorkflowObservation.Evidence
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.normalization.domain.model.valueobjects
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: stage, type: StageName}
+      - {name: job, type: String}
+      - {name: excerpt, type: String}
+      - {name: sequence, type: Long}
+      - {name: sourceLocator, type: String, nullable: true}
+    methods: []
+    storage: {form: not_persisted, note: protected excerpt inside the encoded publication payload}
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/normalization/domain/model/valueobjects/WorkflowObservation.java:92
+  - id: ObservationStageName
+    name: WorkflowObservation.StageName
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.normalization.domain.model.valueobjects
+    layer: domain
+    stereotype: Enum
+    kind: enum
+    status: implemented
+    attributes: []
+    methods: []
+    values: [BUILD, TESTING, QUALITY_GATE, DEPLOYMENT, CONTAINER, INFRASTRUCTURE]
+    domain_enum: PipelineStage
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/normalization/domain/model/valueobjects/WorkflowObservation.java:39
+  - id: CaptureLedger
+    name: CaptureLedger
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.capture.application.ports
+    layer: application
+    stereotype: Port
+    kind: interface
+    status: implemented
+    attributes: []
+    methods:
+      - {name: accept, parameters: [{name: command, type: Accept}, {name: now, type: Instant}], returns: CaptureReceipt}
+      - {name: receipt, parameters: [{name: id, type: UUID}], returns: CaptureReceipt}
+      - {name: findDelivery, parameters: [{name: scope, type: CaptureScope}, {name: source, type: String}, {name: deliveryId, type: String}], returns: Optional<CaptureReceipt>}
+      - {name: claimPreparation, parameters: [{name: command, type: Claim}, {name: now, type: Instant}], returns: CaptureReceipt}
+      - {name: prepare, parameters: [{name: command, type: Prepare}, {name: now, type: Instant}], returns: CaptureReceipt}
+      - {name: blockReceipt, parameters: [{name: id, type: UUID}, {name: now, type: Instant}, {name: reason, type: String}], returns: void}
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/capture/application/ports/CaptureLedger.java:11
+        - ingestion:src/main/java/org/pipesor/ingestion/capture/application/ports/CaptureLedger.java:12-27
+    notes: ['Also claims, confirms and retries publication outputs']
+  - id: JpaCaptureLedger
+    name: JpaCaptureLedger
+    container: ingestion_normalization_service
+    package: org.pipesor.ingestion.capture.infrastructure.persistence.jpa
+    layer: infrastructure
+    stereotype: Adapter
+    status: implemented
+    attributes: []
+    methods:
+      - {name: accept, parameters: [{name: command, type: Accept}, {name: time, type: Instant}], returns: CaptureReceipt}
+      - {name: prepare, parameters: [{name: command, type: Prepare}, {name: time, type: Instant}], returns: CaptureReceipt}
+    persistence: {store: postgresql_operational_store, protocol: PostgreSQL, architecture_relationship: rel_ingestion_postgresql_connector_metadata, tables: [ingestion.capture_receipts, ingestion.capture_delivery_aliases, ingestion.capture_observations, ingestion.publication_outputs]}
+    implementation:
+      status: implemented
+      evidence:
+        - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jpa/JpaCaptureLedger.java:24
+    notes: [EntityManager plus native SQL, 'Aliases, observations and outputs have no domain class']
+  - id: EvidenceInput
+    name: EvidenceInput
+    container: log_event_service
+    package: org.pipesor.logevent.evidence.application.commands
+    layer: application
+    stereotype: Command
+    status: implemented
+    attributes:
+      - {name: messageId, type: UUID}
+      - {name: incidentId, type: UUID}
+      - {name: executionId, type: UUID}
+      - {name: correlationId, type: String}
+      - {name: source, type: String}
+      - {name: stage, type: PipelineStage}
+      - {name: job, type: String, nullable: true}
+      - {name: summary, type: String}
+      - {name: excerpt, type: String, nullable: true}
+      - {name: observedAt, type: Instant}
+      - {name: sequence, type: Long, nullable: true}
+      - {name: contentHash, type: String, nullable: true}
+      - {name: sizeBytes, type: Long, nullable: true}
+      - {name: scope, type: EvidenceScope, nullable: true}
+      - {name: sourceLocator, type: String, nullable: true}
+    methods:
+      - {name: evidenceId, parameters: [], returns: UUID}
+    storage: {form: mapped, tables: [evidence.evidence_items], via: JdbcEvidenceStore, evidence: ['log_event:src/main/java/org/pipesor/logevent/evidence/infrastructure/persistence/jdbc/JdbcEvidenceStore.java:53-56']}
+    implementation:
+      status: implemented
+      evidence:
+        - log_event:src/main/java/org/pipesor/logevent/evidence/application/commands/EvidenceInput.java:17-21
+        - log_event:src/main/java/org/pipesor/logevent/evidence/application/commands/EvidenceInput.java:59
+    notes: ['No aggregate or entity: the command record carries the evidence_items row']
+  - id: EvidenceScope
+    name: EvidenceScope
+    container: log_event_service
+    package: org.pipesor.logevent.evidence.domain.model.valueobjects
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: tenantId, type: UUID}
+      - {name: installationId, type: String}
+      - {name: revision, type: String}
+    methods: []
+    storage: {form: flattened, tables: [evidence.evidence_items], columns: [scope_tenant_id, scope_github_installation_id, scope_revision]}
+    implementation:
+      status: implemented
+      evidence:
+        - log_event:src/main/java/org/pipesor/logevent/evidence/domain/model/valueobjects/EvidenceScope.java:6
+  - id: EvidencePipelineStage
+    name: PipelineStage
+    container: log_event_service
+    package: org.pipesor.logevent.evidence.domain.model.valueobjects
+    layer: domain
+    stereotype: Enum
+    kind: enum
+    status: implemented
+    attributes: []
+    methods: []
+    values: [BUILD, TESTING, QUALITY_GATE, DEPLOYMENT, CONTAINER, INFRASTRUCTURE]
+    domain_enum: PipelineStage
+    implementation:
+      status: implemented
+      evidence:
+        - log_event:src/main/java/org/pipesor/logevent/evidence/domain/model/valueobjects/PipelineStage.java:3-5
+  - id: EvidenceIdentity
+    name: EvidenceIdentity
+    container: log_event_service
+    package: org.pipesor.logevent.evidence.domain.services
+    layer: domain
+    stereotype: DomainService
+    status: implemented
+    attributes: []
+    methods:
+      - {name: forMessage, parameters: [{name: messageId, type: UUID}], returns: UUID}
+      - {name: named, parameters: [{name: name, type: String}], returns: UUID}
+    implementation:
+      status: implemented
+      evidence:
+        - log_event:src/main/java/org/pipesor/logevent/evidence/domain/services/EvidenceIdentity.java:11
+    notes: [Deterministic UUIDv5 shared with NLP]
+  - id: EvidenceStore
+    name: EvidenceStore
+    container: log_event_service
+    package: org.pipesor.logevent.evidence.application.ports
+    layer: application
+    stereotype: Port
+    kind: interface
+    status: implemented
+    attributes: []
+    methods:
+      - {name: register, parameters: [{name: input, type: EvidenceInput}], returns: Registration}
+      - {name: membership, parameters: [{name: query, type: EvidenceMembershipQuery}], returns: Membership}
+    implementation:
+      status: implemented
+      evidence:
+        - log_event:src/main/java/org/pipesor/logevent/evidence/application/ports/EvidenceStore.java:7
+  - id: JdbcEvidenceStore
+    name: JdbcEvidenceStore
+    container: log_event_service
+    package: org.pipesor.logevent.evidence.infrastructure.persistence.jdbc
+    layer: infrastructure
+    stereotype: Adapter
+    status: implemented
+    attributes: []
+    methods:
+      - {name: register, parameters: [{name: input, type: EvidenceInput}], returns: Registration}
+      - {name: membership, parameters: [{name: query, type: EvidenceMembershipQuery}], returns: Membership}
+    persistence: {store: postgresql_operational_store, protocol: PostgreSQL, architecture_relationship: rel_log_event_service_postgresql, tables: [evidence.evidence_items]}
+    implementation:
+      status: implemented
+      evidence:
+        - log_event:src/main/java/org/pipesor/logevent/evidence/infrastructure/persistence/jdbc/JdbcEvidenceStore.java:19
+    notes: [JDBC over DataSource; the service has no JPA]
+  - id: RegisterEvidenceHandler
+    name: RegisterEvidenceHandler
+    container: log_event_service
+    package: org.pipesor.logevent.evidence.application.commandhandlers
+    layer: application
+    stereotype: CommandService
+    status: implemented
+    attributes: []
+    methods:
+      - {name: handle, parameters: [{name: input, type: EvidenceInput}], returns: EvidenceRegistration}
+    implementation:
+      status: implemented
+      evidence:
+        - log_event:src/main/java/org/pipesor/logevent/evidence/application/commandhandlers/RegisterEvidenceHandler.java:12
+  - id: CorrelationGroup
+    name: CorrelationGroup
+    container: evidence_correlation_engine
+    package: org.pipesor.correlation.context.domain.model.aggregates
+    layer: domain
+    stereotype: Aggregate
+    status: implemented
+    attributes:
+      - {name: id, type: UUID}
+      - {name: context, type: Context}
+      - {name: evidenceIds, type: Set<UUID>}
+    methods:
+      - {name: start, parameters: [{name: id, type: UUID}, {name: context, type: Context}], returns: CorrelationGroup}
+      - {name: restore, parameters: [{name: id, type: UUID}, {name: context, type: Context}, {name: evidenceIds, type: Set<UUID>}], returns: CorrelationGroup}
+      - {name: include, parameters: [{name: evidenceContext, type: Context}, {name: evidenceId, type: UUID}], returns: CorrelationGroup}
+      - {name: revision, parameters: [], returns: int}
+    storage: {form: mapped, via: DurableCorrelationStore, tables: [evidence.correlation_groups, evidence.correlated_contexts], evidence: ['correlation:src/main/java/org/pipesor/correlation/context/infrastructure/persistence/jpa/DurableCorrelationStore.java:137'], note: evidenceIds live in correlated_contexts.evidence_ids; revision is the set size}
+    implementation:
+      status: implemented
+      evidence:
+        - correlation:src/main/java/org/pipesor/correlation/context/domain/model/aggregates/CorrelationGroup.java:9-12
+        - correlation:src/main/java/org/pipesor/correlation/context/domain/model/aggregates/CorrelationGroup.java:20-43
+    notes: ['No base Entity; immutable: include() returns a new group']
+  - id: CorrelationContext
+    name: CorrelationGroup.Context
+    container: evidence_correlation_engine
+    package: org.pipesor.correlation.context.domain.model.aggregates
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: scope, type: String}
+      - {name: executionId, type: UUID}
+      - {name: incidentId, type: UUID}
+    methods: []
+    storage: {form: flattened, tables: [evidence.correlation_groups], columns: [scope_key, execution_id, incident_id]}
+    implementation:
+      status: implemented
+      evidence:
+        - correlation:src/main/java/org/pipesor/correlation/context/domain/model/aggregates/CorrelationGroup.java:45
+  - id: EvidenceSignal
+    name: EvidenceSignal
+    container: evidence_correlation_engine
+    package: org.pipesor.correlation.context.domain.model.valueobjects
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: stage, type: String}
+      - {name: summary, type: String}
+      - {name: content, type: String}
+      - {name: sourceLocator, type: String, nullable: true}
+    methods: []
+    storage: {form: flattened, tables: [evidence.correlated_contexts], columns: [signal_stage, signal_summary, signal_content, signal_source_locator]}
+    implementation:
+      status: implemented
+      evidence:
+        - correlation:src/main/java/org/pipesor/correlation/context/domain/model/valueobjects/EvidenceSignal.java:6
+  - id: ScopeEnvelope
+    name: ScopeEnvelope
+    container: evidence_correlation_engine
+    package: org.pipesor.correlation.context.domain.model.valueobjects
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: tenantId, type: UUID}
+      - {name: installationId, type: String}
+      - {name: repositoryId, type: String}
+      - {name: pipelineId, type: UUID, nullable: true}
+      - {name: revision, type: String}
+    methods:
+      - {name: sameResource, parameters: [{name: other, type: ScopeEnvelope}], returns: boolean}
+    storage: {form: flattened, tables: [evidence.correlated_contexts], columns: [scope_tenant_id, scope_github_installation_id, scope_github_repository_id, scope_pipeline_id, scope_revision]}
+    implementation:
+      status: implemented
+      evidence:
+        - correlation:src/main/java/org/pipesor/correlation/context/domain/model/valueobjects/ScopeEnvelope.java:7-8
+  - id: CorrelationSourceLocator
+    name: SourceLocator
+    container: evidence_correlation_engine
+    package: org.pipesor.correlation.context.domain.model.valueobjects
+    layer: domain
+    stereotype: DomainService
+    status: implemented
+    attributes: []
+    methods:
+      - {name: validShape, parameters: [{name: locator, type: String}], returns: boolean}
+      - {name: valid, parameters: [{name: locator, type: String}, {name: job, type: String}], returns: boolean}
+    implementation:
+      status: implemented
+      evidence:
+        - correlation:src/main/java/org/pipesor/correlation/context/domain/model/valueobjects/SourceLocator.java:11
+    notes: [Static grammar check in the valueobjects package; never instantiated]
+  - id: CorrelatedContextEntity
+    name: CorrelatedContextEntity
+    container: evidence_correlation_engine
+    package: org.pipesor.correlation.context.infrastructure.persistence.jpa
+    layer: infrastructure
+    stereotype: PersistenceModel
+    status: implemented
+    attributes:
+      - {name: id, type: UUID, domain_attribute: id, nullable: false}
+      - {name: incidentId, type: UUID, domain_attribute: incident_id, nullable: false}
+      - {name: executionId, type: UUID, domain_attribute: execution_id, nullable: false}
+      - {name: evidenceIds, type: 'UUID[]', domain_attribute: evidence_ids, nullable: false}
+      - {name: summary, type: String, domain_attribute: summary, nullable: false}
+      - {name: correlationId, type: String, domain_attribute: correlation_id, nullable: false}
+      - {name: createdAt, type: Instant, domain_attribute: created_at, nullable: false}
+      - {name: groupId, type: UUID, domain_attribute: group_id, nullable: false}
+      - {name: signalStage, type: String, domain_attribute: signal_stage, nullable: false}
+      - {name: signalSummary, type: String, domain_attribute: signal_summary, nullable: false}
+      - {name: signalContent, type: String, domain_attribute: signal_content, nullable: false}
+      - {name: signalSourceLocator, type: String, domain_attribute: signal_source_locator, nullable: true}
+      - {name: scopeTenantId, type: UUID, domain_attribute: scope_tenant_id, nullable: false}
+      - {name: scopeInstallationId, type: String, domain_attribute: scope_github_installation_id, nullable: false}
+      - {name: scopeRepositoryId, type: String, domain_attribute: scope_github_repository_id, nullable: false}
+      - {name: scopePipelineId, type: UUID, domain_attribute: scope_pipeline_id, nullable: true}
+      - {name: scopeRevision, type: String, domain_attribute: scope_revision, nullable: false}
+    methods: []
+    persisted_as: evidence.correlated_contexts
+    implementation:
+      status: implemented
+      evidence:
+        - correlation:src/main/java/org/pipesor/correlation/context/infrastructure/persistence/jpa/CorrelatedContextEntity.java:14-17
+        - correlation:src/main/java/org/pipesor/correlation/context/infrastructure/persistence/jpa/CorrelatedContextEntity.java:18-52
+    notes: ['@Entity @Immutable, built from a ResultSet: no EntityManager in the service']
+  - id: CorrelationContribution
+    name: DurableCorrelationStore.Contribution
+    container: evidence_correlation_engine
+    package: org.pipesor.correlation.context.infrastructure.persistence.jpa
+    layer: infrastructure
+    stereotype: Record
+    status: implemented
+    attributes:
+      - {name: context, type: Context}
+      - {name: producerKey, type: String}
+      - {name: messageId, type: UUID}
+      - {name: evidenceId, type: UUID}
+      - {name: correlationId, type: String}
+      - {name: inputFingerprint, type: String}
+      - {name: snapshotSummary, type: String}
+      - {name: signal, type: EvidenceSignal}
+      - {name: scope, type: ScopeEnvelope}
+    methods: []
+    storage: {form: mapped, tables: [evidence.correlation_receipts], via: DurableCorrelationStore, evidence: ['correlation:src/main/java/org/pipesor/correlation/context/infrastructure/persistence/jpa/DurableCorrelationStore.java:195']}
+    implementation:
+      status: implemented
+      evidence:
+        - correlation:src/main/java/org/pipesor/correlation/context/infrastructure/persistence/jpa/DurableCorrelationStore.java:36-37
+  - id: DurableCorrelationStore
+    name: DurableCorrelationStore
+    container: evidence_correlation_engine
+    package: org.pipesor.correlation.context.infrastructure.persistence.jpa
+    layer: infrastructure
+    stereotype: Adapter
+    status: implemented
+    attributes: []
+    methods:
+      - {name: prepare, parameters: [{name: input, type: Contribution}], returns: Prepared}
+      - {name: readRevision, parameters: [{name: expectedContext, type: Context}, {name: contextId, type: UUID}], returns: CorrelatedRevision}
+      - {name: confirm, parameters: [{name: groupId, type: UUID}, {name: contextId, type: UUID}], returns: void}
+    persistence: {store: postgresql_operational_store, protocol: PostgreSQL, architecture_relationship: rel_correlation_postgresql, tables: [evidence.correlation_groups, evidence.correlated_contexts, evidence.correlation_receipts]}
+    implementation:
+      status: implemented
+      evidence:
+        - correlation:src/main/java/org/pipesor/correlation/context/infrastructure/persistence/jpa/DurableCorrelationStore.java:27
+    notes: [java.sql.Connection over DataSource]
+  - id: OrchestratorDiagnosis
+    name: DiagnosticOrchestrator.Diagnosis
+    container: recommendation_service
+    package: com.pipesor.recommendation.diagnosis.application
+    layer: application
+    stereotype: Record
+    status: implemented
+    attributes:
+      - {name: contextId, type: UUID}
+      - {name: executionId, type: UUID}
+      - {name: incidentId, type: UUID}
+      - {name: correlationId, type: String}
+      - {name: hypothesis, type: Hypothesis}
+      - {name: evidence, type: List<Evidence>}
+      - {name: sources, type: List<Source>}
+    methods: []
+    storage: {form: json_column, tables: [diagnosis.diagnoses], columns: [output, context_id, execution_id, incident_id, correlation_id], evidence: ['recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:81-93'], note: serialized as output; its IDs are copied to columns}
+    implementation:
+      status: implemented
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/DiagnosticOrchestrator.java:127-128
+  - id: OrchestratorHypothesis
+    name: DiagnosticOrchestrator.Hypothesis
+    container: recommendation_service
+    package: com.pipesor.recommendation.diagnosis.application
+    layer: application
+    stereotype: Record
+    status: implemented
+    attributes:
+      - {name: probableCause, type: String}
+      - {name: recommendation, type: String}
+      - {name: limitations, type: String}
+      - {name: evidenceIds, type: List<UUID>}
+      - {name: chunkIds, type: List<UUID>}
+      - {name: model, type: Model, nullable: true}
+    methods: []
+    storage: {form: json_column, tables: [diagnosis.diagnoses], columns: [output], evidence: ['recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:81-93']}
+    implementation:
+      status: implemented
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/DiagnosticOrchestrator.java:110-113
+    notes: [Inferred model output]
+  - id: OrchestratorEvidence
+    name: DiagnosticOrchestrator.Evidence
+    container: recommendation_service
+    package: com.pipesor.recommendation.diagnosis.application
+    layer: application
+    stereotype: Record
+    status: implemented
+    attributes:
+      - {name: evidenceId, type: UUID}
+      - {name: originContextId, type: UUID}
+      - {name: stage, type: String}
+      - {name: content, type: String}
+      - {name: sourceLocator, type: String, nullable: true}
+    methods: []
+    storage: {form: json_column, tables: [diagnosis.diagnoses], columns: [output], evidence: ['recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:81-93']}
+    implementation:
+      status: implemented
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/DiagnosticOrchestrator.java:102-104
+  - id: OrchestratorSource
+    name: DiagnosticOrchestrator.Source
+    container: recommendation_service
+    package: com.pipesor.recommendation.diagnosis.application
+    layer: application
+    stereotype: Record
+    status: implemented
+    attributes:
+      - {name: documentId, type: UUID}
+      - {name: chunkId, type: UUID}
+      - {name: provenance, type: String}
+    methods: []
+    storage: {form: json_column, tables: [diagnosis.diagnoses], columns: [output], evidence: ['recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:81-93']}
+    implementation:
+      status: implemented
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/DiagnosticOrchestrator.java:126
+  - id: OrchestratorModel
+    name: DiagnosticOrchestrator.Model
+    container: recommendation_service
+    package: com.pipesor.recommendation.diagnosis.application
+    layer: application
+    stereotype: Record
+    status: implemented
+    attributes:
+      - {name: deployment, type: String}
+      - {name: modelVersion, type: String}
+      - {name: promptVersion, type: String}
+    methods: []
+    storage: {form: json_column, tables: [diagnosis.diagnoses], columns: [output], evidence: ['recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:81-93']}
+    implementation:
+      status: implemented
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/DiagnosticOrchestrator.java:125
+  - id: ReviewRecord
+    name: ReviewStore.Review
+    container: recommendation_service
+    package: com.pipesor.recommendation.diagnosis.review
+    layer: unlayered
+    stereotype: Record
+    status: implemented
+    attributes:
+      - {name: id, type: UUID}
+      - {name: revision, type: int}
+      - {name: reviewer, type: String}
+      - {name: decision, type: Decision}
+      - {name: timestamp, type: OffsetDateTime}
+      - {name: correlationId, type: String}
+      - {name: actualCause, type: String, nullable: true}
+      - {name: comment, type: String, nullable: true}
+      - {name: correctedRecommendation, type: String, nullable: true}
+    methods: []
+    storage: {form: mapped, tables: [diagnosis.human_reviews], evidence: ['recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:174-188'], note: diagnostic_id and created_at are columns only}
+    implementation:
+      status: implemented
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:222-223
+  - id: ReviewDecision
+    name: ReviewStore.Decision
+    container: recommendation_service
+    package: com.pipesor.recommendation.diagnosis.review
+    layer: unlayered
+    stereotype: Enum
+    kind: enum
+    status: implemented
+    attributes: []
+    methods: []
+    values: [CONFIRMED, CORRECTED, REJECTED]
+    domain_enum: HumanReviewDecision
+    implementation:
+      status: implemented
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:219
+  - id: ReviewSubmission
+    name: ReviewStore.Submission
+    container: recommendation_service
+    package: com.pipesor.recommendation.diagnosis.review
+    layer: unlayered
+    stereotype: Record
+    status: implemented
+    attributes:
+      - {name: diagnosisVersion, type: int}
+      - {name: expectedRevision, type: int}
+      - {name: decision, type: Decision}
+      - {name: comment, type: String, nullable: true}
+      - {name: actualCause, type: String, nullable: true}
+      - {name: correctedRecommendation, type: String, nullable: true}
+    methods: []
+    storage: {form: mapped, tables: [diagnosis.human_reviews], evidence: ['recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:174-188']}
+    implementation:
+      status: implemented
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:220-221
+  - id: AdmittedContext
+    name: AdmittedContext
+    container: recommendation_service
+    package: com.pipesor.recommendation.diagnosis.application.model
+    layer: application
+    stereotype: Record
+    status: implemented
+    attributes:
+      - {name: contextId, type: UUID}
+      - {name: incidentId, type: UUID}
+      - {name: executionId, type: UUID}
+      - {name: scope, type: AuthorizationScope}
+      - {name: correlationId, type: String}
+      - {name: signals, type: List<Signal>}
+    methods: []
+    storage: {form: mapped, tables: [diagnosis.correlated_context_receipts], evidence: ['recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/persistence/JdbcAdmittedContexts.java:29'], note: read back from the receipt; signals from the signals jsonb}
+    implementation:
+      status: implemented
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/model/AdmittedContext.java:10-11
+    notes: ['Nested Signal records: evidenceId, stage, content, sourceLocator']
+  - id: ReceiptSubmission
+    name: ReceiptSubmission
+    container: recommendation_service
+    package: com.pipesor.recommendation.receipt
+    layer: unlayered
+    stereotype: Record
+    status: implemented
+    attributes:
+      - {name: operationId, type: UUID}
+      - {name: tenantId, type: UUID}
+      - {name: installationId, type: String}
+      - {name: repositoryId, type: String}
+      - {name: pipelineId, type: UUID, nullable: true}
+      - {name: scopeRevision, type: String}
+      - {name: incidentId, type: UUID}
+      - {name: executionId, type: UUID}
+      - {name: evidenceIds, type: List<UUID>}
+      - {name: summary, type: String}
+      - {name: correlationId, type: String}
+      - {name: contextCreatedAt, type: Instant}
+      - {name: signalsJson, type: String}
+      - {name: fingerprint, type: String}
+    methods: []
+    storage: {form: mapped, tables: [diagnosis.correlated_context_receipts], evidence: ['recommendation:src/main/java/com/pipesor/recommendation/receipt/ReceiptStore.java:28-34']}
+    implementation:
+      status: implemented
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/receipt/ReceiptSubmission.java:8-10
+  - id: DiagnosisJob
+    name: DiagnosisJobs.Job
+    container: recommendation_service
+    package: com.pipesor.recommendation.diagnosis.application.ports
+    layer: application
+    stereotype: Record
+    status: implemented
+    attributes:
+      - {name: contextId, type: UUID}
+      - {name: attempt, type: int}
+    methods: []
+    storage: {form: mapped, tables: [diagnosis.diagnosis_jobs], evidence: ['recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/persistence/JdbcDiagnosisJobs.java:28']}
+    implementation:
+      status: implemented
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/ports/DiagnosisJobs.java:20
+    notes: [Durable work queue (table inferred in domain.yml)]
+  - id: SummaryClaim
+    name: DiagnosisSummaryOutbox.Claim
+    container: recommendation_service
+    package: com.pipesor.recommendation.diagnosis.application.ports
+    layer: application
+    stereotype: Record
+    status: implemented
+    attributes:
+      - {name: incidentId, type: UUID}
+      - {name: executionId, type: UUID}
+      - {name: generation, type: long}
+      - {name: attempts, type: int}
+      - {name: leaseUntil, type: Instant}
+    methods: []
+    storage: {form: mapped, tables: [diagnosis.incident_summary_outbox], evidence: ['recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/persistence/JdbcDiagnosisSummaryOutbox.java:30']}
+    implementation:
+      status: implemented
+      evidence:
+        - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/ports/DiagnosisSummaryOutbox.java:31
+    notes: [ADR-027 outbox towards Pipeline]
+  - id: LogEnvelope
+    name: LogEnvelope
+    container: nlp_log_processor
+    package: pipesor_nlp_log_processor.domain.models
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: content, type: str}
+      - {name: correlation_id, type: str}
+      - {name: execution_id, type: str}
+      - {name: source, type: str}
+    methods: []
+    storage: {form: not_persisted, note: the service has no tables (DD-027)}
+    implementation:
+      status: implemented
+      evidence:
+        - nlp:src/pipesor_nlp_log_processor/domain/models.py:8-13
+  - id: ParsedTemplate
+    name: ParsedTemplate
+    container: nlp_log_processor
+    package: pipesor_nlp_log_processor.domain.models
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: cluster_id, type: int}
+      - {name: template, type: str}
+    methods: []
+    storage: {form: not_persisted, note: the service has no tables (DD-027)}
+    implementation:
+      status: implemented
+      evidence:
+        - nlp:src/pipesor_nlp_log_processor/domain/models.py:22-25
+    notes: [Drain cluster and template]
+  - id: ProcessedLog
+    name: ProcessedLog
+    container: nlp_log_processor
+    package: pipesor_nlp_log_processor.domain.models
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: sanitized_content, type: str}
+      - {name: correlation_id, type: str}
+      - {name: execution_id, type: str}
+      - {name: source, type: str}
+      - {name: cluster_id, type: int}
+      - {name: template, type: str}
+    methods: []
+    storage: {form: not_persisted, note: the service has no tables (DD-027)}
+    implementation:
+      status: implemented
+      evidence:
+        - nlp:src/pipesor_nlp_log_processor/domain/models.py:28-35
+  - id: ProtectedEvidenceMessage
+    name: ProtectedEvidenceMessage
+    container: nlp_log_processor
+    package: pipesor_nlp_log_processor.domain.integration
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: schema_version, type: str}
+      - {name: event_type, type: str}
+      - {name: message_id, type: str}
+      - {name: occurred_at, type: str}
+      - {name: source_updated_at, type: str}
+      - {name: correlation_id, type: str}
+      - {name: source, type: str}
+      - {name: capture_context, type: CaptureContext}
+      - {name: pipeline, type: PipelineContext}
+      - {name: execution, type: ExecutionContext}
+      - {name: commit, type: CommitContext}
+      - {name: service, type: str | None}
+      - {name: environment, type: str | None}
+      - {name: evidence, type: EvidenceContext}
+    methods: []
+    storage: {form: not_persisted, note: the service has no tables (DD-027)}
+    implementation:
+      status: implemented
+      evidence:
+        - nlp:src/pipesor_nlp_log_processor/domain/integration.py:212-227
+    notes: [Inbound protected workflow evidence]
+  - id: NlpCaptureContext
+    name: CaptureContext
+    container: nlp_log_processor
+    package: pipesor_nlp_log_processor.domain.integration
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: tenant_id, type: str}
+      - {name: github_account_id, type: str}
+      - {name: github_installation_id, type: str}
+      - {name: scope_revision, type: str}
+    methods: []
+    storage: {form: not_persisted, note: the service has no tables (DD-027)}
+    implementation:
+      status: implemented
+      evidence:
+        - nlp:src/pipesor_nlp_log_processor/domain/integration.py:175-180
+  - id: NlpPipelineContext
+    name: PipelineContext
+    container: nlp_log_processor
+    package: pipesor_nlp_log_processor.domain.integration
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: github_repository_id, type: str}
+      - {name: github_workflow_id, type: str}
+    methods: []
+    storage: {form: not_persisted, note: the service has no tables (DD-027)}
+    implementation:
+      status: implemented
+      evidence:
+        - nlp:src/pipesor_nlp_log_processor/domain/integration.py:183-186
+  - id: NlpExecutionContext
+    name: ExecutionContext
+    container: nlp_log_processor
+    package: pipesor_nlp_log_processor.domain.integration
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: github_run_id, type: str}
+      - {name: run_attempt, type: int}
+      - {name: status, type: str}
+      - {name: conclusion, type: str}
+    methods: []
+    storage: {form: not_persisted, note: the service has no tables (DD-027)}
+    implementation:
+      status: implemented
+      evidence:
+        - nlp:src/pipesor_nlp_log_processor/domain/integration.py:189-194
+  - id: NlpCommitContext
+    name: CommitContext
+    container: nlp_log_processor
+    package: pipesor_nlp_log_processor.domain.integration
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: sha, type: str}
+    methods: []
+    storage: {form: not_persisted, note: the service has no tables (DD-027)}
+    implementation:
+      status: implemented
+      evidence:
+        - nlp:src/pipesor_nlp_log_processor/domain/integration.py:197-199
+  - id: NlpEvidenceContext
+    name: EvidenceContext
+    container: nlp_log_processor
+    package: pipesor_nlp_log_processor.domain.integration
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: stage, type: str}
+      - {name: job, type: str | None}
+      - {name: summary, type: str}
+      - {name: excerpt, type: str}
+      - {name: sequence, type: int | None}
+      - {name: source_locator, type: str | None}
+    methods: []
+    storage: {form: not_persisted, note: the service has no tables (DD-027)}
+    implementation:
+      status: implemented
+      evidence:
+        - nlp:src/pipesor_nlp_log_processor/domain/integration.py:202-209
+  - id: CorrelationEvidence
+    name: CorrelationEvidence
+    container: nlp_log_processor
+    package: pipesor_nlp_log_processor.domain.integration
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: contract_version, type: str}
+      - {name: message_id, type: str}
+      - {name: correlation_id, type: str}
+      - {name: source, type: str}
+      - {name: occurred_at, type: str}
+      - {name: source_updated_at, type: str}
+      - {name: capture_context, type: CaptureContext}
+      - {name: pipeline, type: PipelineContext}
+      - {name: execution, type: ExecutionContext}
+      - {name: commit, type: CommitContext}
+      - {name: service, type: str | None}
+      - {name: environment, type: str | None}
+      - {name: pipeline_id, type: str}
+      - {name: execution_id, type: str}
+      - {name: incident_id, type: str}
+      - {name: evidence_id, type: str}
+      - {name: stage, type: str}
+      - {name: job, type: str | None}
+      - {name: sequence, type: int | None}
+      - {name: sanitized_summary, type: str}
+      - {name: sanitized_content, type: str}
+      - {name: template, type: str}
+      - {name: source_locator, type: str | None}
+      - {name: traceparent, type: str | None}
+      - {name: tracestate, type: str | None}
+    methods: []
+    storage: {form: not_persisted, note: the service has no tables (DD-027)}
+    implementation:
+      status: implemented
+      evidence:
+        - nlp:src/pipesor_nlp_log_processor/domain/integration.py:350-376
+    notes: [Outbound evidence sent to Correlation]
+  - id: RagCorpusKind
+    name: CorpusKind
+    container: rag_retrieval
+    package: pipesor_rag_retrieval.domain
+    layer: domain
+    stereotype: Enum
+    kind: enum
+    status: implemented
+    attributes: []
+    methods: []
+    values: [REVIEWED_INCIDENTS, AUTHORIZED_TECHNICAL_DOCUMENTATION, AUTHORIZED_RESPONSE_PROCEDURES]
+    wire_values: [reviewed_incidents, authorized_technical_documentation, authorized_response_procedures]
+    domain_enum: KnowledgeCorpusKind
+    implementation:
+      status: implemented
+      evidence:
+        - rag:src/pipesor_rag_retrieval/domain.py:9-12
+  - id: RagAuthorizationScope
+    name: AuthorizationScope
+    container: rag_retrieval
+    package: pipesor_rag_retrieval.domain
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: tenant_id, type: UUID}
+      - {name: github_installation_id, type: str}
+      - {name: github_repository_id, type: str}
+      - {name: pipeline_id, type: UUID | None}
+      - {name: scope_revision, type: str}
+    methods: []
+    storage: {form: flattened, tables: [knowledge.knowledge_documents], columns: [tenant_id, github_installation_id, github_repository_id, pipeline_id, scope_revision]}
+    implementation:
+      status: implemented
+      evidence:
+        - rag:src/pipesor_rag_retrieval/domain.py:15-21
+  - id: KnowledgeChunk
+    name: KnowledgeChunk
+    container: rag_retrieval
+    package: pipesor_rag_retrieval.domain
+    layer: domain
+    stereotype: ValueObject
+    status: implemented
+    attributes:
+      - {name: id, type: UUID}
+      - {name: document_id, type: UUID}
+      - {name: chunk_index, type: int}
+      - {name: corpus_kind, type: CorpusKind}
+      - {name: title, type: str}
+      - {name: content, type: str}
+      - {name: provenance, type: str}
+      - {name: scope, type: AuthorizationScope}
+      - {name: embedding, type: 'tuple[float, ...]'}
+      - {name: evaluation_material, type: bool}
+    methods: []
+    storage: {form: mapped, via: PostgreSQLKnowledgeRepository, tables: [knowledge.knowledge_chunks, knowledge.knowledge_documents], evidence: ['rag:src/pipesor_rag_retrieval/persistence.py:149-171'], note: joins chunk and document rows; evaluation_material is not persisted}
+    implementation:
+      status: implemented
+      evidence:
+        - rag:src/pipesor_rag_retrieval/domain.py:33-44
+  - id: KnowledgeDocumentRecord
+    name: KnowledgeDocumentRecord
+    container: rag_retrieval
+    package: pipesor_rag_retrieval.persistence
+    layer: unlayered
+    stereotype: PersistenceModel
+    status: implemented
+    attributes:
+      - {name: id, type: UUID, domain_attribute: id, nullable: false}
+      - {name: corpus_kind, type: str, domain_attribute: corpus_kind, nullable: false}
+      - {name: title, type: str, domain_attribute: title, nullable: false}
+      - {name: provenance, type: str, domain_attribute: provenance, nullable: false}
+      - {name: reviewed_incident_id, type: UUID | None, domain_attribute: reviewed_incident_id, nullable: true}
+      - {name: tenant_id, type: UUID, domain_attribute: tenant_id, nullable: false}
+      - {name: github_installation_id, type: str, domain_attribute: github_installation_id, nullable: false}
+      - {name: github_repository_id, type: str, domain_attribute: github_repository_id, nullable: false}
+      - {name: pipeline_id, type: UUID | None, domain_attribute: pipeline_id, nullable: true}
+      - {name: scope_revision, type: str, domain_attribute: scope_revision, nullable: false}
+      - {name: source_id, type: str, domain_attribute: source_id, nullable: false}
+      - {name: source_version, type: str, domain_attribute: source_version, nullable: false}
+      - {name: content_hash, type: str, domain_attribute: content_hash, nullable: false}
+      - {name: authorization_reference, type: str, domain_attribute: authorization_reference, nullable: false}
+      - {name: active, type: bool, domain_attribute: active, nullable: false}
+      - {name: correlation_id, type: str, domain_attribute: correlation_id, nullable: false}
+      - {name: created_at, type: datetime, domain_attribute: created_at, nullable: false}
+    methods: []
+    persisted_as: knowledge.knowledge_documents
+    implementation:
+      status: implemented
+      evidence:
+        - rag:src/pipesor_rag_retrieval/persistence.py:24-25
+        - rag:src/pipesor_rag_retrieval/persistence.py:35-51
+    notes: [SQLAlchemy 2 declarative model]
+  - id: KnowledgeChunkRecord
+    name: KnowledgeChunkRecord
+    container: rag_retrieval
+    package: pipesor_rag_retrieval.persistence
+    layer: unlayered
+    stereotype: PersistenceModel
+    status: implemented
+    attributes:
+      - {name: id, type: UUID, domain_attribute: id, nullable: false}
+      - {name: document_id, type: UUID, domain_attribute: document_id, nullable: false}
+      - {name: chunk_index, type: int, domain_attribute: chunk_index, nullable: false}
+      - {name: content, type: str, domain_attribute: content, nullable: false}
+      - {name: provenance, type: str, domain_attribute: provenance, nullable: false}
+      - {name: embedding, type: 'list[float] | None', domain_attribute: embedding, nullable: true}
+      - {name: embedding_model, type: str, domain_attribute: embedding_model, nullable: false}
+      - {name: embedding_model_version, type: str, domain_attribute: embedding_model_version, nullable: false}
+      - {name: correlation_id, type: str, domain_attribute: correlation_id, nullable: false}
+      - {name: created_at, type: datetime, domain_attribute: created_at, nullable: false}
+    methods: []
+    persisted_as: knowledge.knowledge_chunks
+    implementation:
+      status: implemented
+      evidence:
+        - rag:src/pipesor_rag_retrieval/persistence.py:54-55
+        - rag:src/pipesor_rag_retrieval/persistence.py:63-76
+    notes: [VECTOR(1536); ON DELETE CASCADE from the document]
+  - id: KnowledgeRepository
+    name: KnowledgeRepository
+    container: rag_retrieval
+    package: pipesor_rag_retrieval.ports
+    layer: unlayered
+    stereotype: Port
+    kind: interface
+    status: implemented
+    attributes: []
+    methods:
+      - {name: search, parameters_elided: true, returns: 'tuple[RankedKnowledgeChunk, ...]'}
+      - {name: ready, parameters: [], returns: bool}
+    implementation:
+      status: implemented
+      evidence:
+        - rag:src/pipesor_rag_retrieval/ports.py:23-34
+    notes: [typing.Protocol (structural)]
+  - id: PostgreSQLKnowledgeRepository
+    name: PostgreSQLKnowledgeRepository
+    container: rag_retrieval
+    package: pipesor_rag_retrieval.persistence
+    layer: unlayered
+    stereotype: Adapter
+    status: implemented
+    attributes: []
+    methods:
+      - {name: search, parameters_elided: true, returns: 'tuple[RankedKnowledgeChunk, ...]'}
+      - {name: ready, parameters: [], returns: bool}
+      - {name: _to_domain, parameters: [{name: chunk, type: KnowledgeChunkRecord}, {name: document, type: KnowledgeDocumentRecord}], returns: KnowledgeChunk}
+    persistence: {store: pgvector_knowledge_store, protocol: PostgreSQL/pgvector, architecture_relationship: rel_rag_pgvector, tables: [knowledge.knowledge_documents, knowledge.knowledge_chunks]}
+    implementation:
+      status: implemented
+      evidence:
+        - rag:src/pipesor_rag_retrieval/persistence.py:79
+  - id: CorpusStore
+    name: CorpusStore
+    container: rag_retrieval
+    package: pipesor_rag_retrieval.corpus
+    layer: unlayered
+    stereotype: Port
+    kind: interface
+    status: implemented
+    attributes: []
+    methods:
+      - {name: import_document, parameters: [{name: document, type: PreparedDocument}], returns: ImportStatus}
+    implementation:
+      status: implemented
+      evidence:
+        - rag:src/pipesor_rag_retrieval/corpus.py:54-55
+    notes: [typing.Protocol (structural)]
+  - id: PostgreSQLCorpusStore
+    name: PostgreSQLCorpusStore
+    container: rag_retrieval
+    package: pipesor_rag_retrieval.persistence
+    layer: unlayered
+    stereotype: Adapter
+    status: implemented
+    attributes: []
+    methods:
+      - {name: import_document, parameters: [{name: document, type: PreparedDocument}], returns: ImportStatus}
+    persistence: {store: pgvector_knowledge_store, protocol: PostgreSQL/pgvector, architecture_relationship: rel_rag_pgvector, tables: [knowledge.knowledge_documents, knowledge.knowledge_chunks]}
+    implementation:
+      status: implemented
+      evidence:
+        - rag:src/pipesor_rag_retrieval/persistence.py:173
+  - id: CorpusImport
+    name: CorpusImport
+    container: rag_retrieval
+    package: pipesor_rag_retrieval.corpus
+    layer: unlayered
+    stereotype: Record
+    status: implemented
+    attributes:
+      - {name: source_id, type: str}
+      - {name: source_version, type: str}
+      - {name: title, type: str}
+      - {name: provenance, type: str}
+      - {name: authorization_reference, type: str}
+      - {name: corpus_kind, type: CorpusKind}
+      - {name: scope, type: AuthorizationScope}
+      - {name: chunks, type: 'tuple[str, ...]'}
+      - {name: correlation_id, type: str}
+      - {name: reviewed_incident_id, type: UUID | None}
+      - {name: evaluation_material, type: bool}
+    methods: []
+    storage: {form: flattened, tables: [knowledge.knowledge_documents], columns: [source_id, source_version, title, provenance, authorization_reference, corpus_kind, correlation_id, reviewed_incident_id], note: chunks become knowledge_chunks rows; evaluation_material is not persisted}
+    implementation:
+      status: implemented
+      evidence:
+        - rag:src/pipesor_rag_retrieval/corpus.py:14-26
+  - id: PreparedDocument
+    name: PreparedDocument
+    container: rag_retrieval
+    package: pipesor_rag_retrieval.corpus
+    layer: unlayered
+    stereotype: Record
+    status: implemented
+    attributes:
+      - {name: id, type: UUID}
+      - {name: request, type: CorpusImport}
+      - {name: content_hash, type: str}
+      - {name: chunks, type: 'tuple[PreparedChunk, ...]'}
+    methods: []
+    storage: {form: mapped, tables: [knowledge.knowledge_documents], via: PostgreSQLCorpusStore}
+    implementation:
+      status: implemented
+      evidence:
+        - rag:src/pipesor_rag_retrieval/corpus.py:40-45
+  - id: PreparedChunk
+    name: PreparedChunk
+    container: rag_retrieval
+    package: pipesor_rag_retrieval.corpus
+    layer: unlayered
+    stereotype: Record
+    status: implemented
+    attributes:
+      - {name: id, type: UUID}
+      - {name: index, type: int}
+      - {name: content, type: str}
+      - {name: provenance, type: str}
+      - {name: embedding, type: 'tuple[float, ...]'}
+      - {name: embedding_model, type: str}
+      - {name: embedding_model_version, type: str}
+    methods: []
+    storage: {form: mapped, tables: [knowledge.knowledge_chunks], via: PostgreSQLCorpusStore}
+    implementation:
+      status: implemented
+      evidence:
+        - rag:src/pipesor_rag_retrieval/corpus.py:29-37
 
 relationships:
   - {from: DiagnosisCommandController, to: GenerateDiagnosisCommandService, type: dispatches, label: command}
@@ -631,6 +2925,92 @@ relationships:
   - {from: JpaHumanReviewRepositoryAdapter, to: HumanReview, type: persists}
   - {from: HumanReviewCommandServiceImpl, to: AuditTrailPort, type: injects, label: "audits metadata"}
   - {from: PostgresAuditTrailAdapter, to: AuditTrailPort, type: implements}
+  # Relaciones del código (DC-007).
+  - {from: Incident, to: IncidentDetails, type: uses, ownership: composition, multiplicity: '1', label: details}
+  - {from: Incident, to: IncidentLifecycle, type: uses, ownership: composition, multiplicity: '1', label: lifecycle}
+  - {from: Incident, to: ExecutionOutcome, type: uses, ownership: composition, multiplicity: '1', label: origin}
+  - {from: Incident, to: VerificationExecution, type: uses, label: checks a verification}
+  - {from: Incident, to: IncidentAction, type: uses, label: transition action}
+  - {from: IncidentDetails, to: PipelineStage, type: uses, label: stage}
+  - {from: IncidentDetails, to: Severity, type: uses, label: severity}
+  - {from: IncidentLifecycle, to: IncidentStatus, type: uses, label: status}
+  - {from: JpaIncidentStore, to: IncidentStore, type: implements}
+  - {from: JpaIncidentStore, to: Incident, type: translates, label: restores and saves}
+  - {from: JpaIncidentStore, to: IncidentJpaEntity, type: persists}
+  - {from: JpaIncidentStore, to: IncidentRunJpaEntity, type: persists, label: ORIGIN/VERIFICATION rows}
+  - {from: IncidentRunJpaEntity, to: IncidentRunRole, type: uses, label: role}
+  - {from: GitHubConnection, to: ConnectionRoot, type: uses, ownership: composition, multiplicity: '1', label: root}
+  - {from: GitHubConnection, to: ConnectionGeneration, type: uses, ownership: composition, multiplicity: 0..*, label: generations}
+  - {from: GitHubConnection, to: ConnectionAttempt, type: uses, ownership: composition, multiplicity: 0..*, label: attempts}
+  - {from: GitHubConnection, to: ConnectionOperation, type: uses, ownership: composition, multiplicity: 0..*, label: operations}
+  - {from: ConnectionRoot, to: ConnectionIdentity, type: uses, label: identity}
+  - {from: ConnectionAttempt, to: StateDigest, type: uses, label: stateDigest}
+  - {from: ConnectionAttempt, to: AttemptPhase, type: uses, label: phase}
+  - {from: ConnectionAttempt, to: SecretReference, type: uses, label: PKCE references}
+  - {from: ConnectionGeneration, to: GenerationState, type: uses, label: state}
+  - {from: ConnectionGeneration, to: SecretReference, type: uses, label: secret references}
+  - {from: ConnectionOperation, to: OperationKind, type: uses, label: kind}
+  - {from: ConnectionOperation, to: OperationPhase, type: uses, label: phase}
+  - {from: JpaConnectionRepository, to: ConnectionRepository, type: implements}
+  - {from: JpaConnectionRepository, to: GitHubConnection, type: persists, label: four tables}
+  - {from: CaptureReceipt, to: CaptureScope, type: uses, ownership: composition, multiplicity: '1', label: scope}
+  - {from: CaptureReceipt, to: WorkflowObservation, type: uses, label: checks the prepared observation}
+  - {from: WorkflowObservation, to: ObservationCaptureContext, type: uses, ownership: composition, multiplicity: '1', label: captureContext}
+  - {from: WorkflowObservation, to: ObservationPipeline, type: uses, ownership: composition, multiplicity: '1', label: pipeline}
+  - {from: WorkflowObservation, to: ObservationExecution, type: uses, ownership: composition, multiplicity: '1', label: execution}
+  - {from: WorkflowObservation, to: ObservationStage, type: uses, ownership: composition, multiplicity: 0..*, label: stages}
+  - {from: WorkflowObservation, to: ObservationFailure, type: uses, ownership: composition, multiplicity: 0..1, label: failure}
+  - {from: WorkflowObservation, to: ObservationEvidence, type: uses, ownership: composition, multiplicity: 0..1, label: evidence}
+  - {from: ObservationStage, to: ObservationStageName, type: uses, label: stage}
+  - {from: CaptureScope, to: ObservationCaptureContext, type: translates, label: context()}
+  - {from: JpaCaptureLedger, to: CaptureLedger, type: implements}
+  - {from: JpaCaptureLedger, to: CaptureReceipt, type: persists, label: capture_receipts}
+  - {from: JpaCaptureLedger, to: WorkflowObservation, type: persists, label: observations and outputs}
+  - {from: EvidenceInput, to: EvidenceScope, type: uses, label: scope}
+  - {from: EvidenceInput, to: EvidencePipelineStage, type: uses, label: stage}
+  - {from: EvidenceInput, to: EvidenceIdentity, type: uses, label: evidenceId()}
+  - {from: RegisterEvidenceHandler, to: EvidenceStore, type: injects, label: register, methods: [register]}
+  - {from: RegisterEvidenceHandler, to: EvidenceInput, type: uses, label: handles}
+  - {from: JdbcEvidenceStore, to: EvidenceStore, type: implements}
+  - {from: JdbcEvidenceStore, to: EvidenceInput, type: persists, label: evidence_items}
+  - {from: CorrelationGroup, to: CorrelationContext, type: uses, ownership: composition, multiplicity: '1', label: context}
+  - {from: CorrelationContribution, to: CorrelationContext, type: uses, label: context}
+  - {from: CorrelationContribution, to: EvidenceSignal, type: uses, label: signal}
+  - {from: CorrelationContribution, to: ScopeEnvelope, type: uses, label: scope}
+  - {from: EvidenceSignal, to: CorrelationSourceLocator, type: uses, label: validShape}
+  - {from: DurableCorrelationStore, to: CorrelationGroup, type: persists, label: groups and evidence IDs}
+  - {from: DurableCorrelationStore, to: CorrelatedContextEntity, type: persists, label: immutable snapshot}
+  - {from: DurableCorrelationStore, to: CorrelationContribution, type: persists, label: receipt}
+  - {from: OrchestratorDiagnosis, to: OrchestratorHypothesis, type: uses, ownership: composition, multiplicity: '1', label: hypothesis}
+  - {from: OrchestratorDiagnosis, to: OrchestratorEvidence, type: uses, ownership: composition, multiplicity: 1..*, label: cited evidence}
+  - {from: OrchestratorDiagnosis, to: OrchestratorSource, type: uses, ownership: composition, multiplicity: 0..*, label: cited sources}
+  - {from: OrchestratorHypothesis, to: OrchestratorModel, type: uses, ownership: composition, multiplicity: 0..1, label: model}
+  - {from: ReviewRecord, to: ReviewDecision, type: uses, label: decision}
+  - {from: ReviewSubmission, to: ReviewDecision, type: uses, label: decision}
+  - {from: OrchestratorDiagnosis, to: Diagnosis, type: realizes, label: 'divergent: record serialized in output'}
+  - {from: ReviewRecord, to: HumanReview, type: realizes, label: 'partial: no diagnosticId or createdAt'}
+  - {from: ProtectedEvidenceMessage, to: NlpCaptureContext, type: uses, ownership: composition, multiplicity: '1', label: capture_context}
+  - {from: ProtectedEvidenceMessage, to: NlpPipelineContext, type: uses, ownership: composition, multiplicity: '1', label: pipeline}
+  - {from: ProtectedEvidenceMessage, to: NlpExecutionContext, type: uses, ownership: composition, multiplicity: '1', label: execution}
+  - {from: ProtectedEvidenceMessage, to: NlpCommitContext, type: uses, ownership: composition, multiplicity: '1', label: commit}
+  - {from: ProtectedEvidenceMessage, to: NlpEvidenceContext, type: uses, ownership: composition, multiplicity: '1', label: evidence}
+  - {from: CorrelationEvidence, to: NlpCaptureContext, type: uses, label: capture_context}
+  - {from: CorrelationEvidence, to: NlpPipelineContext, type: uses, label: pipeline}
+  - {from: CorrelationEvidence, to: NlpExecutionContext, type: uses, label: execution}
+  - {from: CorrelationEvidence, to: NlpCommitContext, type: uses, label: commit}
+  - {from: KnowledgeChunk, to: RagCorpusKind, type: uses, label: corpus_kind}
+  - {from: KnowledgeChunk, to: RagAuthorizationScope, type: uses, ownership: composition, multiplicity: '1', label: scope}
+  - {from: PostgreSQLKnowledgeRepository, to: KnowledgeRepository, type: implements, label: structural}
+  - {from: PostgreSQLKnowledgeRepository, to: KnowledgeDocumentRecord, type: persists}
+  - {from: PostgreSQLKnowledgeRepository, to: KnowledgeChunkRecord, type: persists}
+  - {from: PostgreSQLKnowledgeRepository, to: KnowledgeChunk, type: translates, label: _to_domain}
+  - {from: PostgreSQLCorpusStore, to: CorpusStore, type: implements, label: structural}
+  - {from: PostgreSQLCorpusStore, to: PreparedDocument, type: persists}
+  - {from: PostgreSQLCorpusStore, to: PreparedChunk, type: persists}
+  - {from: PreparedDocument, to: CorpusImport, type: uses, ownership: composition, multiplicity: '1', label: request}
+  - {from: PreparedDocument, to: PreparedChunk, type: uses, ownership: composition, multiplicity: 1..*, label: chunks}
+  - {from: CorpusImport, to: RagAuthorizationScope, type: uses, label: scope}
+  - {from: CorpusImport, to: RagCorpusKind, type: uses, label: corpus_kind}
 
 assumptions:
   - id: DA-001

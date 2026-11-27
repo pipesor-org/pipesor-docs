@@ -1,0 +1,59 @@
+# Descripciones legibles de los elementos en las vistas C4 canónicas y en sus variantes de impresión.
+#
+# Autorizado por el responsable el 27/11/2026 (fase 2 de la auditoría de diagramas, decisión 6),
+# para cumplir la pregunta del checklist de c4model.com «¿Entiendes qué hace cada elemento?».
+# Solo presentación: cada texto resume en una frase las responsabilidades que el elemento ya
+# declara en model/architecture.yml. No crea, retira ni reinterpreta arquitectura.
+model_version: "1.0.0"
+architecture_source: model/architecture.yml
+
+descriptions:
+  # The software system itself (architecture.id), drawn as the central box of the context view.
+  ey_aiops_ci_cd_diagnosis: "AIOps prototype that captures failed GitHub Actions runs, correlates their evidence and proposes a probable cause for human review"
+  technical_users: "Developers, DevOps/SRE, QA, technical leads and security staff who query diagnoses and record human review"
+  github: "Hosts the repositories and the read-only GitHub App used for capture and sign-in"
+  github_actions: "Runs the CI/CD workflows; source of failure evidence and publisher of the diagnosis artifact"
+  observability_sources: "Azure Monitor sources of container, deployment and runtime evidence"
+  ingestion_normalization_service: "Captures authorized evidence, normalizes and protects it before analysis, and owns GitHub sign-in"
+  azure_service_bus: "Topic with subscriptions that decouples capture from processing"
+  azure_key_vault: "Non-exportable signing keys, GitHub App material and custody of user tokens"
+  nlp_log_processor: "Processes protected log evidence semantically before correlation"
+  pipeline_service: "Registers pipelines and executions, opens incidents and serves the incident queue"
+  log_event_service: "Registers normalized evidence and verifies evidence membership"
+  evidence_correlation_engine: "Correlates the evidence of a failed execution into an incident context"
+  recommendation_service: "Generates probable-cause hypotheses with RAG and a pretrained LLM, and records human review"
+  human_review_component: "Records the human validation of each diagnosis"
+  diagnostic_api_component: "Exposes the diagnostic output and receives human review operations"
+  diagnostic_orchestrator_component: "Coordinates the correlated context, RAG retrieval and LLM inference"
+  diagnostic_output_component: "Composes the probable cause with its evidence, sources, recommendation and limitations"
+  rag_retrieval: "Retrieves authorized knowledge by semantic similarity, with provenance"
+  pretrained_llm_diagnostic_service: "Pretrained LLM that generates diagnostic hypotheses from sanitized evidence and RAG context"
+  postgresql_operational_store: "Single PostgreSQL instance with one schema per bounded context"
+  pgvector_knowledge_store: "Vector index of the authorized RAG corpus"
+  web_dashboard: "Shows incidents, diagnoses and evidence, and records human review"
+  ingestion_webhook_component: "Verifies signed workflow_run deliveries, resolves their capture scope and records a durable receipt"
+  ingestion_capture_component: "Keeps repository admissions, workflow capture scopes and the durable capture ledger"
+  ingestion_preparation_component: "Reads the failed run's metadata, jobs and logs with an installation token"
+  ingestion_normalization_component: "Maps the observation to the canonical event and masks, filters and minimizes it"
+  ingestion_publication_component: "Publishes the frozen outputs to Service Bus and confirms them"
+  ingestion_sign_in_component: "GitHub sign-in with PKCE and consent; issues signed session tokens"
+  ingestion_github_connector_component: "Connects the user's GitHub account, verifies access and discovers workflows"
+
+# Partes de impresión A4 de una vista de componentes que no cabe a 8 pt en una sola página.
+# Cada parte dibuja los componentes indicados, sus relaciones y solo los vecinos con los que se
+# relacionan. La vista canónica completa sigue en out/<vista>.svg. No hay relaciones entre partes.
+print_parts:
+  c4_component_ingestion:
+    - id: c4_component_ingestion_capture
+      title: "C4 Level 3 — Ingestion Components (1/2: capture and publication)"
+      components:
+        - ingestion_webhook_component
+        - ingestion_capture_component
+        - ingestion_preparation_component
+        - ingestion_normalization_component
+        - ingestion_publication_component
+    - id: c4_component_ingestion_identity
+      title: "C4 Level 3 — Ingestion Components (2/2: sign-in and GitHub connector)"
+      components:
+        - ingestion_sign_in_component
+        - ingestion_github_connector_component

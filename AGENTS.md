@@ -11,6 +11,7 @@ Codex is NOT the architecture decision authority.
 - Persistent domain SSOT: `model/domain.yml`, explained by `model/domain_decisions.md`, within ADR-018 boundaries.
 - Proposed class-design SSOT: `model/design.yml`, explained by `model/design_decisions.md`. It describes proposed classes, not approved or implemented application code.
 - Presentation models: `model/logical_presentation.yml`, `model/physical_presentation.yml` and `model/c4_container_presentation.yml`. They define visual composition and projections of existing architecture facts; they cannot create architectural decisions.
+- Implementation overlay: `model/implementation_status.yml` (authorized by the owner on 27/11/2026) records, for existing architecture and domain IDs, whether code implements them and where (`repo:path:line` at pinned revisions). It creates, removes or reinterprets no architecture, cannot change `status` or `source`, and closes no open question. `model/c4_presentation.yml`, `model/sequence_presentation.yml` and `model/deployment_presentation.yml` (same date) are presentation models under the rules above; participants or nodes marked `implementation_only` show implemented facts that are not modeled and never become architecture by being drawn.
 - Generated artifacts: `model/db.dbml`, `build/` and `out/`. DBML, SQL, ER and the data dictionary derive from `model/domain.yml`; DBML is not an independent database SSOT.
 
 Authority is by subject, as recorded in ADR-018 and model governance: Project Charter for scope; architecture/invariants and applicable Accepted ADRs for architecture; tech drift resolutions and applicable technology ADRs for technology. `docs/research/arquitectura-informacion.md` derives functional needs within those limits and must be read against subsequent decisions. Do not impose a new linear precedence.
@@ -63,7 +64,7 @@ If Make or required dependencies are unavailable, report the limitation without 
 
 ## Views
 
-- Render architecture views declared in `model/architecture.yml`, presentation views declared in the presentation models, and proposed class diagrams declared in `model/design.yml`.
+- Render architecture views declared in `model/architecture.yml`, presentation views declared in the presentation models (including sequences and deployment), and class diagrams declared in `model/design.yml`. Mark each drawn fact with its implementation state from the overlay; an unmarked fact is implemented or external.
 - Each view's declared membership (`views[].elements`, or `class_diagrams[].elements` for classes) is authoritative within its model, subject to that model's existing projection rules. Presentation models do not replace canonical architecture views.
 - Maximum architectural nodes per view is defined by `architecture.view_constraints.max_nodes_per_view`.
 - Never insert undeclared architectural nodes into a view.

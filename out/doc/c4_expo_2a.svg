@@ -32,7 +32,7 @@
 <!-- ingestion_normalization_service&#45;&gt;github_actions -->
 <g id="rel_ingestion_github_actions_read" class="edge">
 <title>ingestion_normalization_service&#45;&gt;github_actions</title>
-<g id="a_rel_ingestion_github_actions_read"><a xlink:title="08: Retrieves authorized logs, artifacts and metadata (GitHub API/HTTPS)">
+<g id="a_rel_ingestion_github_actions_read"><a xlink:title="08: Retrieves authorized run metadata, jobs and logs (GitHub API/HTTPS)">
 <path fill="none" stroke="#52647a" stroke-width="1.4" d="M331,-795C324,-783.33 317,-771.67 310,-760 301.67,-760 293.33,-760 285,-760 280.77,-769.24 276.55,-778.48 272.33,-787.72"/>
 <polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="270.56,-785.69 269.88,-793.07 275.02,-787.73 270.56,-785.69"/>
 </a>
@@ -52,12 +52,12 @@
 <!-- azure_service_bus&#45;&gt;log_event_service -->
 <g id="rel_service_bus_log_event_service" class="edge">
 <title>azure_service_bus&#45;&gt;log_event_service</title>
-<g id="a_rel_service_bus_log_event_service"><a xlink:title="03: Delivers normalized evidence for registration and querying (Azure Service Bus)">
-<path fill="none" stroke="#52647a" stroke-width="1.4" stroke-dasharray="5,2" d="M720,-882C720,-889.33 720,-896.67 720,-904 900,-904 1080,-904 1260,-904 1260,-899.33 1260,-894.67 1260,-890"/>
-<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="1262.45,-891.12 1260,-884.12 1257.55,-891.12 1262.45,-891.12"/>
+<g id="a_rel_service_bus_log_event_service"><a xlink:title="03: Delivers normalized evidence for registration and querying (Azure Service Bus · partial)">
+<path fill="none" stroke="#b45309" stroke-width="2.2" stroke-dasharray="5,2" d="M720,-882C720,-889.33 720,-896.67 720,-904 900,-904 1080,-904 1260,-904 1260,-899.33 1260,-894.67 1260,-890"/>
+<polygon fill="#b45309" stroke="#b45309" stroke-width="2.2" points="1262.45,-892.33 1260,-885.33 1257.55,-892.33 1262.45,-892.33"/>
 </a>
 </g>
-<text xml:space="preserve" text-anchor="start" x="1137.25" y="-898.77" font-family="DejaVu Sans" font-weight="bold" font-size="18.00">03</text>
+<text xml:space="preserve" text-anchor="start" x="1137.25" y="-898.77" font-family="DejaVu Sans" font-weight="bold" font-size="18.00" fill="#b45309">03</text>
 </g>
 <!-- azure_service_bus&#45;&gt;nlp_log_processor -->
 <g id="rel_service_bus_nlp" class="edge">
@@ -182,12 +182,12 @@
 <!-- recommendation_service&#45;&gt;pipeline_service -->
 <g id="rel_recommendation_pipeline_diagnosis_summary" class="edge">
 <title>recommendation_service&#45;&gt;pipeline_service</title>
-<g id="a_rel_recommendation_pipeline_diagnosis_summary"><a xlink:title="27: Projects the incident diagnosis summary into Pipeline&#39;s incident queue read model (REST/HTTPS)">
-<path fill="none" stroke="#52647a" stroke-width="1.4" d="M1230,-622C1230,-641.33 1230,-660.67 1230,-680 1163.33,-680 1096.67,-680 1030,-680 1030,-686.67 1030,-693.33 1030,-700"/>
-<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="1027.55,-698.88 1030,-705.88 1032.45,-698.88 1027.55,-698.88"/>
+<g id="a_rel_recommendation_pipeline_diagnosis_summary"><a xlink:title="27: Projects the incident diagnosis summary into Pipeline&#39;s incident queue read model (REST/HTTPS · differs)">
+<path fill="none" stroke="#6d28d9" stroke-width="2.2" d="M1230,-622C1230,-641.33 1230,-660.67 1230,-680 1163.33,-680 1096.67,-680 1030,-680 1030,-686.67 1030,-693.33 1030,-700"/>
+<polygon fill="#6d28d9" stroke="#6d28d9" stroke-width="2.2" points="1027.55,-697.67 1030,-704.67 1032.45,-697.67 1027.55,-697.67"/>
 </a>
 </g>
-<text xml:space="preserve" text-anchor="start" x="1067.25" y="-674.77" font-family="DejaVu Sans" font-weight="bold" font-size="18.00">27</text>
+<text xml:space="preserve" text-anchor="start" x="1067.25" y="-674.77" font-family="DejaVu Sans" font-weight="bold" font-size="18.00" fill="#6d28d9">27</text>
 </g>
 <!-- recommendation_service&#45;&gt;rag_retrieval -->
 <g id="rel_recommendation_rag" class="edge">
@@ -202,7 +202,7 @@
 <!-- recommendation_service&#45;&gt;postgresql_operational_store -->
 <g id="rel_recommendation_service_postgresql" class="edge">
 <title>recommendation_service&#45;&gt;postgresql_operational_store</title>
-<g id="a_rel_recommendation_service_postgresql"><a xlink:title="07: Persists diagnosis, recommendations and evidence links (PostgreSQL)">
+<g id="a_rel_recommendation_service_postgresql"><a xlink:title="07: Persists diagnoses with their recommendation and cited evidence (PostgreSQL)">
 <path fill="none" stroke="#52647a" stroke-width="1.4" d="M1260,-448C1260,-432 1260,-416 1260,-400 1038.33,-400 816.67,-400 595,-400 595,-345.67 595,-291.33 595,-237 589,-237 583,-237 577,-237"/>
 <polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="578.12,-234.55 571.12,-237 578.12,-239.45 578.12,-234.55"/>
 </a>
@@ -272,12 +272,12 @@
 <!-- observability_sources&#45;&gt;ingestion_normalization_service -->
 <g id="rel_observability_sources_ingestion" class="edge">
 <title>observability_sources&#45;&gt;ingestion_normalization_service</title>
-<g id="a_rel_observability_sources_ingestion"><a xlink:title="15: Provides authorized telemetry and operational evidence (REST/HTTPS)">
-<path fill="none" stroke="#52647a" stroke-width="1.4" d="M269,-535C279.33,-535 289.67,-535 300,-535 300,-578.33 300,-621.67 300,-665 350,-665 400,-665 450,-665 450,-676.67 450,-688.33 450,-700"/>
-<polygon fill="#52647a" stroke="#52647a" stroke-width="1.4" points="447.55,-698.88 450,-705.88 452.45,-698.88 447.55,-698.88"/>
+<g id="a_rel_observability_sources_ingestion"><a xlink:title="15: Provides authorized telemetry and operational evidence (REST/HTTPS · not implemented)">
+<path fill="none" stroke="#b91c1c" stroke-width="2.2" d="M269,-535C279.33,-535 289.67,-535 300,-535 300,-578.33 300,-621.67 300,-665 350,-665 400,-665 450,-665 450,-676.67 450,-688.33 450,-700"/>
+<polygon fill="#b91c1c" stroke="#b91c1c" stroke-width="2.2" points="447.55,-697.67 450,-704.67 452.45,-697.67 447.55,-697.67"/>
 </a>
 </g>
-<text xml:space="preserve" text-anchor="start" x="367.25" y="-659.77" font-family="DejaVu Sans" font-weight="bold" font-size="18.00">15</text>
+<text xml:space="preserve" text-anchor="start" x="367.25" y="-659.77" font-family="DejaVu Sans" font-weight="bold" font-size="18.00" fill="#b91c1c">15</text>
 </g>
 <!-- prototype_boundary -->
 <g id="node1" class="node">
@@ -332,12 +332,12 @@
 <g id="node6" class="node">
 <title>log_event_service</title>
 <g id="a_node6"><a xlink:title="Log/Event Service | register_normalized_evidence">
-<path fill="#eff6ff" stroke="#2563eb" stroke-width="1.6" d="M1367,-882C1367,-882 1153,-882 1153,-882 1147,-882 1141,-876 1141,-870 1141,-870 1141,-720 1141,-720 1141,-714 1147,-708 1153,-708 1153,-708 1367,-708 1367,-708 1373,-708 1379,-714 1379,-720 1379,-720 1379,-870 1379,-870 1379,-876 1373,-882 1367,-882"/>
+<path fill="#eff6ff" stroke="#b45309" stroke-width="2.6" d="M1367,-882C1367,-882 1153,-882 1153,-882 1147,-882 1141,-876 1141,-870 1141,-870 1141,-720 1141,-720 1141,-714 1147,-708 1153,-708 1153,-708 1367,-708 1367,-708 1373,-708 1379,-714 1379,-720 1379,-720 1379,-870 1379,-870 1379,-876 1373,-882 1367,-882"/>
 <text xml:space="preserve" text-anchor="start" x="1174.88" y="-838.35" font-family="DejaVu Sans" font-weight="bold" font-size="17.00" fill="#172554">Log/Event Service</text>
 <text xml:space="preserve" text-anchor="start" x="1168.12" y="-810.35" font-family="DejaVu Sans" font-size="17.00" fill="#172554">Azure Container Apps</text>
 <text xml:space="preserve" text-anchor="start" x="1184.62" y="-789.35" font-family="DejaVu Sans" font-size="17.00" fill="#172554">Java / Spring Boot</text>
 <text xml:space="preserve" text-anchor="start" x="1188.38" y="-762.35" font-family="DejaVu Sans" font-size="17.00" fill="#172554">Logs, events and</text>
-<text xml:space="preserve" text-anchor="start" x="1222.12" y="-741.35" font-family="DejaVu Sans" font-size="17.00" fill="#172554">evidence</text>
+<text xml:space="preserve" text-anchor="start" x="1185.75" y="-741.35" font-family="DejaVu Sans" font-size="17.00" fill="#172554">evidence (partial)</text>
 </a>
 </g>
 </g>
@@ -345,12 +345,13 @@
 <g id="node7" class="node">
 <title>nlp_log_processor</title>
 <g id="a_node7"><a xlink:title="NLP Log Processing | semantic_representation">
-<path fill="#eff6ff" stroke="#2563eb" stroke-width="1.6" d="M827,-622C827,-622 613,-622 613,-622 607,-622 601,-616 601,-610 601,-610 601,-460 601,-460 601,-454 607,-448 613,-448 613,-448 827,-448 827,-448 833,-448 839,-454 839,-460 839,-460 839,-610 839,-610 839,-616 833,-622 827,-622"/>
-<text xml:space="preserve" text-anchor="start" x="626.25" y="-578.35" font-family="DejaVu Sans" font-weight="bold" font-size="17.00" fill="#172554">NLP Log Processing</text>
-<text xml:space="preserve" text-anchor="start" x="628.12" y="-550.35" font-family="DejaVu Sans" font-size="17.00" fill="#172554">Azure Container Apps</text>
-<text xml:space="preserve" text-anchor="start" x="651.38" y="-529.35" font-family="DejaVu Sans" font-size="17.00" fill="#172554">Python / FastAPI</text>
-<text xml:space="preserve" text-anchor="start" x="692.25" y="-508.35" font-family="DejaVu Sans" font-size="17.00" fill="#172554">Drain3</text>
-<text xml:space="preserve" text-anchor="start" x="632.62" y="-481.35" font-family="DejaVu Sans" font-size="17.00" fill="#172554">Semantic processing</text>
+<path fill="#eff6ff" stroke="#b45309" stroke-width="2.6" d="M827,-622C827,-622 613,-622 613,-622 607,-622 601,-616 601,-610 601,-610 601,-460 601,-460 601,-454 607,-448 613,-448 613,-448 827,-448 827,-448 833,-448 839,-454 839,-460 839,-460 839,-610 839,-610 839,-616 833,-622 827,-622"/>
+<text xml:space="preserve" text-anchor="start" x="626.25" y="-588.85" font-family="DejaVu Sans" font-weight="bold" font-size="17.00" fill="#172554">NLP Log Processing</text>
+<text xml:space="preserve" text-anchor="start" x="628.12" y="-560.85" font-family="DejaVu Sans" font-size="17.00" fill="#172554">Azure Container Apps</text>
+<text xml:space="preserve" text-anchor="start" x="651.38" y="-539.85" font-family="DejaVu Sans" font-size="17.00" fill="#172554">Python / FastAPI</text>
+<text xml:space="preserve" text-anchor="start" x="692.25" y="-518.85" font-family="DejaVu Sans" font-size="17.00" fill="#172554">Drain3</text>
+<text xml:space="preserve" text-anchor="start" x="632.62" y="-491.85" font-family="DejaVu Sans" font-size="17.00" fill="#172554">Semantic processing</text>
+<text xml:space="preserve" text-anchor="start" x="686.25" y="-470.85" font-family="DejaVu Sans" font-size="17.00" fill="#172554">(partial)</text>
 </a>
 </g>
 </g>
@@ -371,14 +372,14 @@
 <g id="node9" class="node">
 <title>recommendation_service</title>
 <g id="a_node9"><a xlink:title="Diagnostic &amp; Recommendation Service | generate_initial_recommendations">
-<path fill="#eff6ff" stroke="#2563eb" stroke-width="1.6" d="M1367,-622C1367,-622 1153,-622 1153,-622 1147,-622 1141,-616 1141,-610 1141,-610 1141,-460 1141,-460 1141,-454 1147,-448 1153,-448 1153,-448 1367,-448 1367,-448 1373,-448 1379,-454 1379,-460 1379,-460 1379,-610 1379,-610 1379,-616 1373,-622 1367,-622"/>
+<path fill="#eff6ff" stroke="#b45309" stroke-width="2.6" d="M1367,-622C1367,-622 1153,-622 1153,-622 1147,-622 1141,-616 1141,-610 1141,-610 1141,-460 1141,-460 1141,-454 1147,-448 1153,-448 1153,-448 1367,-448 1367,-448 1373,-448 1379,-454 1379,-460 1379,-460 1379,-610 1379,-610 1379,-616 1373,-622 1367,-622"/>
 <text xml:space="preserve" text-anchor="start" x="1198.88" y="-593.35" font-family="DejaVu Sans" font-weight="bold" font-size="17.00" fill="#172554">Diagnostic &amp;</text>
 <text xml:space="preserve" text-anchor="start" x="1176.75" y="-576.35" font-family="DejaVu Sans" font-weight="bold" font-size="17.00" fill="#172554">Recommendation</text>
 <text xml:space="preserve" text-anchor="start" x="1225.12" y="-559.35" font-family="DejaVu Sans" font-weight="bold" font-size="17.00" fill="#172554">Service</text>
 <text xml:space="preserve" text-anchor="start" x="1168.12" y="-535.35" font-family="DejaVu Sans" font-size="17.00" fill="#172554">Azure Container Apps</text>
 <text xml:space="preserve" text-anchor="start" x="1184.62" y="-514.35" font-family="DejaVu Sans" font-size="17.00" fill="#172554">Java / Spring Boot</text>
 <text xml:space="preserve" text-anchor="start" x="1177.5" y="-487.35" font-family="DejaVu Sans" font-size="17.00" fill="#172554">Probable cause and</text>
-<text xml:space="preserve" text-anchor="start" x="1231.88" y="-466.35" font-family="DejaVu Sans" font-size="17.00" fill="#172554">review</text>
+<text xml:space="preserve" text-anchor="start" x="1195.5" y="-466.35" font-family="DejaVu Sans" font-size="17.00" fill="#172554">review (partial)</text>
 </a>
 </g>
 </g>
@@ -423,13 +424,14 @@
 <g id="node13" class="node">
 <title>observability_sources</title>
 <g id="a_node13"><a xlink:title="Compatible Observability and Runtime Sources | Represent CI/CD, DevSecOps and observability tools that produce or consume operational evidence.">
-<polygon fill="#f1f5f9" stroke="#64748b" stroke-width="1.6" stroke-dasharray="5,2" points="269,-622 31,-622 31,-448 269,-448 269,-622"/>
-<text xml:space="preserve" text-anchor="start" x="95.25" y="-582.85" font-family="DejaVu Sans" font-weight="bold" font-size="17.00" fill="#334155">Compatible</text>
-<text xml:space="preserve" text-anchor="start" x="65.62" y="-565.85" font-family="DejaVu Sans" font-weight="bold" font-size="17.00" fill="#334155">Observability and</text>
-<text xml:space="preserve" text-anchor="start" x="69.38" y="-548.85" font-family="DejaVu Sans" font-weight="bold" font-size="17.00" fill="#334155">Runtime Sources</text>
-<text xml:space="preserve" text-anchor="start" x="90.75" y="-524.85" font-family="DejaVu Sans" font-size="17.00" fill="#334155">Azure Monitor</text>
-<text xml:space="preserve" text-anchor="start" x="67.5" y="-503.85" font-family="DejaVu Sans" font-size="17.00" fill="#334155">Application Insights</text>
-<text xml:space="preserve" text-anchor="start" x="60.38" y="-476.85" font-family="DejaVu Sans" font-size="17.00" fill="#334155">Authorized telemetry</text>
+<polygon fill="#f1f5f9" stroke="#b45309" stroke-width="2.6" stroke-dasharray="5,2" points="269,-622 31,-622 31,-448 269,-448 269,-622"/>
+<text xml:space="preserve" text-anchor="start" x="95.25" y="-593.35" font-family="DejaVu Sans" font-weight="bold" font-size="17.00" fill="#334155">Compatible</text>
+<text xml:space="preserve" text-anchor="start" x="65.62" y="-576.35" font-family="DejaVu Sans" font-weight="bold" font-size="17.00" fill="#334155">Observability and</text>
+<text xml:space="preserve" text-anchor="start" x="69.38" y="-559.35" font-family="DejaVu Sans" font-weight="bold" font-size="17.00" fill="#334155">Runtime Sources</text>
+<text xml:space="preserve" text-anchor="start" x="90.75" y="-535.35" font-family="DejaVu Sans" font-size="17.00" fill="#334155">Azure Monitor</text>
+<text xml:space="preserve" text-anchor="start" x="67.5" y="-514.35" font-family="DejaVu Sans" font-size="17.00" fill="#334155">Application Insights</text>
+<text xml:space="preserve" text-anchor="start" x="60.38" y="-487.35" font-family="DejaVu Sans" font-size="17.00" fill="#334155">Authorized telemetry</text>
+<text xml:space="preserve" text-anchor="start" x="116.25" y="-466.35" font-family="DejaVu Sans" font-size="17.00" fill="#334155">(partial)</text>
 </a>
 </g>
 </g>

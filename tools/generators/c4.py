@@ -15,6 +15,8 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 MODEL = ROOT / "model" / "architecture.yml"
+PRESENTATION = ROOT / "model" / "c4_presentation.yml"
+OVERLAY = ROOT / "model" / "implementation_status.yml"
 BUILD = ROOT / "build"
 OUT = ROOT / "out"
 JAR = ROOT / "tools" / "plantuml.jar"
@@ -27,6 +29,56 @@ EXTERNAL_KINDS = {"actor", "external_system"}
 SAFE_ID = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 STYLES = {"sync": "", "async": "DashedLine()",
           "event": "DottedLine()", "governance": "DashedLine()"}
+# Implementation state from model/implementation_status.yml: colour plus a text marker,
+# so the state stays readable in monochrome print. Implemented and external facts are unmarked.
+STATE_TAGS = {
+    "partial": ("#B45309", "partially implemented", "partial"),
+    "divergent": ("#6D28D9", "implemented differently", "differs"),
+    "not_implemented": ("#B91C1C", "modeled, not implemented", "not implemented"),
+}
+
+
+def load_presentation(path=PRESENTATION):
+    if not Path(path).exists():
+        return {}
+    with Path(path).open(encoding="utf-8") as stream:
+        return (yaml.safe_load(stream) or {}).get("descriptions") or {}
+
+
+def load_print_parts(path=PRESENTATION):
+    if not Path(path).exists():
+        return {}
+    with Path(path).open(encoding="utf-8") as stream:
+        return (yaml.safe_load(stream) or {}).get("print_parts") or {}
+
+
+def load_overlay(path=OVERLAY):
+    if not Path(path).exists():
+        return {}
+    with Path(path).open(encoding="utf-8") as stream:
+        return yaml.safe_load(stream) or {}
+
+
+def overlay_state(overlay, section, key):
+    entry = ((overlay.get("architecture") or {}).get(section) or {}).get(key)
+    return entry.get("status") if isinstance(entry, dict) else None
+
+
+def combined_state(states):
+    """Worst case of the relationships drawn as one edge; a mix with implemented reads as partial."""
+    order = {"implemented": 0, "external": 0, "partial": 1, "divergent": 2, "not_implemented": 3}
+    known = [s for s in states if s]
+    if not known:
+        return None
+    worst = max(known, key=lambda s: order[s])
+    if worst in {"not_implemented", "divergent"} and any(order[s] == 0 for s in known):
+        return "partial"
+    return worst
+
+
+def marked(value, state):
+    tag = STATE_TAGS.get(state)
+    return f"{value} · {tag[2]}" if tag and value else (tag[2] if tag else value)
 
 
 def text(value):
@@ -42,8 +94,9 @@ def quoted(value):
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def description(element, layers, warnings):
-    candidates = [element.get("description"), element.get("responsibility")]
+def description(element, layers, warnings, descriptions=None):
+    candidates = [(descriptions or {}).get(element.get("model_id", element.get("id"))),
+                  element.get("description"), element.get("responsibility")]
     for field in ("responsibilities", "capabilities"):
         entries = element.get(field) or []
         candidates.append(entries[0] if entries else None)
@@ -56,8 +109,23 @@ def description(element, layers, warnings):
     return ""
 
 
-def technology(element, warnings, *, with_pgvector=False):
-    """One null-tolerant resolver, using only the element's own model fields."""
+def stack(element):
+    """Language and framework declared by the element (backend, or frontend with its style)."""
+    for field in ("backend", "frontend"):
+        declared = element.get(field) or {}
+        language, framework = text(declared.get("language")), text(declared.get("framework"))
+        if language and framework:
+            style = text((element.get("technology") or {}).get("architecture_style")) if field == "frontend" else ""
+            return f"{language} / {framework}" + (f" {style}" if style else "")
+    return ""
+
+
+def technology(element, warnings, *, with_pgvector=False, elements=None):
+    """One null-tolerant resolver, using only the element's own model fields.
+
+    C4 asks for the technology of every container and component: a container shows the language
+    and framework it declares (checklist decision of 27/11/2026); a component shows its parent's.
+    """
     host = element.get("host") or {}
     tech = element.get("technology") or {}
     concrete = text(host.get("concrete_service"))
@@ -65,6 +133,11 @@ def technology(element, warnings, *, with_pgvector=False):
     if with_pgvector:
         # Explicitly authorized shared-PostgreSQL C4 projection.
         return "PostgreSQL / pgvector"
+    if declared := stack(element):
+        return declared
+    parent = (elements or {}).get(element.get("parent")) if element.get("kind") == "component" else None
+    if parent and (declared := stack(parent)):
+        return declared
     if concrete:
         framework = text(tech.get("framework"))
         style = text(tech.get("architecture_style"))
@@ -137,6 +210,7 @@ def project(model, view, elements, warnings):
                     f"retains multiple style tags: {'+'.join(group['styles'])}"
                 )
             selected.append({
+                "ids": list(group["ids"]),
                 "id": ", ".join(group["ids"]),
                 "from": group["from"], "to": group["to"],
                 "label": " / ".join(group["labels"][:2]),
@@ -146,7 +220,8 @@ def project(model, view, elements, warnings):
         connected = {r[end] for r in selected for end in ("from", "to")}
         outside = [e for e in model["elements"]
                    if e["id"] in connected and e["kind"] in EXTERNAL_KINDS]
-        central = {**model["architecture"], "id": "aiops", "kind": "software_system"}
+        central = {**model["architecture"], "id": "aiops", "model_id": model["architecture"]["id"],
+                   "kind": "software_system"}
         return Projection(view, [central], outside, selected)
 
     members = view["elements"]
@@ -263,23 +338,34 @@ def prepare(model):
     return projections, warnings
 
 
-def node_line(element, macro, layers, warnings, combined=False):
+def node_line(element, macro, layers, warnings, combined=False, *, descriptions=None,
+              elements=None, state=None):
     alias, name = element["id"], text(element.get("name"))
     if not name:
         raise ValueError(f"{alias}: missing node name")
-    desc = description(element, layers, warnings)
+    desc = description(element, layers, warnings, descriptions)
+    tags = f", $tags={quoted(state)}" if state in STATE_TAGS else ""
     if macro in {"Person", "System"}:
-        return f"{macro}({alias}, {quoted(name)}, {quoted(desc)})"
-    tech = technology(element, warnings, with_pgvector=combined)
+        return f"{macro}({alias}, {quoted(name)}, {quoted(marked(desc, state))}{tags})"
+    tech = marked(technology(element, warnings, with_pgvector=combined, elements=elements), state)
     if macro == "System_Ext":
-        return f"{macro}({alias}, {quoted(name)}, {quoted(desc)}, $type={quoted(tech)})"
-    return f"{macro}({alias}, {quoted(name)}, {quoted(tech)}, {quoted(desc)})"
+        return f"{macro}({alias}, {quoted(name)}, {quoted(desc)}, $type={quoted(tech)}{tags})"
+    return f"{macro}({alias}, {quoted(name)}, {quoted(tech)}, {quoted(desc)}{tags})"
 
 
-def generate_puml(model, projection, warnings):
+def relationship_state(overlay, rel):
+    return combined_state(overlay_state(overlay, "relationships", rid) for rid in rel.get("ids", [rel["id"]]))
+
+
+def generate_puml(model, projection, warnings, descriptions=None, overlay=None):
     view = projection.view
     kind = view["kind"]
+    overlay = overlay or {}
     layers = {layer["id"]: layer for layer in model["layers"]}
+    elements = {e["id"]: e for e in model["elements"]}
+
+    def state_of(element):
+        return overlay_state(overlay, "elements", element["id"])
     lines = [
         "@startuml",
         "' Generated from model/architecture.yml; do not edit manually.",
@@ -298,13 +384,22 @@ def generate_puml(model, projection, warnings):
     for style, line_style in STYLES.items():
         parameter = f", $lineStyle={line_style}" if line_style else ""
         lines.append(f"AddRelTag({quoted(style)}{parameter}, $legendText={quoted(style)})")
+    if overlay:
+        for state, (colour, legend, _) in STATE_TAGS.items():
+            lines.append(f"AddRelTag({quoted(state)}, $lineColor={quoted(colour)}, $textColor={quoted(colour)}, "
+                         f"$legendText={quoted(legend + ' (relationship)')})")
+            lines.append(f"AddElementTag({quoted(state)}, $borderColor={quoted(colour)}, $borderStyle=DashedLine(), "
+                         f"$legendText={quoted(legend + ' (element)')})")
+        lines.append(f"caption Implementation state: model/implementation_status.yml (evidence cutoff "
+                     f"{text(str(overlay.get('evidence_cutoff', '')))}); unmarked = implemented or external")
     lines.append("")
     for element in projection.outside:
         macro = {"actor": "Person", "external_system": "System_Ext",
                  "container": "Container_Ext", "datastore": "ContainerDb_Ext"}[element["kind"]]
-        lines.append(node_line(element, macro, layers, warnings))
+        lines.append(node_line(element, macro, layers, warnings, descriptions=descriptions,
+                               elements=elements, state=state_of(element)))
     if kind == "c4_context":
-        lines.append(node_line(projection.inside[0], "System", layers, warnings))
+        lines.append(node_line(projection.inside[0], "System", layers, warnings, descriptions=descriptions))
     else:
         if kind == "c4_container":
             lines.append(f"System_Boundary(aiops, {quoted(model['architecture']['name'])}) {{")
@@ -317,14 +412,17 @@ def generate_puml(model, projection, warnings):
                      "component": "Component"}[element["kind"]]
             combined = (projection.combined_postgres
                         and element["id"] == "postgresql_operational_store")
-            lines.append("  " + node_line(element, macro, layers, warnings, combined))
+            lines.append("  " + node_line(element, macro, layers, warnings, combined, descriptions=descriptions,
+                                          elements=elements, state=state_of(element)))
         lines.append("}")
     lines.append("")
     for rel in projection.relationships:
+        state = relationship_state(overlay, rel) if overlay else None
+        tags = "+".join(part for part in (rel["style"], state if state in STATE_TAGS else "") if part)
         lines.append(f"' {rel['id']}")
         lines.append(
             f"Rel({rel['from']}, {rel['to']}, {quoted(rel['label'])}, "
-            f"{quoted(rel['protocol'])}, $tags={quoted(rel['style'])})"
+            f"{quoted(marked(rel['protocol'], state))}, $tags={quoted(tags)})"
         )
     lines.extend(["", "SHOW_LEGEND()", "@enduml", ""])
     return "\n".join(lines)
@@ -356,8 +454,9 @@ def main():
         with MODEL.open(encoding="utf-8") as stream:
             model = yaml.safe_load(stream)
         projections, warnings = prepare(model)
+        descriptions, overlay = load_presentation(), load_overlay()
         # Complete preflight before writing any generated files.
-        sources = [(p, generate_puml(model, p, warnings)) for p in projections]
+        sources = [(p, generate_puml(model, p, warnings, descriptions, overlay)) for p in projections]
         BUILD.mkdir(parents=True, exist_ok=True)
         OUT.mkdir(parents=True, exist_ok=True)
         paths = []

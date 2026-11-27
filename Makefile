@@ -4,9 +4,10 @@ VALIDATOR := tools/validate.py
 PHYSICAL_GENERATOR := tools/generators/physical.py
 DOMAIN_MODEL := model/domain.yml
 DESIGN_MODEL := model/design.yml
-.PHONY: all check-env validate validate-domain validate_design validate-logical-expo validate-physical-expo validate-c4-expo validate-doc-figures classes physical physical-expo logical logical-expo c4 c4-expo doc-figures db dbml sql er dictionary clean
+WORKSPACE ?= ..
+.PHONY: all check-env validate validate-domain validate_design validate-logical-expo validate-physical-expo validate-c4-expo validate-doc-figures classes physical physical-expo logical logical-expo c4 c4-expo doc-figures db dbml sql er dictionary sequences deployment traceability evidence clean
 
-all: check-env validate physical physical-expo logical logical-expo c4 c4-expo doc-figures db classes
+all: check-env validate physical physical-expo logical logical-expo c4 c4-expo doc-figures db classes sequences deployment traceability
 
 check-env:
 	@PYTHON="$(PYTHON)" bash tools/check_env.sh
@@ -78,6 +79,22 @@ validate-doc-figures: validate
 doc-figures: validate-doc-figures
 	@echo "==> Generating print-legible document figures (Graphviz)"
 	@$(PYTHON) tools/generators/document_figures.py
+
+sequences: validate
+	@echo "==> Generating sequence diagrams (PlantUML)"
+	@$(PYTHON) tools/generators/sequences.py
+
+deployment: validate
+	@echo "==> Generating deployment diagrams (Graphviz)"
+	@$(PYTHON) tools/generators/deployment.py
+
+traceability: validate
+	@echo "==> Generating the diagram traceability matrix"
+	@$(PYTHON) tools/generators/traceability.py
+
+# Optional: needs the sibling clones at the pinned revisions (WORKSPACE=<dir that holds them>).
+evidence:
+	@$(PYTHON) tools/generators/evidence.py --workspace $(WORKSPACE)
 
 clean:
 	@echo "==> Cleaning generated artifacts"

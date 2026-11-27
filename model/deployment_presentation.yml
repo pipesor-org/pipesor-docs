@@ -1,0 +1,956 @@
+# Vistas de despliegue de Pipesor para la Memoria de Tesis y el Capstone (A4).
+#
+# Autorizado por el responsable el 27/11/2026 (decisiones 1 y 7 de la fase 2 de la auditoría de
+# diagramas): modelo de presentación nuevo con generador, validador y pruebas. Cada nodo, grupo o
+# arista cita un elemento o una relación existentes de model/architecture.yml, o evidencia
+# repo:ruta:línea de las revisiones fijadas en model/implementation_status.yml, con su estado. Lo
+# implementado que el modelo no tiene se marca como «implementación no modelada» y NO se añade a
+# architecture.yml. Sobre ramas y entrega: solo se dibuja lo definido y el resto se marca TBD, sin
+# proponer una estrategia.
+#
+# El estado «deployed» procede solo de la observación de solo lectura del 27/11/2026 22:07Z
+# (decisión 7; implementation_status.yml → deployment_observation). No es una aprobación:
+# deployment.mvp_preparation.deployment_authorized sigue en false en architecture.yml (ADR-019) y
+# este modelo lo muestra como divergencia, sin cambiarlo.
+#
+# Generador: tools/generators/deployment.py. Salidas: build/deploy_*.dot, out/deploy_*.svg,
+# out/despliegue_guia.md y, con --document, out/doc/deploy_*.svg|png.
+model_version: "1.0.0"
+architecture_source: model/architecture.yml
+overlay_source: model/implementation_status.yml
+purpose: "Memoria de Tesis y Capstone: despliegue del entorno dev y entrega entre entornos"
+authorization:
+  date: "2026-11-27"
+  decisions: [1, 7]
+  scope: >-
+    Modelo de presentación con generador, validador y pruebas; citas a architecture.yml o a evidencia
+    repo:ruta:línea con estado; lo implementado no modelado se marca sin añadirlo al modelo; ramas:
+    solo lo definido y el resto TBD, sin proponer una estrategia.
+max_nodes_per_figure: 22
+
+# Hechos que el dibujo usa o menciona y que no tienen evidencia repo:ruta:línea; la guía los lista.
+evidence_limits:
+  - "La obligatoriedad de los checks conventions, build y assurance, el merge solo por squash y las cero aprobaciones mínimas son rulesets de GitHub, fuera de Git; solo se cita el CI que los produce y la guía de CI/CD."
+  - "La ausencia de CODEOWNERS no se puede citar con una línea: es una ausencia comprobada en la auditoría del 27/11."
+  - "Quién fusiona el PR de images.json y desde dónde se ejecuta el apply constan en notas de traspaso fuera de Git; la figura solo dice «apply manual del operador» con autorización explícita, como el runbook."
+  - "Los tfvars privados de dev (workloads, webhook, deployments reales de Foundry, lectores de Key Vault) no se leyeron; se cita el ejemplo versionado. Que el webhook esté activo no se observó el 27/11."
+  - "La observación del 27/11 no incluyó la red, el Container Apps Environment, Key Vault, Foundry, Log Analytics, las identidades ni GHCR: van como implementados."
+
+# Vocabulario de estado de nodos, grupos y aristas (el generador fija el estilo de cada uno).
+states:
+  deployed: "Desplegado: observado en Azure el 27/11/2026 (observación de solo lectura)."
+  implemented: "Implementado en IaC o código, pero no observado el 27/11 o no activo."
+  proposed: "Propuesto: declarado en documentos o en roots de Terraform sin workloads."
+  tbd: "No definido (TBD): ni implementado ni decidido; lleva el motivo."
+
+figures:
+  - id: deploy_dev_runtime
+    title: "Despliegue del entorno dev en Azure"
+    rankdir: TB
+    summary: >-
+      Recursos del root environments/dev de pipesor-iac y sus dependencias externas. Las 8 Container
+      Apps, los 3 jobs, PostgreSQL y el topic de Service Bus se observaron el 27/11; el resto consta en
+      IaC y no se observó. Las llamadas REST entre servicios por el ingress interno no se dibujan (ver
+      las vistas C4).
+    layout:
+      ranks:
+        - [n_browser, n_github_actions, n_ghcr, n_github]
+        - [n_rag, n_log_event, n_correlation, n_nlp, n_pipeline, n_dashboard, n_recommendation, n_ingestion, n_jobs]
+        - [n_service_bus, n_kv_app, n_kv_custody, n_postgresql]
+        - [n_foundry, n_identities, n_log_analytics, n_app_insights]
+    groups:
+      - id: g_rg
+        kind: resource
+        title: "Azure for Students (tenant UPC) · rg-pipesor-dev · westus3"
+        state: implemented
+        model_fact: deployment.mvp_preparation.active_environment
+        evidence:
+          - iac:docs/adr-004-mvp-state-and-deployment.md:43-46
+          - iac:environments/dev/terraform.tfvars.example:3-4
+          - iac:environments/dev/main.tf:1-6
+          - iac:modules/resource-group/main.tf:1-16
+          - iac:docs/dev-provisioning.md:23
+      - id: g_cae
+        kind: resource
+        parent: g_rg
+        title: "Container Apps Environment (Consumption)\nVNet 10.50.0.0/16 · subred delegada 10.50.1.0/24"
+        state: implemented
+        model_fact: deployment.containerization.orchestrator
+        evidence:
+          - iac:modules/container-platform/main.tf:7-27
+          - iac:environments/dev/terraform.tfvars.example:8
+          - iac:modules/container-platform/main.tf:42-61
+          - iac:environments/dev/main.tf:8-15
+          - iac:environments/dev/terraform.tfvars.example:9
+      - id: g_ingress_internal
+        kind: reading
+        parent: g_cae
+        title: "Ingress interno:\nhttps://<app>.internal.<dominio>"
+        note: "Agrupa las apps con ingress interno; no es un recurso."
+        evidence:
+          - iac:modules/workloads/main.tf:3-4
+          - iac:modules/workloads/main.tf:28
+      - id: g_ingress_external
+        kind: reading
+        parent: g_cae
+        title: "Ingress externo: https://<app>.<dominio>"
+        note: "Agrupa las apps con ingress externo; no es un recurso."
+        evidence:
+          - iac:modules/workloads/main.tf:4
+          - iac:modules/workloads/main.tf:28
+          - iac:modules/workloads/main.tf:212-218
+          - iac:modules/workloads/main.tf:263-269
+      - id: g_subnet_pg
+        kind: resource
+        parent: g_rg
+        title: "Subred 10.50.2.0/28 · DNS privado"
+        state: implemented
+        evidence:
+          - iac:modules/postgresql/main.tf:1-26
+          - iac:environments/dev/terraform.tfvars.example:31
+    nodes:
+      - id: n_browser
+        name: "Navegador"
+        element: technical_users
+        runs: [web_dashboard]
+        details: ["ejecuta la SPA"]
+        state: implemented
+        evidence:
+          - frontend:src/shared/config/env.ts:1-11
+          - iac:modules/workloads/main.tf:284-290
+        sources:
+          - docs/architecture/decisions/ADR-030-dashboard-on-azure-container-apps.md:32-38
+      - id: n_github
+        name: "GitHub App"
+        element: github
+        details: ["OAuth + PKCE S256"]
+        state: implemented
+        evidence:
+          - ingestion:src/main/java/org/pipesor/ingestion/auth/interfaces/rest/AuthController.java:84-86
+          - ingestion:src/main/java/org/pipesor/ingestion/auth/infrastructure/github/GitHubAuthorizeUrls.java:10-25
+          - iac:modules/workloads/main.tf:98-109
+      - id: n_github_actions
+        name: "GitHub Actions"
+        element: github_actions
+        details: ["eventos workflow_run", "informe con OIDC"]
+        state: implemented
+        evidence:
+          - demo:.github/workflows/pipesor-report.yml:7-21
+          - ingestion:src/main/java/org/pipesor/ingestion/configuration/GitHubWebhookConfiguration.java:23-27
+      - id: n_ghcr
+        name: "GHCR"
+        implementation_only: true
+        category: external
+        details: ["paquetes privados", "imágenes por digest"]
+        state: implemented
+        evidence:
+          - iac:environments/dev/images.json:1-62
+          - ci:.github/workflows/publish-container.yml:53-91
+      - id: n_ingestion
+        name: "ingestion"
+        element: ingestion_normalization_service
+        group: g_ingress_external
+        facts: ["0,5 vCPU · 1 GiB"]
+        state: deployed
+        observation: container_apps
+        evidence:
+          - iac:modules/workloads/main.tf:196-245
+          - iac:environments/dev/images.json:5-11
+      - id: n_pipeline
+        name: "pipeline"
+        element: pipeline_service
+        group: g_ingress_external
+        facts: ["0,5 vCPU · 1 GiB"]
+        state: deployed
+        observation: container_apps
+        evidence:
+          - iac:modules/workloads/main.tf:196-245
+          - iac:environments/dev/images.json:12-18
+      - id: n_recommendation
+        name: "recommendation"
+        element: recommendation_service
+        group: g_ingress_external
+        facts: ["0,5 vCPU · 1 GiB"]
+        state: deployed
+        observation: container_apps
+        evidence:
+          - iac:modules/workloads/main.tf:196-245
+          - iac:environments/dev/images.json:40-46
+      - id: n_dashboard
+        name: "dashboard"
+        element: web_dashboard
+        group: g_ingress_external
+        facts: ["nginx · 0,25 vCPU · 0,5 GiB"]
+        state: deployed
+        observation: container_apps
+        evidence:
+          - iac:modules/workloads/main.tf:247-300
+          - iac:environments/dev/images.json:54-60
+        sources:
+          - docs/architecture/decisions/ADR-030-dashboard-on-azure-container-apps.md:29-31
+      - id: n_log_event
+        name: "log-event"
+        element: log_event_service
+        group: g_ingress_internal
+        facts: ["0,5 vCPU · 1 GiB"]
+        state: deployed
+        observation: container_apps
+        evidence:
+          - iac:modules/workloads/main.tf:196-245
+          - iac:environments/dev/images.json:19-25
+      - id: n_nlp
+        name: "nlp"
+        element: nlp_log_processor
+        group: g_ingress_internal
+        facts: ["0,25 vCPU · 0,5 GiB"]
+        state: deployed
+        observation: container_apps
+        evidence:
+          - iac:modules/workloads/main.tf:196-245
+          - iac:environments/dev/images.json:26-32
+      - id: n_correlation
+        name: "correlation"
+        element: evidence_correlation_engine
+        group: g_ingress_internal
+        facts: ["0,5 vCPU · 1 GiB"]
+        state: deployed
+        observation: container_apps
+        evidence:
+          - iac:modules/workloads/main.tf:196-245
+          - iac:environments/dev/images.json:33-39
+      - id: n_rag
+        name: "rag"
+        element: rag_retrieval
+        group: g_ingress_internal
+        facts: ["0,25 vCPU · 0,5 GiB"]
+        state: deployed
+        observation: container_apps
+        evidence:
+          - iac:modules/workloads/main.tf:196-245
+          - iac:environments/dev/images.json:47-53
+      - id: n_jobs
+        name: "3 jobs manuales"
+        implementation_only: true
+        category: prototype
+        group: g_cae
+        details: ["setup de BD · autoridad · migraciones RAG"]
+        facts: ["job-database-setup", "job-ingestion-authority-import", "job-rag-migrations"]
+        state: deployed
+        observation: jobs
+        evidence:
+          - iac:modules/workloads/main.tf:302-312
+          - iac:modules/workloads/main.tf:334-367
+          - iac:modules/workloads/main.tf:369-400
+          - iac:modules/workloads/main.tf:402-431
+      - id: n_postgresql
+        name: "PostgreSQL Flexible Server"
+        element: postgresql_operational_store
+        also_elements: [pgvector_knowledge_store]
+        group: g_subnet_pg
+        details: ["PostgreSQL 17", "Standard_D2s_v3", "extensión vector"]
+        facts: ["solo autenticación Entra", "sin alta disponibilidad", "backup de 7 días"]
+        state: deployed
+        observation: postgresql
+        observed_status: "detenido el 27/11"
+        evidence:
+          - iac:modules/postgresql/main.tf:27-50
+          - iac:modules/postgresql/main.tf:64-70
+          - iac:environments/dev/terraform.tfvars.example:28-32
+          - iac:modules/workloads/main.tf:322
+      - id: n_service_bus
+        name: "Service Bus Standard"
+        element: azure_service_bus
+        group: g_rg
+        details: ["topic workflow-evidence", "3 suscripciones con filtro SQL"]
+        state: deployed
+        observation: service_bus
+        evidence:
+          - iac:modules/service-bus/main.tf:1-61
+          - iac:environments/dev/terraform.tfvars.example:13-27
+      - id: n_kv_app
+        name: "Key Vault de material"
+        element: azure_key_vault
+        group: g_rg
+        details: ["claves RSA de firma", "secretos de la App y del registro"]
+        state: implemented
+        evidence:
+          - iac:modules/key-vault/main.tf:1-41
+          - iac:modules/workloads/main.tf:156-169
+          - iac:environments/dev/terraform.tfvars.example:55-62
+          - iac:docs/dev-runtime-deployment.md:57-65
+      - id: n_kv_custody
+        name: "Key Vault de custodia"
+        element: azure_key_vault
+        group: g_rg
+        details: ["tokens de usuario y verifier PKCE"]
+        state: implemented
+        evidence:
+          - iac:modules/key-vault/main.tf:1-2
+          - iac:modules/key-vault/main.tf:56-85
+          - iac:environments/dev/terraform.tfvars.example:61
+          - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:89-95
+      - id: n_foundry
+        name: "Foundry (AIServices S0)"
+        element: pretrained_llm_diagnostic_service
+        group: g_rg
+        details: ["chat: pipesor-dev-diagnostics-luna", "gpt-6-luna 2026-09-22", "embeddings: pipesor-dev-embeddings"]
+        facts: ["proyecto pipesor-dev", "embeddings: text-embedding-3-small"]
+        state: implemented
+        model_fact: deployment.llm.model_deployment
+        evidence:
+          - iac:modules/foundry/main.tf:1-60
+          - iac:environments/dev/terraform.tfvars.example:41-52
+          - iac:modules/workloads/main.tf:116-130
+      - id: n_identities
+        name: "9 identidades administradas"
+        implementation_only: true
+        category: platform
+        group: g_rg
+        details: ["asignadas por el usuario", "7 servicios · db-admin · dashboard"]
+        state: implemented
+        model_fact: deployment.identity_and_api_perimeter.azure_resource_identity
+        evidence:
+          - iac:modules/workloads/main.tf:29
+          - iac:modules/workloads/main.tf:146-154
+      - id: n_log_analytics
+        name: "Log Analytics"
+        implementation_only: true
+        category: platform
+        group: g_rg
+        details: ["PerGB2018 · 30 días · 0,1 GB/día"]
+        state: implemented
+        evidence:
+          - iac:modules/container-platform/main.tf:28-41
+          - iac:environments/dev/terraform.tfvars.example:10-11
+      - id: n_app_insights
+        name: "Application Insights"
+        implementation_only: true
+        category: platform
+        group: g_rg
+        details: ["desactivado en dev"]
+        state: implemented
+        model_fact: deployment.observability_platform.application_telemetry
+        evidence:
+          - iac:modules/application-insights/main.tf:7-28
+          - iac:environments/dev/main.tf:39-48
+          - iac:environments/dev/terraform.tfvars.example:40
+    edges:
+      - id: r_browser_dashboard
+        from: n_browser
+        to: n_dashboard
+        label: "SPA (HTTPS)"
+        description: "El navegador descarga la SPA del dashboard por su ingress externo."
+        relationships: [rel_technical_users_dashboard]
+        state: implemented
+        evidence:
+          - iac:modules/workloads/main.tf:263-269
+      - id: r_browser_apis
+        from: n_browser
+        to: g_ingress_external
+        label: "REST + token de sesión"
+        description: >-
+          La SPA llama desde el navegador, con CORS y el token de sesión, a las APIs de ingestion,
+          pipeline y recommendation; no a log-event.
+        relationships:
+          - rel_dashboard_ingestion_github_connection
+          - rel_dashboard_pipeline_service
+          - rel_dashboard_recommendation_service
+        state: implemented
+        evidence:
+          - frontend:src/shared/config/env.ts:4-11
+          - iac:modules/workloads/main.tf:284-290
+      - id: r_actions_webhook
+        from: n_github_actions
+        to: n_ingestion
+        label: "webhook workflow_run"
+        description: >-
+          La GitHub App entrega eventos workflow_run firmados a /webhooks/v1/github/workflow-runs; se
+          activa solo si se fija webhook_secret_version en los tfvars privados.
+        relationships: [rel_github_actions_ingestion_event]
+        state: implemented
+        evidence:
+          - iac:modules/workloads/main.tf:110-115
+          - ingestion:src/main/java/org/pipesor/ingestion/configuration/GitHubWebhookConfiguration.java:23-27
+      - id: r_ingestion_actions_read
+        from: n_ingestion
+        to: n_github_actions
+        label: "runs, jobs y logs"
+        description: "Ingestion lee runs, jobs y logs con el token de instalación de la GitHub App."
+        relationships: [rel_ingestion_github_actions_read]
+        state: implemented
+        evidence:
+          - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/github/GitHubMachineTransport.java:86-125
+      - id: r_ingestion_github_login
+        from: n_ingestion
+        to: n_github
+        label: "OAuth + PKCE"
+        description: "Ingestion redirige a GitHub e intercambia el código con el verifier PKCE."
+        relationships: [rel_ingestion_github_connection]
+        state: implemented
+        evidence:
+          - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:89-95
+          - iac:modules/workloads/main.tf:102
+      - id: r_actions_report
+        from: n_github_actions
+        to: n_recommendation
+        label: "informe (OIDC)"
+        description: >-
+          El workflow de informe del repositorio monitorizado pide el diagnóstico a Recommendation con un
+          token OIDC de GitHub Actions (audiencia urn:pipesor:api:recommendation).
+        relationships: [rel_github_actions_diagnostic]
+        state: implemented
+        evidence:
+          - demo:.github/workflows/pipesor-report.yml:20-48
+          - recommendation:src/main/java/com/pipesor/recommendation/shared/security/GitHubActionsJwtDecoder.java:25-44
+          - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/GitHubActionsReportController.java:20-29
+      - id: r_ingestion_bus
+        from: n_ingestion
+        to: n_service_bus
+        label: "publica"
+        description: "Ingestion publica en workflow-evidence con el rol Data Sender sobre el topic."
+        relationships: [rel_ingestion_service_bus]
+        state: implemented
+        evidence:
+          - iac:modules/workloads/main.tf:56
+          - iac:modules/workloads/main.tf:93-96
+      - id: r_bus_pipeline
+        from: n_service_bus
+        to: n_pipeline
+        label: "suscripción pipeline"
+        description: "Suscripción pipeline, filtro eventType = 'execution.snapshot'; rol Data Receiver."
+        relationships: [rel_service_bus_pipeline_service]
+        state: deployed
+        observation: service_bus
+        evidence:
+          - iac:environments/dev/terraform.tfvars.example:22
+          - iac:modules/workloads/main.tf:49
+      - id: r_bus_log_event
+        from: n_service_bus
+        to: n_log_event
+        label: "suscripción log-event"
+        description: "Suscripción log-event, filtro eventType = 'protected_workflow_evidence'."
+        relationships: [rel_service_bus_log_event_service]
+        state: deployed
+        observation: service_bus
+        evidence:
+          - iac:environments/dev/terraform.tfvars.example:23
+          - iac:modules/workloads/main.tf:49
+      - id: r_bus_nlp
+        from: n_service_bus
+        to: n_nlp
+        label: "suscripción nlp"
+        description: "Suscripción nlp, filtro eventType = 'protected_workflow_evidence'."
+        relationships: [rel_service_bus_nlp]
+        state: deployed
+        observation: service_bus
+        evidence:
+          - iac:environments/dev/terraform.tfvars.example:24
+          - iac:modules/workloads/main.tf:49
+      - id: r_apps_postgresql
+        from: g_cae
+        to: n_postgresql
+        label: "SQL + token Entra"
+        description: >-
+          Seis servicios (todos menos nlp) y los jobs de base de datos se conectan con el token Entra de
+          su identidad administrada; el job de setup crea los principals, la base pipesor y la extensión
+          vector.
+        relationships:
+          - rel_ingestion_postgresql_connector_metadata
+          - rel_pipeline_service_postgresql
+          - rel_log_event_service_postgresql
+          - rel_correlation_postgresql
+          - rel_recommendation_service_postgresql
+          - rel_rag_pgvector
+        state: implemented
+        evidence:
+          - iac:modules/workloads/main.tf:7
+          - iac:modules/workloads/main.tf:61-65
+          - iac:modules/workloads/main.tf:120-123
+          - iac:modules/workloads/main.tf:313-331
+      - id: r_apps_key_vault
+        from: g_cae
+        to: n_kv_app
+        label: "firma y secretos"
+        description: >-
+          Cada servicio firma sus tokens con su clave no exportable (Crypto User); las apps y los jobs
+          leen el token del registro por referencia de Key Vault; Ingestion lee el material de la App.
+        relationships:
+          - rel_ingestion_key_vault
+          - rel_pipeline_key_vault
+          - rel_log_event_key_vault
+          - rel_nlp_key_vault
+          - rel_correlation_key_vault
+          - rel_recommendation_key_vault
+        state: implemented
+        evidence:
+          - iac:modules/workloads/main.tf:46-53
+          - iac:modules/workloads/main.tf:219-224
+      - id: r_ingestion_custody
+        from: n_ingestion
+        to: n_kv_custody
+        label: "custodia"
+        description: "Ingestion guarda tokens de usuario y verifiers PKCE con el rol Secrets Officer."
+        relationships: [rel_ingestion_key_vault]
+        state: implemented
+        evidence:
+          - iac:modules/workloads/main.tf:57
+          - iac:modules/workloads/main.tf:108
+      - id: r_recommendation_llm
+        from: n_recommendation
+        to: n_foundry
+        label: "inferencia"
+        description: "Recommendation llama al deployment de chat con el rol Cognitive Services OpenAI User."
+        relationships: [rel_recommendation_llm]
+        state: implemented
+        evidence:
+          - iac:modules/workloads/main.tf:50
+          - iac:modules/workloads/main.tf:116-119
+      - id: r_rag_embeddings
+        from: n_rag
+        to: n_foundry
+        label: "embeddings"
+        description: "RAG genera embeddings con el deployment pipesor-dev-embeddings."
+        relationships: [rel_rag_embeddings]
+        state: implemented
+        evidence:
+          - iac:modules/workloads/main.tf:50
+          - iac:modules/workloads/main.tf:126-129
+      - id: r_environment_logs
+        from: g_cae
+        to: n_log_analytics
+        label: "logs de plataforma"
+        description: "Diagnostic settings del environment: solo ContainerAppSystemLogs y ContainerAppConsoleLogs; sin métricas."
+        state: implemented
+        evidence:
+          - iac:modules/container-platform/main.tf:52
+          - iac:modules/container-platform/main.tf:62-85
+      - id: r_app_insights_workspace
+        from: n_app_insights
+        to: n_log_analytics
+        label: "workspace (inactivo)"
+        description: "El módulo de Application Insights usa el workspace, pero dev lo deja desactivado."
+        state: implemented
+        evidence:
+          - iac:modules/application-insights/main.tf:18
+          - iac:environments/dev/main.tf:39-48
+      - id: r_ghcr_pull
+        from: n_ghcr
+        to: g_cae
+        label: "imágenes por digest"
+        description: >-
+          Las apps y los jobs descargan la imagen fijada por digest en images.json con el token del
+          registro guardado en Key Vault; la observación del 27/11 encontró esos digests.
+        state: deployed
+        observation: container_apps
+        evidence:
+          - iac:environments/dev/main.tf:75-81
+          - iac:modules/workloads/main.tf:137
+          - iac:modules/workloads/main.tf:219-229
+      - id: r_identities_apps
+        from: n_identities
+        to: g_cae
+        label: "una por app y job"
+        description: "Cada Container App y cada job usa su identidad asignada por el usuario."
+        state: implemented
+        evidence:
+          - iac:modules/workloads/main.tf:203-206
+          - iac:modules/workloads/main.tf:340-343
+    notes: []
+    not_drawn:
+      - name: "Módulo de Static Web Apps"
+        state: implemented
+        reason: "En dev vale static_web_app = null; el dashboard es una Container App (ADR-030)."
+        evidence:
+          - iac:environments/dev/main.tf:58-64
+          - iac:environments/dev/terraform.tfvars.example:53-54
+      - name: "Llamadas REST entre servicios por el ingress interno y descarga de JWKS"
+        state: implemented
+        reason: "Se dibujan en las vistas C4; aquí solo se muestra el tipo de ingress de cada app."
+        evidence:
+          - iac:modules/workloads/main.tf:13-25
+          - iac:modules/workloads/main.tf:79-88
+      - name: "Otros deployments de Foundry (gpt-4o de referencia y variantes -terra y -sol)"
+        state: implemented
+        reason: "No los usa ningún workload; el valor real está en los tfvars privados, que no se leen."
+        evidence:
+          - iac:environments/dev/terraform.tfvars.example:49
+          - iac:docs/dev-runtime-deployment.md:14
+      - name: "Estado de Terraform (rg-pipesor-state-dev)"
+        state: implemented
+        reason: "Lo crea el bootstrap, fuera del root dev; no es un recurso del runtime."
+        evidence:
+          - iac:docs/dev-provisioning.md:22-23
+
+  - id: deploy_environments_delivery
+    title: "Entornos y entrega de imágenes"
+    rankdir: TB
+    wrap: 22
+    summary: >-
+      Flujo trunk-based definido en los repositorios hasta el entorno dev, y roots de Terraform de qa,
+      preprod y prod, que solo tienen fundaciones. Lo que ningún documento ni código define se marca TBD
+      con su motivo, sin proponer una estrategia.
+    layout:
+      ranks:
+        - [d_branch, d_pr, d_squash, d_ci]
+        - [d_apply, d_plan, d_images_pr, d_images_set, d_ghcr]
+        - [d_dev, d_qa, d_preprod, d_prod]
+      align:
+        - [d_ci, d_images_set]
+        - [d_apply, d_dev]
+      loose: [d_rollback, d_ghcr_dev]
+    groups:
+      - id: g_service_repo
+        kind: reading
+        title: "Repositorio de cada servicio (GitHub)"
+        note: "Pasos que ejecuta cada repositorio de servicio o del frontend."
+      - id: g_iac_repo
+        kind: reading
+        title: "pipesor-iac"
+        note: "Pasos del repositorio de IaC, dueño de las imágenes desplegadas."
+      - id: g_environments
+        kind: reading
+        title: "Entornos (un root de Terraform cada uno)"
+        note: "Roots de environments/; solo dev tiene workloads."
+    nodes:
+      - id: d_branch
+        name: "rama feature/ o fix/ desde main"
+        implementation_only: true
+        category: platform
+        group: g_service_repo
+        state: implemented
+        evidence:
+          - iac:docs/adr-001-branching-and-promotion.md:36-38
+          - ingestion:.github/workflows/ci.yml:3-6
+        sources:
+          - docs/development/cicd.md:12-14
+      - id: d_pr
+        name: "PR a main"
+        implementation_only: true
+        category: platform
+        group: g_service_repo
+        details: ["checks: conventions · build · assurance"]
+        state: implemented
+        evidence:
+          - ingestion:.github/workflows/ci.yml:16-25
+          - ci:.github/workflows/service-ci.yml:56-82
+          - ci:.github/workflows/conventions.yml:111-133
+        sources:
+          - docs/development/cicd.md:28-31
+      - id: d_squash
+        name: "squash merge a main"
+        implementation_only: true
+        category: platform
+        group: g_service_repo
+        state: implemented
+        evidence:
+          - iac:docs/adr-001-branching-and-promotion.md:42-43
+          - ci:.github/workflows/conventions.yml:135-137
+        sources:
+          - docs/development/cicd.md:28-34
+      - id: d_ci
+        name: "CI en main"
+        implementation_only: true
+        category: platform
+        group: g_service_repo
+        details: ["build · Trivy · publish", "candidate.json (90 días)"]
+        state: implemented
+        evidence:
+          - ingestion:.github/workflows/ci.yml:7-8
+          - ci:.github/workflows/service-ci.yml:84-92
+          - ci:.github/workflows/container-build.yml:107-109
+          - ci:.github/workflows/image-assurance.yml:23
+          - ci:.github/workflows/image-assurance.yml:63-81
+          - ci:.github/workflows/publish-container.yml:93-131
+      - id: d_ghcr
+        name: "GHCR"
+        implementation_only: true
+        category: external
+        details: ["paquete privado · imagen por digest"]
+        state: implemented
+        evidence:
+          - ci:.github/workflows/publish-container.yml:50-91
+          - iac:environments/dev/images.json:6-7
+      - id: d_images_set
+        name: "tools/images.js set dev"
+        implementation_only: true
+        category: platform
+        group: g_iac_repo
+        details: ["candidato de un push a main con éxito"]
+        state: implemented
+        evidence:
+          - iac:tools/images.js:66-79
+          - iac:tools/images.js:155-163
+      - id: d_images_pr
+        name: "PR a dev/images.json"
+        implementation_only: true
+        category: platform
+        group: g_iac_repo
+        details: ["CI valida el archivo · merge"]
+        state: implemented
+        evidence:
+          - iac:docs/dev-runtime-deployment.md:157-160
+          - iac:environments/dev/main.tf:75-81
+          - iac:tests/images.test.js:22-29
+      - id: d_plan
+        name: "plan nuevo desde main"
+        implementation_only: true
+        category: platform
+        group: g_iac_repo
+        details: ["el CI de IaC no planifica"]
+        state: implemented
+        evidence:
+          - iac:docs/adr-001-branching-and-promotion.md:85-90
+          - iac:docs/dev-runtime-deployment.md:159-160
+          - iac:.github/workflows/ci.yml:67-71
+      - id: d_apply
+        name: "apply manual del operador"
+        implementation_only: true
+        category: platform
+        group: g_iac_repo
+        details: ["plan revisado · autorización explícita"]
+        state: implemented
+        evidence:
+          - iac:docs/dev-runtime-deployment.md:7
+          - iac:docs/dev-runtime-deployment.md:159-161
+          - iac:docs/adr-001-branching-and-promotion.md:103
+      - id: d_dev
+        name: "dev"
+        implementation_only: true
+        category: prototype
+        group: g_environments
+        details: ["8 Container Apps Healthy", "digests de images.json"]
+        state: deployed
+        observation: container_apps
+        model_fact: deployment.mvp_preparation.active_environment
+        evidence:
+          - iac:environments/dev/main.tf:75-117
+          - iac:environments/dev/images.json:1-62
+      - id: d_qa
+        name: "qa"
+        implementation_only: true
+        category: prototype
+        group: g_environments
+        details: ["solo fundaciones · sin workloads"]
+        state: proposed
+        model_fact: deployment.mvp_preparation.preserved_environment_roots
+        evidence:
+          - iac:environments/qa/main.tf:1-73
+          - iac:environments/qa/terraform.tfvars.example:1-6
+          - iac:README.md:25
+      - id: d_preprod
+        name: "preprod"
+        implementation_only: true
+        category: prototype
+        group: g_environments
+        details: ["solo fundaciones · sin workloads"]
+        state: proposed
+        model_fact: deployment.mvp_preparation.preserved_environment_roots
+        evidence:
+          - iac:environments/preprod/main.tf:1-73
+          - iac:environments/preprod/terraform.tfvars.example:1-6
+          - iac:README.md:25
+      - id: d_prod
+        name: "prod"
+        implementation_only: true
+        category: prototype
+        group: g_environments
+        details: ["solo fundaciones · sin workloads"]
+        state: proposed
+        model_fact: deployment.mvp_preparation.preserved_environment_roots
+        evidence:
+          - iac:environments/prod/main.tf:1-73
+          - iac:environments/prod/terraform.tfvars.example:1-6
+          - iac:README.md:25
+      - id: t_gates
+        name: "gates entre entornos"
+        state: tbd
+        reason: "Los Environments con revisores de qa, preprod y prod están por configurar; no hay gate definido."
+        evidence:
+          - iac:docs/adr-001-branching-and-promotion.md:31-32
+        sources:
+          - docs/development/cicd.md:180
+          - docs/development/cicd.md:249-251
+      - id: t_releases
+        name: "releases y tags SemVer"
+        state: tbd
+        reason: "release.yml está deshabilitado en el código (if: false) y stable exige una validación preprod que no existe."
+        evidence:
+          - ingestion:.github/workflows/release.yml:44-45
+          - ci:README.md:80-81
+        sources:
+          - docs/development/cicd.md:107-110
+      - id: t_auto_deploy
+        name: "despliegue automático a dev"
+        state: tbd
+        reason: "La plantilla terraform-dev.yml.example es un andamiaje inactivo (if: ${{ false }}) con un runner propuesto."
+        evidence:
+          - iac:.github/workflow-templates/terraform-dev.yml.example:1-3
+          - iac:.github/workflow-templates/terraform-dev.yml.example:45-48
+        sources:
+          - docs/development/cicd.md:152-154
+      - id: t_approvals
+        name: "aprobaciones de PR y CODEOWNERS"
+        state: tbd
+        reason: "Los rulesets no exigen aprobaciones mínimas y ningún repositorio tiene CODEOWNERS."
+        sources:
+          - docs/development/cicd.md:28-30
+      - id: t_order
+        name: "orden de despliegue entre repositorios"
+        state: tbd
+        reason: "PD-035 no especifica el contrato de entrega backend–IaC (artefactos, migraciones, promoción)."
+        sources:
+          - docs/architecture/pending-decisions.md:226
+      - id: t_record
+        name: "registro de despliegue (IaC ADR 001)"
+        state: tbd
+        reason: "ADR 001 pide SHA, digest del plan, aprobadores y timestamps; en Git solo queda el historial de images.json."
+        evidence:
+          - iac:docs/adr-001-branching-and-promotion.md:105-110
+          - iac:docs/dev-runtime-deployment.md:157-159
+    edges:
+      - id: d_branch_pr
+        from: d_branch
+        to: d_pr
+        label: "PR"
+        description: "Cada cambio entra por un PR a main que dispara el CI del repositorio."
+        state: implemented
+        evidence:
+          - ingestion:.github/workflows/ci.yml:3-6
+      - id: d_pr_squash
+        from: d_pr
+        to: d_squash
+        label: "checks en verde"
+        description: "conventions, build y assurance del CI compartido; su obligatoriedad está en los rulesets de GitHub."
+        state: implemented
+        evidence:
+          - ci:.github/workflows/service-ci.yml:56-82
+      - id: d_squash_ci
+        from: d_squash
+        to: d_ci
+        label: "push a main"
+        description: "El push a main vuelve a verificar el commit integrado y habilita la publicación."
+        state: implemented
+        evidence:
+          - ingestion:.github/workflows/ci.yml:7-8
+          - ci:.github/workflows/service-ci.yml:84-86
+      - id: d_ci_ghcr
+        from: d_ci
+        to: d_ghcr
+        label: "push sin reconstruir"
+        description: "Publica el archivo ya verificado y comprueba que el paquete sea privado."
+        state: implemented
+        evidence:
+          - ci:.github/workflows/publish-container.yml:50-91
+      - id: d_ci_images_set
+        from: d_ci
+        to: d_images_set
+        label: "candidate.json"
+        description: "images.js descarga el candidate.json del run y verifica que sea un push a main de ci.yml con éxito."
+        state: implemented
+        evidence:
+          - ci:.github/workflows/publish-container.yml:125-131
+          - iac:tools/images.js:112-131
+      - id: d_set_pr
+        from: d_images_set
+        to: d_images_pr
+        label: "cambia la entrada"
+        description: "set reescribe la entrada del workload e indica abrir un PR."
+        state: implemented
+        evidence:
+          - iac:tools/images.js:155-163
+      - id: d_pr_plan
+        from: d_images_pr
+        to: d_plan
+        label: "tras el merge"
+        description: "Después del merge se genera un plan nuevo desde main."
+        state: implemented
+        evidence:
+          - iac:docs/dev-runtime-deployment.md:157-160
+      - id: d_plan_apply
+        from: d_plan
+        to: d_apply
+        label: "revisión humana"
+        description: "Se revisa el plan guardado y se autoriza ese apply concreto."
+        state: implemented
+        evidence:
+          - iac:docs/adr-001-branching-and-promotion.md:85-93
+      - id: d_apply_dev
+        from: d_apply
+        to: d_dev
+        label: "apply"
+        description: "Se aplica solo el plan revisado sobre el root dev."
+        state: implemented
+        evidence:
+          - iac:docs/dev-runtime-deployment.md:159-161
+      - id: d_ghcr_dev
+        from: d_ghcr
+        to: d_dev
+        label: "imagen por digest"
+        description: "Las Container Apps de dev ejecutan los digests de images.json (observación del 27/11)."
+        state: deployed
+        observation: container_apps
+        evidence:
+          - iac:environments/dev/main.tf:75-81
+      - id: d_rollback
+        from: d_dev
+        to: d_images_pr
+        label: "rollback: restaura la entrada anterior"
+        description: >-
+          Un PR que restaura la entrada anterior de images.json y un plan nuevo revisado; no hay downgrade
+          SQL implícito. No consta en Git una ejecución de rollback.
+        state: implemented
+        evidence:
+          - iac:docs/dev-runtime-deployment.md:161-162
+        sources:
+          - docs/development/cicd.md:145-147
+      - id: d_dev_qa
+        from: d_dev
+        to: d_qa
+        label: "mismo digest"
+        description: >-
+          Promoción declarada: el mismo digest en el root siguiente (images.js promote). Hoy fallaría:
+          qa no tiene images.json y readDocument lo exige.
+        state: proposed
+        evidence:
+          - iac:docs/adr-001-branching-and-promotion.md:57-64
+          - iac:tools/images.js:90-96
+          - iac:tools/images.js:164-170
+      - id: d_qa_preprod
+        from: d_qa
+        to: d_preprod
+        label: "mismo digest"
+        description: "Promoción declarada de qa a preprod tras verificar en qa y la aprobación independiente de QA."
+        state: proposed
+        evidence:
+          - iac:docs/adr-001-branching-and-promotion.md:63
+      - id: d_preprod_prod
+        from: d_preprod
+        to: d_prod
+        label: "mismo digest"
+        description: "Promoción declarada de preprod a prod tras verificar en preprod y la aprobación de producción."
+        state: proposed
+        evidence:
+          - iac:docs/adr-001-branching-and-promotion.md:64
+    notes:
+      - id: n_authorization_divergence
+        attach_to: d_dev
+        lines:
+          - "architecture.yml: deployment_authorized: false (ADR-019)"
+          - "frente a: dev desplegado (observado 27/11)"
+        model_fact: deployment.mvp_preparation.deployment_authorized
+        expected: false
+        observation: container_apps
+        sources:
+          - docs/architecture/decisions/ADR-019-align-mvp-with-iac.md:79-84
+    not_drawn:
+      - name: "Retención semanal de GHCR"
+        state: implemented
+        reason: "Protege el digest actual y 3 anteriores de cada images.json; funciona en dry-run hasta REGISTRY_RETENTION_DELETE=true."
+        evidence:
+          - ci:README.md:83-90
+          - ci:README.md:126-129
+      - name: "CI de pipesor-iac"
+        state: implemented
+        reason: "Valida formato, roots, módulos e images.json sin credenciales ni backend; no hace plan real."
+        evidence:
+          - iac:.github/workflows/ci.yml:39-97

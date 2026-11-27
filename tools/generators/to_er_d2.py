@@ -5,17 +5,29 @@ import os
 import subprocess
 
 from domain_model import ROOT, find_tool, load_domain, main_guard, quote, write_generated
+import implementation_status
+
+# Implementation state from model/implementation_status.yml (colour and text, readable in monochrome).
+STATE_STYLE = {"not_implemented": ("#B91C1C", "modeled, not implemented"),
+               "partial": ("#B45309", "partially implemented"),
+               "divergent": ("#6D28D9", "implemented differently")}
 
 
-def visible_columns(entity):
+def attribute_state(overlay, entity, column):
+    return implementation_status.state(overlay, "domain", "attributes", f"{entity['id']}.{column['name']}")
+
+
+def visible_columns(entity, overlay=None):
     unique_columns = {c for u in entity.get("unique_constraints", []) for c in u["columns"]}
     composite_columns = {c for fk in entity.get("foreign_keys", []) for c in fk["columns"]}
     return [c for c in entity["attributes"] if c["er_visible"] or c["pk"] or c.get("fk")
+            or attribute_state(overlay or {}, entity, c) in STATE_STYLE
             or c.get("logical_ref") or c["unique"] or c.get("enum")
             or c["name"] == "correlation_id" or c["name"] in unique_columns or c["name"] in composite_columns]
 
 
-def generate_er(model):
+def generate_er(model, overlay=None):
+    overlay = overlay if overlay is not None else implementation_status.load()
     # load_domain performs the shared checks before any generated file is written.
     if len(model["entities"]) > 40:
         raise ValueError("ER exceeds 40 tables")
@@ -38,15 +50,20 @@ def generate_er(model):
         for e in model["entities"]:
             if e["schema"] != schema["id"]:
                 continue
-            label = e["table"]
+            state = implementation_status.state(overlay, "domain", "entities", e["id"])
+            label = e["table"] + (f" [{STATE_STYLE[state][1]}]" if state in STATE_STYLE else "")
             lines.extend([f"  {e['table']}: {quote(label)} {{", "    shape: sql_table",
                           "    style.font-size: 15"])
             if e["scope_basis"] == "ia_only":
                 lines.append("    style.stroke-dash: 2")
+            if state in STATE_STYLE:
+                lines.extend([f"    style.stroke: {quote(STATE_STYLE[state][0])}", "    style.stroke-width: 4"])
+                if state == "not_implemented":
+                    lines.append("    style.stroke-dash: 6")
             unique_columns = {c for u in e.get("unique_constraints", []) for c in u["columns"]}
             composite_columns = {c for fk in e.get("foreign_keys", []) for c in fk["columns"]}
             partial_columns = {c for index in e.get("partial_unique_constraints", []) for c in index["columns"]}
-            cols = visible_columns(e)
+            cols = visible_columns(e, overlay)
             for c in cols:
                 constraints = []
                 if c["pk"]: constraints.append("primary_key")
@@ -57,6 +74,8 @@ def generate_er(model):
                 if c["unique"]: constraints.append("unique")
                 elif c["name"] in unique_columns: constraints.append("composite UQ")
                 typ = c.get("enum", c["type"])
+                if attribute_state(overlay, e, c) in STATE_STYLE:
+                    typ += " · " + STATE_STYLE[attribute_state(overlay, e, c)][1]
                 row = f"    {c['name']}: {quote(typ)}"
                 if constraints:
                     row += " {constraint: [" + "; ".join(quote(c) for c in constraints) + "]}"
@@ -79,9 +98,20 @@ def generate_er(model):
             kind = "composite FK deferred: " if fk.get('initially_deferred') else "composite FK: "
             label = kind + ', '.join(fk['columns']) + ' → ' + ', '.join(fk['references']['columns'])
             lines.append(f'{left} -> {right}: {quote(label)}')
-    lines.extend(["", 'legend: "Legend\\nSolid line: intra-schema FK (N:1)\\nDashed line: logical reference by ID, no physical FK\\nDotted border: pipeline_access_grants (IA-only / inferred)\\nComposite UQ: member of a composite unique key\\n+N columns: see data dictionary\\nNo cross-context ORM navigation" {',
+    lines.extend(["", 'legend: "Legend\\nSolid line: intra-schema FK (N:1)\\nDashed line: logical reference by ID, no physical FK\\nDotted border: pipeline_access_grants (IA-only / inferred)\\nComposite UQ: member of a composite unique key\\n+N columns: see data dictionary\\nNo cross-context ORM navigation' + state_legend(model, overlay) + '" {',
                   "  shape: text", "  style.font-size: 16", "  near: bottom-center", "}"])
     return "\n".join(lines)
+
+
+def state_legend(model, overlay):
+    if not overlay:
+        return ""
+    states = [implementation_status.state(overlay, "domain", "entities", e["id"]) for e in model["entities"]]
+    built = sum(1 for s in states if s != "not_implemented")
+    return ("\\nImplementation state (model/implementation_status.yml, " + str(overlay.get("evidence_cutoff", "")) +
+            f"): {built} of {len(states)} tables implemented by migrations" +
+            "\\nRed dashed border: modeled, not implemented · Amber border: partially implemented" +
+            "\\n'· modeled, not implemented' after a type: column absent from the migrations")
 
 
 def main():

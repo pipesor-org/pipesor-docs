@@ -68,6 +68,9 @@ def validate_policy(doc):
         if not {'masking_before_ai', 'anonymization_before_ai', 'minimization_before_ai',
                 'secret_filtering_before_ai'} <= set(controls.get('CTRL-002', {}).get('rules', [])):
             errors.append('CTRL-002: privacy before AI controls are required')
+        def at_gateway(eid):
+            return eid == gateway or elements.get(eid, {}).get('parent') == gateway
+
         # Check all alternate paths: existence of one safe route is insufficient.
         adjacency = {}
         for r in relations:
@@ -75,7 +78,8 @@ def validate_policy(doc):
                      and r.get('from') == 'github_actions'
                      and r.get('to') in {'recommendation_service', 'diagnostic_api_component'}
                      and r.get('access') == 'read_only')
-            if not query and r.get('from') != gateway and r.get('to') != gateway:
+            # Components of the gateway are the gateway (C4 component-to-parent lifting).
+            if not query and not at_gateway(r.get('from')) and not at_gateway(r.get('to')):
                 adjacency.setdefault(r.get('from'), set()).add(r.get('to'))
         pending = ['github', 'github_actions', 'observability_sources']
         visited = set()

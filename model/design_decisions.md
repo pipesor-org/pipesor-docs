@@ -1,9 +1,11 @@
 # Decisiones propuestas del diseño de clases
 
-SSOT exclusivo: `model/design.yml`, versión 1.1.0. Todas las clases son
-`proposed`: este repositorio DaC no contiene el microservicio Java/Spring Boot.
-Estas decisiones concretan clases dentro de las fronteras ya aprobadas; no
-modifican ADR-018 ni resuelven preguntas del dominio.
+SSOT exclusivo: `model/design.yml`, versión 1.2.0. Las clases de CD-1..CD-3
+son `proposed`: este repositorio DaC no contiene el microservicio Java/Spring
+Boot. Desde DC-007, CD-4..CD-11 añaden clases `implemented` transcritas del
+código de cada servicio, que no son propuestas. Estas decisiones concretan
+clases dentro de las fronteras ya aprobadas; no modifican ADR-018 ni resuelven
+preguntas del dominio.
 
 ## DC-001 — Controllers separados para commands y queries
 
@@ -67,3 +69,62 @@ almacenamiento ni una comunicación nueva. Las restantes preguntas de
 decisión arquitectónica para generar las figuras propuestas.
 
 Alineación ADR-019: las referencias de ingress de los controllers propuestos apuntan ahora a la proyección de dashboard → Diagnostic API por ACA, sin salto APIM. Las clases continúan propuestas y DCQ-001–003/DQ-002 abiertas; no se fijan rutas ni DTO.
+
+## DC-007 — Diagramas por bounded context y estado de implementación
+
+Autorización: el responsable aprobó el 27/11/2026 (decisión 4) «autorizar
+diagramas de agregados por bounded context, con estado por clase y referencias
+al código; en los CD-1..3, marcar las 14 clases que no existen». Petición
+original: UML de clases con las raíces de agregado y sus entidades y value
+objects principales de cada bounded context, marcando lo propuesto frente a lo
+implementado. La evidencia sale de las revisiones fijadas en
+`model/implementation_status.yml` (corte 27/11/2026) con referencias
+`repo:ruta:línea`.
+
+Alcance:
+
+- Las 38 clases de CD-1..CD-3 siguen `status: proposed`, con su contenido y
+  sus reglas. Cada una gana `implementation` (estado de `evidence.STATUSES`,
+  evidencia o, si falta, `reason`, y nota): 7 `implemented`, 5 `partial`,
+  11 `divergent`, 14 `not_implemented` y 1 `external`. Criterio: `implemented`
+  si un tipo del código cumple la misma responsabilidad con un contrato
+  equivalente (el nombre puede variar y la nota lo dice); `partial` si cubre
+  solo parte de atributos, métodos o relaciones; `divergent` si la
+  responsabilidad existe con otra forma (clases fusionadas, cola asíncrona,
+  JDBC, un record de aplicación en lugar de un agregado); `not_implemented` si
+  no hay tipo, y `reason` indica a dónde fue la responsabilidad (la evidencia
+  opcional solo localiza ese sustituto); `external` para Azure OpenAI, fuera del
+  código de los servicios.
+- CD-4..CD-11 (uno por contenedor; dos en Ingestion) muestran 90 clases
+  `status: implemented` y 85 relaciones del código: raíces, entidades, value
+  objects, enums y, cuando aclaran la persistencia, puertos, adaptadores y
+  filas JPA/SQLAlchemy. Son una selección de lo principal, no un inventario
+  del servicio; las notas de CD-4..CD-6 nombran las tablas y tipos que no se
+  dibujan. CD-9 enfrenta los records de Recommendation a
+  los agregados propuestos (`Diagnosis`, `HumanReview`, `Recommendation`, sin
+  miembros) con la relación `realizes`, que exige que la evidencia de la
+  propuesta cite ese código.
+- Persistencia: `persisted_as` sigue exigiendo coincidencia exacta con
+  `model/domain.yml` y solo se usa cuando la clase coincide columna a columna
+  (filas JPA/SQLAlchemy y `GitHubRepository`). Las demás clases de datos
+  declaran `storage` (`mapped`, `json_column`, `flattened` o `not_persisted`)
+  con tablas del mismo contenedor.
+- `design_rules.containers` sustituye al contenedor único: lenguaje y
+  framework iguales a `backend` en `model/architecture.yml`, repositorio de
+  evidencia, paquete base, almacén y ruta de navegación. recommendation_service
+  conserva las reglas de CD-1..CD-3 (CQRS lógico, PostgreSQL común, sin event
+  sourcing, GitHub de solo lectura).
+- La capa de una clase de código se deriva de su paquete; si el paquete no
+  nombra capa (`diagnosis.review`, `receipt`, módulos planos de RAG) es
+  `unlayered`. Es un hecho del código y no responde la pregunta 24.
+- Impresión A4: cada figura declara `print_parts`, partes coherentes que juntas
+  conservan todos los miembros y relaciones. El generador elige dirección,
+  agrupación y página para que ningún texto quede por debajo de 8 pt.
+
+Límites: no cambia `model/architecture.yml` ni `model/domain.yml`; las clases
+`proposed` siguen siendo propuesta y un estado `implemented` no aprueba el
+diseño ni prueba comportamiento en ejecución. Quedan abiertas DQ-002,
+DCQ-001..DCQ-003 y la pregunta 24 de la reconciliación (paquetes, JPA frente a
+JDBC): `divergent` registra que el código usa JDBC o fusiona clases, sin decidir
+qué forma es la correcta, y las rutas citadas en las notas describen el código
+sin cerrar DCQ-002.

@@ -22,7 +22,7 @@ Service Bus also delivers events to NLP (view 02). Persistence and access: view 
 | Emits authorized workflow events | HTTPS/Webhook |
 | Delivers execution events to register pipeline context | Azure Service Bus |
 | Delivers normalized evidence for registration and querying | Azure Service Bus |
-| Retrieves authorized logs, artifacts and metadata | GitHub API/HTTPS |
+| Retrieves authorized run metadata, jobs and logs | GitHub API/HTTPS |
 | Publishes normalized and protected evidence | Azure Service Bus |
 | Provides the repository, commits and CI/CD workflow definitions | GitHub API/HTTPS |
 | Provides authorized telemetry and operational evidence | REST/HTTPS |
@@ -64,13 +64,13 @@ Actions retrieves the diagnosis through ACA native ingress and publishes its art
 |---|---|
 | Persists pipelines, stages, states and execution metadata | PostgreSQL |
 | Persists and queries normalized evidence metadata and references | PostgreSQL |
-| Persists diagnosis, recommendations and evidence links | PostgreSQL |
+| Persists diagnoses with their recommendation and cited evidence | PostgreSQL |
 | Provides the repository, commits and CI/CD workflow definitions | GitHub API/HTTPS |
 | Queries results and records human review | HTTPS |
 | Sends users to GitHub to authorize sign-in | OAuth 2.0/HTTPS (authorization code + PKCE S256) |
-| Routes pipeline, execution, incident queue and insights queries, registration, grants and incident lifecycle commands | REST/HTTPS |
-| Routes log, event and evidence queries | REST/HTTPS |
-| Routes diagnosis and review queries and operations | REST/HTTPS |
+| Queries pipelines, executions, the incident queue and insights; registers workflows, grants access and changes incident state | REST/HTTPS |
+| Queries logs, events and evidence | REST/HTTPS |
+| Reads diagnoses and records human reviews | REST/HTTPS |
 | Persists human review decisions and traceability | PostgreSQL |
 | Queries diagnostic_output to publish the workflow artifact | REST/HTTPS |
 | Checks committed operational membership before evidence registration | REST/HTTPS |
