@@ -58,7 +58,7 @@ class C4GenerationTests(unittest.TestCase):
         self.assertEqual(c4.technology(element, warnings), "")
         self.assertTrue(warnings)
         self.assertEqual(c4.technology(self.elements["web_dashboard"], warnings),
-                         "React SPA / Azure Container Apps")
+                         "TypeScript / React SPA")
         self.assertEqual(c4.technology(self.elements["pretrained_llm_diagnostic_service"],
                                       warnings), "Azure OpenAI Service / gpt-6-luna / Microsoft Foundry")
 

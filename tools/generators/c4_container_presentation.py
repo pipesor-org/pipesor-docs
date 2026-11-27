@@ -116,6 +116,9 @@ def node_label(element, presentation, projection, document=False):
     summary = presentation["node_summaries"][element["id"]]
     if element["id"] == "postgresql_operational_store" and projection.combined_postgres:
         summary += " and RAG knowledge"
+    state = c4.overlay_state(c4.load_overlay(), "elements", element["id"])
+    if state in c4.STATE_TAGS:
+        summary += f" ({c4.STATE_TAGS[state][2]})"
     if document:
         # Colour and frame carry the C4 kind; the guide and figure note state it.
         size = DOCUMENT_FONT
@@ -195,7 +198,9 @@ def document_viewport(view):
 
 
 def generate_dot(presentation, architecture, view, projection, document=False):
-    graph = Digraph(view["id"], comment="GENERATED — sources: model/c4_container_presentation.yml + model/architecture.yml")
+    overlay = c4.load_overlay()
+    graph = Digraph(view["id"], comment="GENERATED — sources: model/c4_container_presentation.yml + model/architecture.yml "
+                                         "+ model/implementation_status.yml")
     graph.attr(viewport=document_viewport(view) if document else "1920,1080,1,960,540", splines="true", overlap="true", notranslate="true",
                bgcolor="white", fontname="DejaVu Sans", outputorder="edgesfirst")
     graph.attr("node", fontname="DejaVu Sans", shape="box", style="rounded,filled", fixedsize="true",
@@ -204,7 +209,9 @@ def generate_dot(presentation, architecture, view, projection, document=False):
                arrowsize="0.7", penwidth="1.4")
     if not document:
         graph.node("slide_title", projection.view["title"], pos="960,1040!", shape="plaintext", style="", width="24", height="0.5", fontsize="30")
-        graph.node("slide_subtitle", f"Proposed design · {projection.count} nodes · {len(projection.relationships)} relationships · Numbers on arrows and in legend", pos="960,995!", shape="plaintext", style="", width="24", height="0.4", fontsize="16")
+        graph.node("slide_subtitle", f"Draft model view · {projection.count} nodes · {len(projection.relationships)} relationships · "
+                   f"Implementation state on {overlay.get('evidence_cutoff', '')}: red = not implemented, amber = partial, "
+                   "violet = implemented differently", pos="960,995!", shape="plaintext", style="", width="24", height="0.4", fontsize="16")
     # Presentation-only frame. neato -n2 does not lay out cluster boundaries.
     graph.node("prototype_boundary", "", pos="880,545!", width=str(1130 / 72), height=str(810 / 72),
                shape="box", style="dashed,rounded", color="#2563EB", penwidth="1.4")
@@ -221,6 +228,9 @@ def generate_dot(presentation, architecture, view, projection, document=False):
             attrs.update(shape="oval", style="filled")
         if element["kind"] == "datastore":
             attrs.update(shape="cylinder", fillcolor="#ECFDF5", color="#059669", fontcolor="#064E3B")
+        state = c4.overlay_state(overlay, "elements", element["id"])
+        if state in c4.STATE_TAGS:
+            attrs.update(color=c4.STATE_TAGS[state][0], penwidth="2.6")
         tooltip = element["name"] + " | " + c4.description(element, {l["id"]: l for l in architecture["layers"]}, set())
         target.node(element["id"], node_label(element, presentation, projection, document), pos=f"{x},{y}!", tooltip=tooltip, **attrs)
     for e in projection.inside:
@@ -230,13 +240,17 @@ def generate_dot(presentation, architecture, view, projection, document=False):
     rows = ['<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="18"><B>Relationships and protocols</B></FONT></TD></TR>']
     for index, r in enumerate(projection.relationships, 1):
         number = f"{index:02d}"
+        state = c4.relationship_state(overlay, r)
+        colour = c4.STATE_TAGS[state][0] if state in c4.STATE_TAGS else None
+        extra = {"color": colour, "fontcolor": colour, "penwidth": "2.2"} if colour else {}
         graph.edge(r["from"], r["to"], xlabel=f"<<B>{number}</B>>" if document else number, id=r["id"],
-                   tooltip=f"{number}: {r['label']} ({r['protocol']})",
+                   tooltip=f"{number}: {r['label']} ({c4.marked(r['protocol'], state)})",
                    pos=edge_position(route_geometry(view, r)), xlp=",".join(map(str, view["routes"][r["id"]]["label"])),
-                   style={"sync": "solid", "async": "dashed", "event": "dotted", "governance": "dashed"}[r["style"]])
+                   style={"sync": "solid", "async": "dashed", "event": "dotted", "governance": "dashed"}[r["style"]], **extra)
         action = presentation["relationship_labels"][r["id"]]
         rows.append(f'<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="15"><B>{number}</B> {lines(action, 36)}</FONT>'
-                    f'<BR ALIGN="LEFT"/><FONT POINT-SIZE="12" COLOR="#52647A">{escape(r["protocol"])}</FONT></TD></TR>')
+                    f'<BR ALIGN="LEFT"/><FONT POINT-SIZE="12" COLOR="{colour or "#52647A"}">'
+                    f'{escape(c4.marked(r["protocol"], state))}</FONT></TD></TR>')
     if document:
         return graph.source
     legend = '<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="6" CELLPADDING="0">' + "".join(rows) + '</TABLE>>'

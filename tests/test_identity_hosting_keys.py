@@ -35,7 +35,9 @@ class IdentityHostingAndKeysTests(unittest.TestCase):
         vault = self.elements["azure_key_vault"]
         self.assertEqual(vault["key_custody"]["operations"], ["sign", "verify"])
         self.assertFalse(vault["key_custody"]["exportable"])
-        signers = {r["from"] for r in self.relations.values() if r["to"] == "azure_key_vault"}
+        # Component relationships (C4 Level 3) are lifted to their container.
+        signers = {self.elements[r["from"]].get("parent", r["from"])
+                   for r in self.relations.values() if r["to"] == "azure_key_vault"}
         # RAG verifies tokens through JWKS and signs none, so it does not reach Key Vault.
         self.assertEqual(signers, {"ingestion_normalization_service", "pipeline_service", "log_event_service",
                                    "nlp_log_processor", "evidence_correlation_engine", "recommendation_service"})

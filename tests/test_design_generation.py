@@ -35,7 +35,8 @@ class DesignTests(unittest.TestCase):
 
     def test_approved_sources_and_exact_membership(self):
         self.assertEqual(self.errors(), [])
-        self.assertEqual([len(d["elements"]) for d in self.model["class_diagrams"]], [15, 15, 14])
+        self.assertEqual([len(d["elements"]) for d in self.model["class_diagrams"][:3]], [15, 15, 14])
+        self.assertTrue(all(len(d["elements"]) <= 15 for d in self.model["class_diagrams"]))
         for diagram in self.model["class_diagrams"]:
             source = generator.generate_puml(self.model, diagram)
             declarations = [line for line in source.splitlines()
@@ -75,9 +76,15 @@ class DesignTests(unittest.TestCase):
         self.model["open_questions"].append({"id": "DCQ-new", "source": "future", "description": "Open"})
         self.assertEqual(self.errors(), [])
 
-    def test_fourth_diagram_and_node_limit_rejected(self):
-        self.model["class_diagrams"].append({"id": "CD-4", "zoom_target": "diagnostic_output_component", "elements": []})
-        self.rejected("exactly CD-1, CD-2, CD-3")
+    def test_diagram_order_kind_and_node_limit_rejected(self):
+        self.model["class_diagrams"][0], self.model["class_diagrams"][1] = (self.model["class_diagrams"][1],
+                                                                          self.model["class_diagrams"][0])
+        self.rejected("CD-1, CD-2, CD-3 are required first, in order")
+        self.model = deepcopy(self.design)
+        self.model["class_diagrams"].append({"id": "CD-12", "title": "CD-12", "kind": "component_design",
+                                             "container": "recommendation_service",
+                                             "zoom_target": "diagnostic_output_component", "elements": ["Diagnosis"]})
+        self.rejected("CD-12: diagrams after CD-3 must be bounded_context diagrams")
         self.model = deepcopy(self.design)
         self.model["class_diagrams"][1]["elements"].append("HumanReview")
         self.rejected("16 nodes exceeds maximum 15")
@@ -180,11 +187,13 @@ class DesignTests(unittest.TestCase):
             "name": "publishInternalEvent", "parameters": [], "returns": "void", "effect": "write"})
         self.assertEqual(self.errors(), [])
 
-    def test_implemented_requires_real_microservice_not_renderer_code(self):
+    def test_implemented_requires_code_evidence_not_renderer_code(self):
         item = self.item("Diagnosis")
-        item["status"] = "implemented"
-        item["implementation"] = {"container": "recommendation_service", "service_root": "tools", "path": "tools/validate.py"}
-        self.rejected("implemented requires real Java microservice code")
+        item["implementation"] = {"status": "implemented", "evidence": ["docs:tools/validate.py:1"]}
+        self.rejected("unknown repository 'docs'")
+        self.model = deepcopy(self.design)
+        self.item("Diagnosis")["status"] = "implemented"
+        self.rejected("Diagnosis: missing container")
         self.model = deepcopy(self.design)
         self.item("Diagnosis")["status"] = "inferred"
         self.rejected("design status must be proposed")
@@ -220,7 +229,8 @@ class DesignTests(unittest.TestCase):
                                   text=True, check=True, timeout=10).stdout for seed in ("1", "42")]
         self.assertEqual(*outputs)
         self.assertNotIn("linetype ortho", outputs[0])
-        self.assertNotRegex(outputs[0], r"\b(?:None|null|TBD)\b")
+        # Python optional types ("str | None") are code, not placeholders.
+        self.assertNotRegex(outputs[0].replace("| None", ""), r"\b(?:None|null|TBD)\b")
         navigation = generator.navigation_markdown(self.model, self.architecture)
         for diagram in self.model["class_diagrams"]:
             self.assertIn(f"({diagram['id']}.svg)", navigation)

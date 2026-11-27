@@ -254,6 +254,10 @@ Se reporta aquí y no se corrige: pipesor-iac está fuera de este repositorio.
 - `make test-postgres` conserva el fallo conocido `test_open_vector_and_review_correction` (3 frente a 1536 dimensiones), que también falla en main.
 - `pipesor-landing` quedó fuera del alcance.
 
+## Auditoría de diagramas — 27/11/2026
+
+Sobre las mismas revisiones de servicio, la auditoría de los diagramas del Capstone y la Memoria y las siete decisiones que el responsable aprobó para corregirlos están en [diagram-audit-2026-11-27.md](diagram-audit-2026-11-27.md). Añade el overlay de implementación (`model/implementation_status.yml`), la matriz de trazabilidad (`out/trazabilidad.md`) y doce hallazgos nuevos, sin responder las preguntas abiertas de este documento.
+
 ## Baseline verificable
 
 El checkout de docs comenzó limpio en `main@c0871ac9a62bad62b8c679255fe0a4b9c6574d2e`.

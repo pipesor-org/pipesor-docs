@@ -43,8 +43,8 @@ Las cajas de agrupación organizan la lectura; no son nuevos elementos arquitect
 | Delivers normalized evidence for registration and querying | Azure Service Bus | logica_expo_01 |
 | Persists pipelines, stages, states and execution metadata | PostgreSQL | logica_expo_03 |
 | Persists and queries normalized evidence metadata and references | PostgreSQL | logica_expo_03 |
-| Persists diagnosis, recommendations and evidence links | PostgreSQL | logica_expo_03 |
-| Retrieves authorized logs, artifacts and metadata | GitHub API/HTTPS | logica_expo_01 |
+| Persists diagnoses with their recommendation and cited evidence | PostgreSQL | logica_expo_03 |
+| Retrieves authorized run metadata, jobs and logs | GitHub API/HTTPS | logica_expo_01 |
 | Publishes normalized and protected evidence | Azure Service Bus | logica_expo_01 |
 | Delivers normalized events for processing | Azure Service Bus | logica_expo_02 |
 | Delivers logs and processed evidence for correlation | REST/HTTPS | logica_expo_02 |
@@ -57,9 +57,9 @@ Las cajas de agrupación organizan la lectura; no son nuevos elementos arquitect
 | Requests authorized contextual knowledge for the incident | REST/HTTPS | logica_expo_02 |
 | Requests diagnostic inference with sanitized evidence and RAG context | Azure OpenAI API/HTTPS | logica_expo_02 |
 | Sends users to GitHub to authorize sign-in | OAuth 2.0/HTTPS (authorization code + PKCE S256) | logica_expo_03 |
-| Routes pipeline, execution, incident queue and insights queries, registration, grants and incident lifecycle commands | REST/HTTPS | logica_expo_03 |
-| Routes log, event and evidence queries | REST/HTTPS | logica_expo_03 |
-| Routes diagnosis and review queries and operations | REST/HTTPS | logica_expo_03 |
+| Queries pipelines, executions, the incident queue and insights; registers workflows, grants access and changes incident state | REST/HTTPS | logica_expo_03 |
+| Queries logs, events and evidence | REST/HTTPS | logica_expo_03 |
+| Reads diagnoses and records human reviews | REST/HTTPS | logica_expo_03 |
 | Persists human review decisions and traceability | PostgreSQL | logica_expo_03 |
 | Queries diagnostic_output to publish the workflow artifact | REST/HTTPS | logica_expo_03 |
 | Exchanges sign-in codes with the PKCE verifier and verifies GitHub identity, installations, repository access and collaborators | OAuth/HTTPS + REST/HTTPS | logica_expo_01 |

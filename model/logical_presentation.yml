@@ -12,6 +12,14 @@ collapse:
   diagnostic_api_component: recommendation_service
   diagnostic_orchestrator_component: recommendation_service
   diagnostic_output_component: recommendation_service
+  # Ingestion components (C4 Level 3, 27/11/2026) project onto their container.
+  ingestion_webhook_component: ingestion_normalization_service
+  ingestion_capture_component: ingestion_normalization_service
+  ingestion_preparation_component: ingestion_normalization_service
+  ingestion_normalization_component: ingestion_normalization_service
+  ingestion_publication_component: ingestion_normalization_service
+  ingestion_sign_in_component: ingestion_normalization_service
+  ingestion_github_connector_component: ingestion_normalization_service
 
 # Etiquetas editoriales breves. Acción completa y protocolo: tooltip del SVG.
 relationship_labels:
@@ -26,7 +34,7 @@ relationship_labels:
   rel_dashboard_ingestion_github_connection: "Connects GitHub and selects workflows"
   rel_github_github_actions: "Repository and workflows"
   rel_github_actions_ingestion_event: "Workflow events"
-  rel_ingestion_github_actions_read: "Queries logs and artifacts"
+  rel_ingestion_github_actions_read: "Queries runs, jobs and logs"
   rel_observability_sources_ingestion: "Authorized telemetry"
   rel_ingestion_service_bus: "Protected evidence"
   rel_service_bus_pipeline_service: "Execution context"

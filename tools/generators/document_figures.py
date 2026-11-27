@@ -60,9 +60,11 @@ PNG_DPI = 300
 FONT = 14
 STYLES = {"sync": "solid", "async": "dashed", "event": "dotted", "governance": "dashed"}
 KINDS = {"actor": "Person", "external_system": "External system", "datastore": "Data container",
-         "container": "Container", "component": "Component"}
+         "container": "Container", "component": "Component", "software_system": "Software system"}
 LEGEND = ("Blue: prototype · Gray: actors and external systems · Green: persistence · "
           "Solid: synchronous · Dashed: asynchronous · Dotted: event")
+STATE_KEY = ("Implementation state (model/implementation_status.yml): red = modeled, not implemented; "
+             "amber = partially implemented; violet = implemented differently; unmarked = implemented or external.")
 C4_KEY = ("Without stereotypes: blue boxes are containers of the prototype, gray boxes are people and "
           "external systems, the green cylinder is a data container and the dashed frame is the system boundary.")
 
@@ -153,8 +155,12 @@ def generate_dot(figure, rankdir, columns, edge="label"):
             add(cluster)
     for number, r in enumerate(figure.relationships, 1):
         # A real edge label reserves layout space, so numbers never sit on boxes or titles.
+        colour = c4.STATE_TAGS[r["state"]][0] if r.get("state") in c4.STATE_TAGS else None
+        extra = {"color": colour, "fontcolor": colour, "penwidth": "2.0"} if colour else {}
         graph.edge(r["from"], r["to"], **{edge: f"<<B>{number:02d}</B>>"}, id=r["id"],
-                   tooltip=f"{number:02d}: {r['label']} ({r['protocol']})", style=STYLES[r["style"]])
+                   tooltip=f"{number:02d}: {r['label']} ({r['protocol']})",
+                   # A context arrow aggregating several styles (e.g. event+sync) is drawn solid.
+                   style=STYLES.get(r["style"], "solid"), **extra)
     return graph.source
 
 
@@ -219,11 +225,49 @@ def c4_expo_figures():
     figures = []
     for view, projection in c4_expo.prepare(presentation, architecture):
         elements = {e["id"]: e for e in projection.inside + projection.outside}
-        rels = [{**r, "label": presentation["relationship_labels"][r["id"]]} for r in projection.relationships]
-        note = C4_KEY + (" PostgreSQL/pgvector: one physical instance (ADR-018)." if projection.combined_postgres else "")
+        overlay = c4.load_overlay()
+        rels = []
+        for r in projection.relationships:
+            state = c4.relationship_state(overlay, r)
+            rels.append({**r, "label": presentation["relationship_labels"][r["id"]], "state": state,
+                         "protocol": c4.marked(r["protocol"], state)})
+        note = C4_KEY + " " + STATE_KEY + (" PostgreSQL/pgvector: one physical instance (ADR-018)."
+                                           if projection.combined_postgres else "")
         fixed = c4_expo.generate_dot(presentation, architecture, view, projection, document=True)
         figures.append(Figure(view["id"], projection.view["title"], "model/c4_container_presentation.yml", [],
                               elements, rels, {}, stereotypes=False, note=note, fixed=fixed))
+    return figures
+
+
+def c4_context_figures():
+    """Print variant of the C4 context view (decision 6 of 27/11/2026): same aggregation as c4.py."""
+    architecture = yaml.safe_load((ROOT / "model/architecture.yml").read_text(encoding="utf-8"))
+    projections, _ = c4.prepare(architecture)
+    layers = {layer["id"]: layer for layer in architecture["layers"]}
+    overlay, descriptions = c4.load_overlay(), c4.load_presentation()
+    figures = []
+    for projection in projections:
+        view = projection.view
+        if view["kind"] != "c4_context":
+            continue
+        warnings = set()
+        elements = {e["id"]: e for e in projection.inside + projection.outside}
+        details = {}
+        for e in projection.outside:
+            state = c4.overlay_state(overlay, "elements", e["id"])
+            details[e["id"]] = [part for part in (c4.technology(e, warnings), c4.description(e, layers, warnings, descriptions),
+                                                  f"[{c4.STATE_TAGS[state][1]}]" if state in c4.STATE_TAGS else "") if part]
+        central = projection.inside[0]
+        details[central["id"]] = [c4.description(central, layers, warnings, descriptions)]
+        rels = []
+        for r in projection.relationships:
+            state = c4.relationship_state(overlay, r)
+            rels.append({**r, "state": state, "protocol": c4.marked(r["protocol"], state)})
+        groups = [("outside", None, None, [e["id"] for e in projection.outside]),
+                  ("system", None, False, [central["id"]])]
+        figures.append(Figure(view["id"], view["title"], "model/architecture.yml", groups, elements, rels, details,
+                              stereotypes=True, note=STATE_KEY + " Context aggregation: each arrow joins the "
+                              "relationships between the system and that external element."))
     return figures
 
 
@@ -238,23 +282,51 @@ def c4_component_figures():
             continue
         elements = {e["id"]: e for e in projection.inside + projection.outside}
         warnings = set()
+        overlay, descriptions = c4.load_overlay(), c4.load_presentation()
+        every = {e["id"]: e for e in architecture["elements"]}
+
+        def state_line(element):
+            state = c4.overlay_state(overlay, "elements", element["id"])
+            return f"[{c4.STATE_TAGS[state][1]}]" if state in c4.STATE_TAGS else ""
         # Neighbours outside the boundary are context: name and technology only.
-        details = {e["id"]: [part for part in (c4.technology(e, warnings),
-                                               c4.description(e, layers, warnings) if e in projection.inside else "")
+        # Components share their container's technology, stated once in the boundary title.
+        details = {e["id"]: [part for part in (c4.technology(e, warnings, elements=every)
+                                               if e not in projection.inside else "",
+                                               c4.description(e, layers, warnings, descriptions)
+                                               if e in projection.inside else "", state_line(e))
                              if part]
                    for e in projection.inside + projection.outside}
+        rels = []
+        for r in projection.relationships:
+            state = c4.relationship_state(overlay, r)
+            rels.append({**r, "state": state, "protocol": c4.marked(r["protocol"], state)})
         container = next(e for e in architecture["elements"] if e["id"] == view["container"])
-        groups = [("outside", None, None, [e["id"] for e in projection.outside]),
-                  (view["container"], container["name"], True, [e["id"] for e in projection.inside])]
-        figures.append(Figure(view["id"], view["title"], "model/architecture.yml", groups, elements,
-                              projection.relationships, details, stereotypes=True))
+        boundary = f"{container['name']} [{c4.technology(container, warnings)}]"
+        parts = c4.load_print_parts().get(view["id"]) or [
+            {"id": view["id"], "title": view["title"], "components": [e["id"] for e in projection.inside]}]
+        covered = [c for part in parts for c in part["components"]]
+        if sorted(covered) != sorted(e["id"] for e in projection.inside):
+            raise ValueError(f"{view['id']}: print parts must cover each component exactly once")
+        for part in parts:
+            inside = set(part["components"])
+            part_rels = [r for r in rels if {r["from"], r["to"]} & inside]
+            if any(r["from"] in set(covered) - inside or r["to"] in set(covered) - inside for r in part_rels):
+                raise ValueError(f"{part['id']}: a relationship crosses print parts")
+            neighbours = {r[end] for r in part_rels for end in ("from", "to")} - inside
+            groups = [("outside", None, None, [e["id"] for e in projection.outside if e["id"] in neighbours]),
+                      (view["container"], boundary, True, [e["id"] for e in projection.inside if e["id"] in inside])]
+            note = STATE_KEY + (f" Part of {view['id']}; the complete view is out/{view['id']}.svg."
+                                if part["id"] != view["id"] else "")
+            figures.append(Figure(part["id"], part["title"], "model/architecture.yml", groups,
+                                  {k: v for k, v in elements.items() if k in inside | neighbours},
+                                  part_rels, details, stereotypes=True, note=note))
     return figures
 
 
 def figures():
     return (presentation_figures(logical, logical.MODEL, technology=False)
             + presentation_figures(physical, physical.MODEL, technology=True)
-            + c4_expo_figures() + c4_component_figures())
+            + c4_expo_figures() + c4_context_figures() + c4_component_figures())
 
 
 def engine(figure):
@@ -298,6 +370,18 @@ def render(figure, out=OUT, build=BUILD):
     return page, columns, width_cm, height_cm, smallest
 
 
+def other_renderers():
+    """Print variants owned by other generators (27/11/2026): ER by context, classes, sequences, deployment."""
+    try:
+        from . import classes, deployment, er_print, sequences
+    except ImportError:
+        import classes
+        import deployment
+        import er_print
+        import sequences
+    return (("ER", er_print), ("classes", classes), ("sequences", sequences), ("deployment", deployment))
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--validate-only", action="store_true")
@@ -307,8 +391,12 @@ def main():
         print(f"DOCUMENT FIGURES VALIDATION PASSED ({len(selected)} views)")
         return
     guide = ["# Figuras para documentos", "",
-             "Variantes de impresión de las vistas de presentación y del C4 de componentes. Generado desde los",
-             "mismos modelos que las vistas para diapositivas; diseño propuesto, sin acreditar implementación.", "",
+             "Variantes de impresión de las vistas de presentación, del C4 (contexto, contenedores y componentes), del",
+             "modelo de datos por contexto, de las clases, de las secuencias y del despliegue. Se generan desde los mismos",
+             "modelos que las vistas completas. El color y una marca de texto indican el estado de implementación según",
+             "model/implementation_status.yml (rojo: modelado, no implementado; ámbar: en parte; violeta: de otra forma);",
+             "la figura no acredita comportamiento en runtime. Cuando una vista no cabe legible en una página se divide",
+             "en partes numeradas; la vista completa sigue en out/.", "",
              f"Cada figura se comprobó para A4 con márgenes de 2,54 cm: vertical {PAGES['portrait'][0]} × "
              f"{PAGES['portrait'][1]} cm o apaisada {PAGES['landscape'][0]} × {PAGES['landscape'][1]} cm como máximo.",
              f"Insertada al ancho indicado, ningún texto queda por debajo de {MIN_POINTS:g} pt. El PNG declara "
@@ -327,6 +415,17 @@ def main():
                      f"{smallest:.1f} |")
         print(f"generated: out/doc/{figure.id}.png ({page}, legend {'inside' if columns else 'in guide'}, "
               f"{width_cm:.1f}x{height_cm:.1f} cm, min {smallest:.1f} pt)")
+    for family, module in other_renderers():
+        for row in module.render_documents():
+            if row["legend"] == "tabla en la guía" and family == "deployment":
+                row = {**row, "legend": "tabla en [despliegue_guia.md](../despliegue_guia.md)"}
+            if row["min_pt"] < MIN_POINTS:
+                raise ValueError(f"{row['id']}: {row['min_pt']:.1f} pt is below {MIN_POINTS} pt")
+            guide.append(f"| [{row['id']}]({row['id']}.png) ([SVG]({row['id']}.svg)) | {row['title']} | "
+                         f"{'vertical' if row['page'] == 'portrait' else 'apaisada'} | {row['legend']} | "
+                         f"{row['width_cm']:.1f} × {row['height_cm']:.1f} | {row['min_pt']:.1f} |")
+            print(f"generated: out/doc/{row['id']}.png ({row['page']}, {row['width_cm']:.1f}x{row['height_cm']:.1f} cm, "
+                  f"min {row['min_pt']:.1f} pt)")
     for figure in external:
         guide.extend(["", f"## Relaciones de {figure.id}", "",
                       f"{figure.title}. {LEGEND}. {figure.note}".rstrip(), "",

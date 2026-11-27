@@ -98,7 +98,7 @@
 
 <g id="rel_dashboard_pipeline_service" class="edge">
 <title>web_dashboard-&gt;pipeline_service</title>
-<g id="a_rel_dashboard_pipeline_service"><a xlink:title="Routes pipeline, execution, incident queue and insights queries, registration, grants and incident lifecycle commands (REST/HTTPS)">
+<g id="a_rel_dashboard_pipeline_service"><a xlink:title="Queries pipelines, executions, the incident queue and insights; registers workflows, grants access and changes incident state (REST/HTTPS)">
 <path fill="none" stroke="#475569" d="M433.33,-349.39C597.26,-356.4 881.19,-368.55 1037.53,-375.24" />
 <polygon fill="#475569" stroke="#475569" points="1037.19,-377.68 1044.29,-375.53 1037.4,-372.78 1037.19,-377.68" />
 </a>
@@ -120,7 +120,7 @@
 
 <g id="rel_dashboard_log_event_service" class="edge">
 <title>web_dashboard-&gt;log_event_service</title>
-<g id="a_rel_dashboard_log_event_service"><a xlink:title="Routes log, event and evidence queries (REST/HTTPS)">
+<g id="a_rel_dashboard_log_event_service"><a xlink:title="Queries logs, events and evidence (REST/HTTPS)">
 <path fill="none" stroke="#475569" d="M433.33,-326.63C594.68,-304.39 872.25,-266.12 1030.03,-244.37" />
 <polygon fill="#475569" stroke="#475569" points="1030.28,-246.81 1036.88,-243.42 1029.61,-241.95 1030.28,-246.81" />
 </a>
@@ -143,7 +143,7 @@
 
 <g id="rel_dashboard_recommendation_service" class="edge">
 <title>web_dashboard-&gt;recommendation_service</title>
-<g id="a_rel_dashboard_recommendation_service"><a xlink:title="Routes diagnosis and review queries and operations (REST/HTTPS)">
+<g id="a_rel_dashboard_recommendation_service"><a xlink:title="Reads diagnoses and records human reviews (REST/HTTPS)">
 <path fill="none" stroke="#475569" d="M433.37,-304.83C491.99,-286.78 562.71,-265.25 626.49,-246.5 753.9,-209.05 899.33,-168.12 1004.31,-138.9" />
 <polygon fill="#475569" stroke="#475569" points="1004.89,-141.29 1010.98,-137.05 1003.58,-136.56 1004.89,-141.29" />
 </a>
@@ -247,7 +247,7 @@
 
 <g id="rel_recommendation_service_postgresql" class="edge">
 <title>recommendation_service-&gt;postgresql_operational_store</title>
-<g id="a_rel_recommendation_service_postgresql"><a xlink:title="Persists diagnosis, recommendations and evidence links (PostgreSQL)">
+<g id="a_rel_recommendation_service_postgresql"><a xlink:title="Persists diagnoses with their recommendation and cited evidence (PostgreSQL)">
 <path fill="none" stroke="#475569" d="M1287.02,-132.14C1338.08,-144.56 1394.97,-158.39 1441.59,-169.73" />
 <polygon fill="#475569" stroke="#475569" points="1440.73,-172.04 1448.11,-171.31 1441.88,-167.28 1440.73,-172.04" />
 </a>

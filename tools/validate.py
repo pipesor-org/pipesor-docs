@@ -171,6 +171,14 @@ def main():
     elif len(sys.argv) > 2:
         errors.append(f"domain: model not found: {domain_path}")
 
+    overlay_path = FILE.with_name("implementation_status.yml")
+    if overlay_path.exists():
+        sys.path.insert(0, str(Path(__file__).resolve().parent / "generators"))
+        import implementation_status
+        domain_doc = yaml.safe_load(domain_path.read_text(encoding="utf-8")) if domain_path.exists() else None
+        errors.extend(f"implementation: {e}" for e in
+                      implementation_status.validate(implementation_status.load(overlay_path), doc, domain_doc))
+
     if errors:
         print("ARCHITECTURE VALIDATION FAILED")
         print("\n".join(f"- {e}" for e in errors))

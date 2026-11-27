@@ -1,0 +1,2320 @@
+# Presentación de secuencias del flujo de fallo CI/CD y del inicio de sesión de Pipesor.
+#
+# Autorizado por el responsable el 27/11/2026 (decisión 1): «modelos de presentación nuevos con
+# generador PlantUML, validador, pruebas; cada mensaje cita un rel_* existente o una evidencia
+# repo@sha:archivo:línea, con estado; lo implementado no modelado aparece marcado como tal, sin
+# añadirse a architecture.yml».
+#
+# Este modelo es de presentación. No crea, retira ni reinterpreta arquitectura, no cambia `status`
+# ni `source` y no resuelve open_questions ni decisiones pendientes (PD); las divergencias se anotan.
+# Un diagrama generado no acredita comportamiento en runtime: la evidencia es código o IaC en la
+# revisión fijada en model/implementation_status.yml (`repositories`), no una ejecución observada.
+#
+# Convenciones:
+# - participants[].element es un id de model/architecture.yml. Lo que no existe en el modelo
+#   (navegador, workers internos) se declara `implementation_only: true` con `kind` y `evidence`;
+#   `parent` opcional indica el elemento modelado que lo contiene.
+# - Un mensaje cita `relationship` (rel_* existente) cuyos extremos coinciden con los elementos de
+#   sus participantes; se acepta un componente frente a la relación de su contenedor o al revés.
+#   Las respuestas (`reply`) pueden recorrer la relación en sentido inverso. Si el paso no está
+#   modelado, lleva `implementation_only: true` y `reason`. Los pasos internos (`self`) son siempre
+#   implementation_only.
+# - `state` usa tools/generators/evidence.py STATUSES; `evidence` es repo:ruta:línea[-línea].
+# - `section` separa etapas: en la vista completa es un divisor y en la impresión, un punto de corte.
+model_version: "1.0.0"
+purpose: >-
+  Diagramas de secuencia para la Memoria de Tesis y el Capstone (A4): la primera mitad del fallo
+  CI/CD (captura hasta la entrega a Recommendation), el diagnóstico asistido, la revisión humana con
+  el informe en GitHub Actions y el inicio de sesión con GitHub, contrastados con el código.
+authorization:
+  date: "2026-11-27"
+  decision: 1
+  approved_by: responsable del proyecto
+architecture_source: model/architecture.yml
+evidence_source: model/implementation_status.yml
+audit_sources:
+  - "Auditoría de solo lectura del 27/11/2026: seq-a1-captura, seq-a2-diagnostico y seq-b-login (fuera del repositorio)"
+
+sequences:
+  # ---------------------------------------------------------------------------------------------
+  - id: seq_a1_capture
+    title: "CI/CD failure capture: from the GitHub Actions webhook to the Recommendation receipt"
+    purpose: >-
+      Primera mitad del flujo de fallo: un run fallido de GitHub Actions llega por webhook firmado,
+      se admite contra el ámbito de captura, queda en un recibo durable, se prepara con el token de
+      instalación, se normaliza y protege, se congela en el outbox y se publica en Service Bus; las
+      tres suscripciones lo consumen y Correlation entrega el contexto a Recommendation, que solo
+      registra un recibo y un job de diagnóstico.
+    participants:
+      - {id: dash, name: "AIOps Web Dashboard", element: web_dashboard}
+      - {id: gha, name: "GitHub Actions", element: github_actions}
+      - {id: ing, name: "Ingestion", element: ingestion_normalization_service}
+      - {id: pg, name: "PostgreSQL", element: postgresql_operational_store}
+      - {id: sb, name: "Service Bus", element: azure_service_bus}
+      - {id: pip, name: "Pipeline", element: pipeline_service}
+      - {id: le, name: "Log/Event", element: log_event_service}
+      - {id: nlp, name: "NLP", element: nlp_log_processor}
+      - {id: cor, name: "Correlation", element: evidence_correlation_engine}
+      - {id: rec, name: "Recommendation", element: recommendation_service}
+    untested:
+      - "Ningún salto entre servicios se prueba con el par real: todos usan stubs, fakes o HttpServer locales."
+      - "Ninguna prueba usa un Service Bus real ni el emulador: filtros, deduplicación, maxDeliveryCount, DLQ y TTL solo se comprueban en el plan de Terraform."
+      - "Las pruebas HTTP del webhook simulan CaptureHandler; ninguna recorre servlet → JdbcCaptureAuthority → ledger."
+      - "La lectura de GitHub (token de instalación, run, jobs y logs) solo se prueba contra un HttpServer local, nunca contra GitHub."
+      - "La comprobación de ámbito de máquina con JdbcCaptureAuthority, la que corre en runtime, no tiene prueba directa."
+      - "No hay prueba extremo a extremo automatizada en los repositorios de servicio."
+    steps:
+      - section: "Precondition: Pipeline synchronises the capture scope"
+      - message:
+          from: pip
+          to: ing
+          style: sync
+          text: "PUT /internal/v1/capture/workflow-scopes/{repo}/{workflow} (Pipeline.CaptureScope.Write)"
+          relationship: rel_pipeline_ingestion_github_access
+          state: implemented
+          note: "Sent after each registration commit and by a 5-minute reconciliation."
+          evidence:
+            - pipeline:src/main/java/org/pipesor/pipeline/catalog/infrastructure/capture/HttpCaptureScopeSync.java:34
+            - pipeline:src/main/java/org/pipesor/pipeline/catalog/infrastructure/capture/HttpCaptureScopeSync.java:87-93
+            - pipeline:src/main/java/org/pipesor/pipeline/configuration/OperationsConfiguration.java:193
+            - pipeline:src/main/java/org/pipesor/pipeline/configuration/CaptureScopeConfiguration.java:91
+      - message:
+          from: ing
+          to: pg
+          style: sync
+          text: "Upsert capture_workflow_scopes; revision changes only with the state (replay_window 20 min)"
+          relationship: rel_ingestion_postgresql_connector_metadata
+          state: implemented
+          idempotency: "Upsert by primary key; unchanged state keeps the revision"
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/rest/CaptureScopeController.java:38-66
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jdbc/JdbcCaptureAuthority.java:204-238
+            - ingestion:src/main/resources/application.yml:112
+      - message:
+          from: ing
+          to: pip
+          style: reply
+          text: "200 synced (404 repository not admitted, 409 pipeline of another owner)"
+          relationship: rel_pipeline_ingestion_github_access
+          state: implemented
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/rest/CaptureScopeController.java:38-66
+
+      - section: "Signed webhook and admission"
+      - message:
+          from: gha
+          to: ing
+          style: sync
+          text: "POST /webhooks/v1/github/workflow-runs (workflow_run, X-Hub-Signature-256, X-GitHub-Delivery)"
+          relationship: rel_github_actions_ingestion_event
+          state: implemented
+          note: "Off by default; IaC turns it on when a webhook secret version is set. Own security chain without platform token; 16 requests in flight and a 5 s budget."
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/configuration/GitHubWebhookConfiguration.java:27-37
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/webhook/GitHubWebhookServlet.java:35-89
+            - ingestion:src/main/resources/application.yml:79
+            - iac:modules/workloads/main.tf:110-114
+      - message:
+          from: ing
+          to: ing
+          style: self
+          text: "Verify HMAC-SHA256 of the raw body in constant time, before parsing"
+          implementation_only: true
+          reason: "Paso interno de Ingestion; el modelo no detalla la verificación de la firma."
+          state: implemented
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/webhook/GitHubWorkflowWebhook.java:89-93
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/webhook/GitHubWorkflowWebhook.java:102-114
+      - fragment:
+          kind: alt
+          label: "rejected before admission"
+          branches:
+            - guard: "signature header missing, malformed or HMAC mismatch"
+              steps:
+                - message:
+                    from: ing
+                    to: gha
+                    style: reply
+                    text: "403, nothing stored (503 if the secret is unavailable)"
+                    relationship: rel_github_actions_ingestion_event
+                    state: implemented
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/webhook/GitHubWebhookServlet.java:39-40
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/webhook/GitHubWebhookServlet.java:81
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/webhook/GitHubWorkflowWebhook.java:102-114
+            - guard: "ping, another event or action other than completed"
+              steps:
+                - message:
+                    from: ing
+                    to: gha
+                    style: reply
+                    text: "204 without writing (conclusion is not filtered here)"
+                    relationship: rel_github_actions_ingestion_event
+                    state: implemented
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/webhook/GitHubWorkflowWebhook.java:84-86
+                      - ingestion:src/main/java/org/pipesor/ingestion/configuration/GitHubConfiguration.java:199
+      - message:
+          from: ing
+          to: pg
+          style: sync
+          text: "Resolve ACTIVE capture_workflow_scopes, exact revision and non-revoked admission"
+          relationship: rel_ingestion_postgresql_connector_metadata
+          state: implemented
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jdbc/JdbcCaptureAuthority.java:179-202
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/webhook/GitHubWorkflowWebhook.java:60-78
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/application/commandhandlers/CaptureHandler.java:101-107
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jdbc/JdbcCaptureAuthority.java:309-320
+      - fragment:
+          kind: opt
+          label: "outside the capture scope"
+          branches:
+            - guard: "no ACTIVE scope (paused or not yet synchronised), revision changed or admission revoked"
+              steps:
+                - message:
+                    from: ing
+                    to: gha
+                    style: reply
+                    text: "403: capture discarded, no retry"
+                    relationship: rel_github_actions_ingestion_event
+                    state: implemented
+                    note: "ADR-023 acknowledges the window before the first scope synchronisation."
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/webhook/GitHubWorkflowWebhook.java:60-78
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/webhook/GitHubWebhookServlet.java:82
+      - section: "Durable receipt and answer to GitHub"
+      - message:
+          from: ing
+          to: pg
+          style: sync
+          text: "INSERT capture_receipts (ACCEPTED) and capture_delivery_aliases before answering"
+          relationship: rel_ingestion_postgresql_connector_metadata
+          state: implemented
+          idempotency: "Key = SHA-256 of the signed body, ON CONFLICT DO NOTHING; one alias per X-GitHub-Delivery"
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jpa/JpaCaptureLedger.java:87-116
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/webhook/GitHubWorkflowWebhook.java:71
+            - ingestion:src/main/resources/db/migration/V2__capture_publication_ledger.sql:158-162
+      - fragment:
+          kind: alt
+          label: "answer to GitHub"
+          branches:
+            - guard: "new body, or same body under any delivery id"
+              steps:
+                - message:
+                    from: ing
+                    to: gha
+                    style: reply
+                    text: "204 No Content (a duplicate returns the same receipt)"
+                    relationship: rel_github_actions_ingestion_event
+                    state: implemented
+                    note: "No code recovers missed deliveries; only the manual analysis remains."
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jpa/JpaCaptureLedger.java:96
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jpa/JpaCaptureLedger.java:107-110
+            - guard: "delivery id reused with another body, or same body for another run or attempt"
+              steps:
+                - message:
+                    from: ing
+                    to: gha
+                    style: reply
+                    text: "409 conflicting delivery identity"
+                    relationship: rel_github_actions_ingestion_event
+                    state: implemented
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jpa/JpaCaptureLedger.java:102-113
+            - guard: "commit later than the 5 s budget"
+              steps:
+                - message:
+                    from: ing
+                    to: gha
+                    style: reply
+                    text: "503 even though the receipt is committed"
+                    relationship: rel_github_actions_ingestion_event
+                    state: implemented
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/webhook/GitHubWebhookServlet.java:60
+      - section: "Manual alternative"
+      - fragment:
+          kind: opt
+          label: "manual alternative"
+          branches:
+            - guard: "a GitHub administrator requests the analysis of a run attempt"
+              steps:
+                - message:
+                    from: dash
+                    to: ing
+                    style: sync
+                    text: "POST /api/v1/github/repositories/{r}/workflows/{w}/runs/{run}/attempts/{n}/analysis"
+                    relationship: rel_dashboard_ingestion_github_connection
+                    state: implemented
+                    note: "Requires GitHub administration; reconciliation question 14 (OPERATE or administrator) is open."
+                    evidence:
+                      - frontend:src/entities/workflow-run/model/api.ts:77-83
+                      - ingestion:src/main/java/org/pipesor/ingestion/github/interfaces/rest/AnalysisController.java:23
+                      - ingestion:src/main/java/org/pipesor/ingestion/github/interfaces/rest/AnalysisController.java:32
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/application/commandhandlers/GitHubAnalysisHandler.java:82-98
+                - message:
+                    from: ing
+                    to: pg
+                    style: sync
+                    text: "Receipt with alias on-demand: and synthetic digest; joins the preparation below"
+                    relationship: rel_ingestion_postgresql_connector_metadata
+                    state: implemented
+                    idempotency: "Re-analysing a published run reuses the observation and republishes nothing"
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/application/commandhandlers/RequestGitHubCapture.java:31-48
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jpa/JpaCaptureLedger.java:165-168
+
+      - section: "Preparation worker (every 5 s): claim and GitHub read"
+      - message:
+          from: ing
+          to: pg
+          style: sync
+          text: "Claim an ACCEPTED receipt (lease 2 min, fence); re-check its scope"
+          relationship: rel_ingestion_postgresql_connector_metadata
+          state: implemented
+          idempotency: "Lease and fence; only phase ACCEPTED is claimable"
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/scheduling/PreparationRunner.java:43-51
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/application/commandhandlers/PreparationWorker.java:41-98
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jpa/JpaCaptureLedger.java:118-130
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/application/commandhandlers/CaptureHandler.java:39-44
+            - ingestion:src/main/resources/application.yml:131
+      - message:
+          from: ing
+          to: gha
+          style: sync
+          text: "App JWT; GET installation; POST access_tokens (repository_ids=[repo], actions:read, metadata:read)"
+          relationship: rel_ingestion_github_actions_read
+          state: implemented
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/github/GitHubMachineTransport.java:67-77
+      - message:
+          from: ing
+          to: gha
+          style: sync
+          text: "GET run attempt and jobs; logs ZIP only when the conclusion is failure or timed_out"
+          relationship: rel_ingestion_github_actions_read
+          state: partial
+          note: "No artifact is downloaded, although the relationship reads 'logs, artifacts and metadata'."
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/github/GitHubMachineTransport.java:86-104
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/github/GitHubMachineTransport.java:124-132
+      - section: "GitHub outcome, normalisation and frozen plan"
+      - fragment:
+          kind: alt
+          label: "GitHub outcome"
+          branches:
+            - guard: "410 on the logs"
+              steps:
+                - message:
+                    from: ing
+                    to: pg
+                    style: sync
+                    text: "Receipt BLOCKED SOURCE_EXPIRED (terminal)"
+                    relationship: rel_ingestion_postgresql_connector_metadata
+                    state: implemented
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/github/GitHubMachineTransport.java:272
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/application/commandhandlers/PrepareGitHubCapture.java:53-56
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/application/commandhandlers/CaptureHandler.java:46-49
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jpa/JpaCaptureLedger.java:188-203
+            - guard: "404, suspended installation, other account or repository"
+              steps:
+                - message:
+                    from: ing
+                    to: ing
+                    style: self
+                    text: "SCOPE_CHANGED is only counted; the receipt is not persisted as BLOCKED"
+                    implementation_only: true
+                    reason: "Rama interna del worker de preparación, no modelada."
+                    state: divergent
+                    note: "DD-021 asks to keep the block visible."
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/github/GitHubMachineTransport.java:270
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/application/commandhandlers/PreparationWorker.java:78-94
+            - guard: "403 or 429, SSO, 35 s budget, protection refused or invalid input"
+              steps:
+                - fragment:
+                    kind: loop
+                    label: "on every lease expiry, without Retry-After, backoff or maximum"
+                    branches:
+                      - guard: "GitHub unavailable or the input is refused"
+                        steps:
+                          - message:
+                              from: ing
+                              to: pg
+                              style: sync
+                              text: "Receipt stays ACCEPTED and is claimed again after the lease (~2 min)"
+                              relationship: rel_ingestion_postgresql_connector_metadata
+                              state: divergent
+                              note: "capture_receipts has no attempt counter: a refused input loops indefinitely, against the visible block of DD-021."
+                              evidence:
+                                - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/github/GitHubMachineTransport.java:273
+                                - ingestion:src/main/java/org/pipesor/ingestion/capture/application/commandhandlers/PreparationWorker.java:78-94
+                                - ingestion:src/main/resources/db/migration/V2__capture_publication_ledger.sql:3-31
+            - guard: "run read"
+              steps:
+                - message:
+                    from: ing
+                    to: ing
+                    style: self
+                    text: "Classify (first failed job and step, excerpt of 40 lines or fewer), normalise, protect (refuses PRIVATE KEY, 256 KiB maximum)"
+                    implementation_only: true
+                    reason: "Paso interno de Ingestion (capacidades de normalización y protección del elemento); el modelo no lo detalla."
+                    state: partial
+                    note: "service and environment of canonical_event_context are always null."
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/application/services/FailedRunEvidenceProfile.java:67-103
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/application/services/FailedRunEvidenceProfile.java:100
+                      - ingestion:src/main/java/org/pipesor/ingestion/normalization/application/commandhandlers/NormalizeObservationHandler.java:19-50
+                      - ingestion:src/main/java/org/pipesor/ingestion/normalization/infrastructure/protection/BoundedEvidenceProtection.java:35-56
+                      - ingestion:src/main/java/org/pipesor/ingestion/normalization/infrastructure/protection/BoundedEvidenceProtection.java:76
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/application/commandhandlers/PrepareGitHubCapture.java:73-75
+                - message:
+                    from: ing
+                    to: pg
+                    style: sync
+                    text: "Freeze the plan: capture_observations, publication_outputs PENDING (snapshot, plus evidence if failed), receipt PREPARED"
+                    relationship: rel_ingestion_postgresql_connector_metadata
+                    state: implemented
+                    idempotency: "ON CONFLICT observation_key: an existing observation is reused and no new outputs are created"
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jpa/JpaCaptureLedger.java:132-176
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/domain/services/ObservationFingerprint.java:18-43
+                      - ingestion:src/main/resources/db/migration/V2__capture_publication_ledger.sql:189-240
+
+      - section: "Publication outbox (every 5 s)"
+      - message:
+          from: ing
+          to: pg
+          style: sync
+          text: "Claim a PENDING output, snapshot first (SKIP LOCKED, lease 30 s)"
+          relationship: rel_ingestion_postgresql_connector_metadata
+          state: implemented
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/scheduling/PublicationRunner.java:27
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/application/commandhandlers/PublicationWorker.java:52
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jpa/JpaCaptureLedger.java:204-229
+            - ingestion:src/main/resources/application.yml:138
+      - message:
+          from: ing
+          to: sb
+          style: async
+          text: "Topic workflow-evidence: execution.snapshot v1, then protected_workflow_evidence 2.2 (MessageId = output id)"
+          relationship: rel_ingestion_service_bus
+          state: implemented
+          idempotency: "Frozen bytes and stable MessageId; broker duplicate detection for 10 min"
+          note: "No ordering guarantee: supportOrdering is false and there are no sessions."
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/application/commandhandlers/CaptureHandler.java:57-84
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/messaging/AzureServiceBusPublisher.java:21-30
+            - ingestion:src/main/java/org/pipesor/ingestion/normalization/interfaces/messaging/transform/NormalizedMessagesTransformer.java:20-40
+            - iac:modules/service-bus/main.tf:22-47
+      - fragment:
+          kind: alt
+          label: "publication result"
+          branches:
+            - guard: "send failed after the two SDK retries"
+              steps:
+                - fragment:
+                    kind: loop
+                    label: "every 30 s, no maximum and no producer DLQ"
+                    branches:
+                      - guard: "until the broker accepts the message"
+                        steps:
+                          - message:
+                              from: ing
+                              to: pg
+                              style: sync
+                              text: "Output back to PENDING, next_attempt_at +30 s"
+                              relationship: rel_ingestion_postgresql_connector_metadata
+                              state: implemented
+                              evidence:
+                                - ingestion:src/main/java/org/pipesor/ingestion/configuration/MessagingConfiguration.java:23-32
+                                - ingestion:src/main/java/org/pipesor/ingestion/capture/application/commandhandlers/CaptureHandler.java:77-90
+                                - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jpa/JpaCaptureLedger.java:256-266
+                                - ingestion:src/main/resources/application.yml:139
+            - guard: "scope lost between claim and send"
+              steps:
+                - message:
+                    from: ing
+                    to: pg
+                    style: sync
+                    text: "Output BLOCKED"
+                    relationship: rel_ingestion_postgresql_connector_metadata
+                    state: implemented
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/application/commandhandlers/CaptureHandler.java:69-76
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jpa/JpaCaptureLedger.java:267-276
+            - guard: "sent"
+              steps:
+                - message:
+                    from: ing
+                    to: pg
+                    style: sync
+                    text: "Output CONFIRMED; receipt PUBLISHED once every output is confirmed"
+                    relationship: rel_ingestion_postgresql_connector_metadata
+                    state: implemented
+                    note: "purgeConfirmedPayloads exists but no process calls it."
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jpa/JpaCaptureLedger.java:230-249
+                      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jpa/JpaCaptureLedger.java:277-296
+
+      - section: "Fan-out to the three subscriptions"
+      - fragment:
+          kind: par
+          label: "one message, three subscriptions"
+          branches:
+            - guard: "subscription pipeline (filter execution.snapshot)"
+              steps:
+                - message:
+                    from: sb
+                    to: pip
+                    style: async
+                    text: "execution.snapshot (peek-lock, 10 deliveries, lock renewed up to 5 min)"
+                    relationship: rel_service_bus_pipeline_service
+                    state: implemented
+                    evidence:
+                      - pipeline:src/main/java/org/pipesor/pipeline/configuration/ServiceBusConfiguration.java:33-53
+                      - pipeline:src/main/java/org/pipesor/pipeline/execution/interfaces/messaging/ServiceBusSnapshotConsumer.java:33-67
+                      - iac:modules/service-bus/main.tf:52-61
+                      - iac:environments/dev/terraform.tfvars.example:17-26
+            - guard: "subscription log-event (filter protected_workflow_evidence)"
+              steps:
+                - message:
+                    from: sb
+                    to: le
+                    style: async
+                    text: "protected_workflow_evidence 2.2 (peek-lock, 10 deliveries)"
+                    relationship: rel_service_bus_log_event_service
+                    state: implemented
+                    evidence:
+                      - log_event:src/main/java/org/pipesor/logevent/configuration/ServiceBusConfiguration.java:32-61
+                      - log_event:src/main/java/org/pipesor/logevent/evidence/interfaces/messaging/ServiceBusEvidenceConsumer.java:63-96
+            - guard: "subscription nlp (filter protected_workflow_evidence)"
+              steps:
+                - message:
+                    from: sb
+                    to: nlp
+                    style: async
+                    text: "protected_workflow_evidence (PEEK_LOCK, one message at a time)"
+                    relationship: rel_service_bus_nlp
+                    state: implemented
+                    note: "The three branches run concurrently; order is only enforced by NOT_READY and redelivery."
+                    evidence:
+                      - nlp:src/pipesor_nlp_log_processor/infrastructure/service_bus.py:96-119
+                      - nlp:src/pipesor_nlp_log_processor/infrastructure/settings.py:94-97
+                      - nlp:src/pipesor_nlp_log_processor/application/message_loop.py:63-126
+
+      - section: "Pipeline consumer: execution and ORIGIN incident"
+      - message:
+          from: pip
+          to: pg
+          style: sync
+          text: "Advisory lock on event_id; execution_event_receipts; pipeline_executions and stages; if failed, incident and incident_runs ORIGIN"
+          relationship: rel_pipeline_service_postgresql
+          state: implemented
+          idempotency: "Receipt per event_id with digest: DUPLICATE or EVENT_ID_CONFLICT; deterministic ids; one ORIGIN per incident"
+          note: "Severity is taken from the pipeline criticality, against domain assumption A-005 (DQ-001 open)."
+          evidence:
+            - pipeline:src/main/java/org/pipesor/pipeline/execution/application/commandhandlers/ApplyExecutionSnapshotCommandHandler.java:31-86
+            - pipeline:src/main/java/org/pipesor/pipeline/execution/infrastructure/persistence/jpa/SqlSnapshotStore.java:20-104
+            - pipeline:src/main/java/org/pipesor/pipeline/incident/infrastructure/persistence/jpa/JpaIncidentStore.java:26-30
+            - pipeline:src/main/resources/db/migration/V5__create_execution_event_receipts.sql:3-13
+            - pipeline:src/main/resources/db/migration/V3__protect_incident_origins.sql:3-4
+      - section: "Snapshot settlement"
+      - fragment:
+          kind: alt
+          label: "settlement of the snapshot"
+          branches:
+            - guard: "applied, stale or paused workflow"
+              steps:
+                - message:
+                    from: pip
+                    to: sb
+                    style: reply
+                    text: "Complete after commit (stale: IGNORED_STALE; paused: IGNORED_PAUSED, a DUPLICATE after resuming)"
+                    relationship: rel_service_bus_pipeline_service
+                    state: implemented
+                    evidence:
+                      - pipeline:src/main/java/org/pipesor/pipeline/execution/application/commandhandlers/ApplyExecutionSnapshotCommandHandler.java:43-44
+                      - pipeline:src/main/java/org/pipesor/pipeline/execution/application/commandhandlers/ApplyExecutionSnapshotCommandHandler.java:50-51
+                      - pipeline:src/main/java/org/pipesor/pipeline/execution/interfaces/messaging/ServiceBusSnapshotConsumer.java:66
+            - guard: "unknown workflow or transient failure"
+              steps:
+                - message:
+                    from: pip
+                    to: sb
+                    style: reply
+                    text: "Abandon: immediate redelivery; RETRY_EXHAUSTED dead-letter at 10 deliveries"
+                    relationship: rel_service_bus_pipeline_service
+                    state: implemented
+                    evidence:
+                      - pipeline:src/main/java/org/pipesor/pipeline/execution/application/commandhandlers/ApplyExecutionSnapshotCommandHandler.java:40-41
+                      - pipeline:src/main/java/org/pipesor/pipeline/execution/interfaces/messaging/ServiceBusSnapshotConsumer.java:39-79
+            - guard: "same source_updated_at with other content, terminal conflict or invalid envelope"
+              steps:
+                - message:
+                    from: pip
+                    to: sb
+                    style: reply
+                    text: "Dead-letter (no service reads the DLQ)"
+                    relationship: rel_service_bus_pipeline_service
+                    state: implemented
+                    evidence:
+                      - pipeline:src/main/java/org/pipesor/pipeline/execution/application/commandhandlers/ApplyExecutionSnapshotCommandHandler.java:52-53
+                      - pipeline:src/main/java/org/pipesor/pipeline/execution/application/commandhandlers/ApplyExecutionSnapshotCommandHandler.java:64-67
+                      - pipeline:src/main/java/org/pipesor/pipeline/execution/interfaces/messaging/ServiceBusSnapshotConsumer.java:39-64
+
+      - section: "Log/Event consumer: membership check"
+      - message:
+          from: le
+          to: pip
+          style: sync
+          text: "POST /internal/v1/evidence/operational-reference-checks (Evidence.Check)"
+          relationship: rel_log_event_pipeline_operational_evidence
+          state: implemented
+          evidence:
+            - log_event:src/main/java/org/pipesor/logevent/evidence/interfaces/messaging/ProtectedEvidenceIntake.java:29-33
+            - log_event:src/main/java/org/pipesor/logevent/evidence/application/commandhandlers/RegisterEvidenceHandler.java:21-29
+            - log_event:src/main/java/org/pipesor/logevent/evidence/infrastructure/authority/HttpPipelineAuthority.java:85-111
+            - pipeline:src/main/java/org/pipesor/pipeline/execution/interfaces/rest/validation/OperationalReferenceCheckController.java:56-117
+            - pipeline:src/main/java/org/pipesor/pipeline/configuration/PipelineSecurityConfiguration.java:32-34
+      - message:
+          from: pip
+          to: ing
+          style: sync
+          text: "POST /internal/v1/capture/machine-scope-checks (Pipeline.MachineScope.Check)"
+          relationship: rel_pipeline_ingestion_machine_scope
+          state: implemented
+          evidence:
+            - pipeline:src/main/java/org/pipesor/pipeline/execution/infrastructure/access/HttpIngestionScopeAuthority.java:53-96
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/rest/MachineScopeServlet.java:160-172
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jdbc/JdbcCaptureAuthority.java:79-92
+      - message:
+          from: ing
+          to: pip
+          style: reply
+          text: "AUTHORIZED or DENIED (revision changed, paused)"
+          relationship: rel_pipeline_ingestion_machine_scope
+          state: implemented
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jdbc/JdbcCaptureAuthority.java:79-92
+      - message:
+          from: pip
+          to: le
+          style: reply
+          text: "OK with ORIGIN membership, NOT_READY or DENIED"
+          relationship: rel_log_event_pipeline_operational_evidence
+          state: implemented
+          evidence:
+            - pipeline:src/main/java/org/pipesor/pipeline/execution/application/queryhandlers/ValidateOperationalReferences.java:20-42
+            - pipeline:src/main/java/org/pipesor/pipeline/execution/infrastructure/persistence/jpa/JpaOperationalReferenceLookup.java:18-48
+      - section: "Log/Event registration"
+      - fragment:
+          kind: alt
+          label: "registration"
+          branches:
+            - guard: "OK"
+              steps:
+                - message:
+                    from: le
+                    to: pg
+                    style: sync
+                    text: "INSERT evidence_items with the frozen scope, id = UUIDv5(messageId)"
+                    relationship: rel_log_event_service_postgresql
+                    state: implemented
+                    idempotency: "ON CONFLICT (id) DO NOTHING, then compare: UNCHANGED or CONFLICT"
+                    evidence:
+                      - log_event:src/main/java/org/pipesor/logevent/evidence/infrastructure/persistence/jdbc/JdbcEvidenceStore.java:83-109
+                      - log_event:src/main/java/org/pipesor/logevent/evidence/domain/services/EvidenceIdentity.java:16-18
+                - message:
+                    from: le
+                    to: sb
+                    style: reply
+                    text: "Complete"
+                    relationship: rel_service_bus_log_event_service
+                    state: implemented
+                    evidence:
+                      - log_event:src/main/java/org/pipesor/logevent/evidence/interfaces/messaging/ServiceBusEvidenceConsumer.java:68-95
+            - guard: "NOT_READY, UNAVAILABLE or store down"
+              steps:
+                - message:
+                    from: le
+                    to: sb
+                    style: reply
+                    text: "Abandon: immediate redelivery; the broker dead-letters at 10 deliveries"
+                    relationship: rel_service_bus_log_event_service
+                    state: implemented
+                    evidence:
+                      - log_event:src/main/java/org/pipesor/logevent/evidence/interfaces/messaging/ServiceBusEvidenceConsumer.java:68-95
+                      - iac:environments/dev/terraform.tfvars.example:17-26
+            - guard: "DENIED, reference mismatch, evidence conflict or invalid message"
+              steps:
+                - message:
+                    from: le
+                    to: sb
+                    style: reply
+                    text: "Dead-letter (EVIDENCE_DENIED, REFERENCE_MISMATCH, EVIDENCE_CONFLICT)"
+                    relationship: rel_service_bus_log_event_service
+                    state: implemented
+                    evidence:
+                      - log_event:src/main/java/org/pipesor/logevent/evidence/interfaces/messaging/ServiceBusEvidenceConsumer.java:68-95
+
+      - section: "NLP: processed evidence to Correlation"
+      - message:
+          from: nlp
+          to: nlp
+          style: self
+          text: "Match broker properties with the body; sanitise; Drain3 template (in memory)"
+          implementation_only: true
+          reason: "Paso interno de NLP; el modelo no detalla el saneado ni Drain3."
+          state: implemented
+          note: "Correlation parses the template but neither persists nor forwards it."
+          evidence:
+            - nlp:src/pipesor_nlp_log_processor/application/process_evidence.py:18-81
+            - nlp:src/pipesor_nlp_log_processor/application/process_log.py:17-27
+            - nlp:src/pipesor_nlp_log_processor/infrastructure/sanitizer.py:23-35
+            - nlp:src/pipesor_nlp_log_processor/infrastructure/drain_parser.py:16-31
+      - message:
+          from: nlp
+          to: cor
+          style: sync
+          text: "POST /internal/v1/processed-evidence (Nlp.ProcessedEvidence.Send, Idempotency-Key = message_id)"
+          relationship: rel_nlp_correlation
+          state: implemented
+          note: "Blocks until Recommendation's receipt. NLP cuts each attempt at 5 s; Correlation may take 10 s."
+          evidence:
+            - nlp:src/pipesor_nlp_log_processor/infrastructure/correlation_http.py:193-250
+            - nlp:src/pipesor_nlp_log_processor/main.py:110
+            - correlation:src/main/java/org/pipesor/correlation/context/interfaces/rest/ProcessedEvidenceController.java:63-123
+            - correlation:src/main/java/org/pipesor/correlation/configuration/CorrelationRoutes.java:13-18
+            - correlation:src/main/resources/application.yml:46
+      - section: "Correlation owner checks"
+      - message:
+          from: cor
+          to: pip
+          style: sync
+          text: "POST operational-reference-checks (Correlation.OperationalReferences.Check); Pipeline asks Ingestion again"
+          relationship: rel_correlation_pipeline_operational_references
+          state: implemented
+          evidence:
+            - correlation:src/main/java/org/pipesor/correlation/context/infrastructure/validation/HttpOwnerReferences.java:84-102
+            - correlation:src/main/java/org/pipesor/correlation/context/infrastructure/persistence/jpa/ReceiveProcessedEvidence.java:98-106
+      - message:
+          from: cor
+          to: le
+          style: sync
+          text: "POST /internal/v1/evidence/membership-checks (Correlation.EvidenceMembership.Check)"
+          relationship: rel_correlation_log_event_evidence_membership
+          state: implemented
+          note: "One 3 s budget for both checks, repeated for each frozen member."
+          evidence:
+            - correlation:src/main/java/org/pipesor/correlation/context/infrastructure/validation/HttpOwnerReferences.java:84-102
+            - correlation:src/main/resources/application.yml:53
+            - log_event:src/main/java/org/pipesor/logevent/evidence/interfaces/rest/EvidenceMembershipController.java:94-170
+            - log_event:src/main/java/org/pipesor/logevent/evidence/infrastructure/persistence/jdbc/JdbcEvidenceStore.java:115-148
+      - fragment:
+          kind: alt
+          label: "owner checks"
+          branches:
+            - guard: "NOT_READY in Pipeline or Log/Event"
+              steps:
+                - message:
+                    from: cor
+                    to: nlp
+                    style: reply
+                    text: "503"
+                    relationship: rel_nlp_correlation
+                    state: implemented
+                    evidence:
+                      - correlation:src/main/java/org/pipesor/correlation/context/interfaces/rest/ProcessedEvidenceController.java:113-122
+                - fragment:
+                    kind: loop
+                    label: "3 attempts within 40 s per delivery, up to 10 deliveries"
+                    branches:
+                      - guard: "still NOT_READY"
+                        steps:
+                          - message:
+                              from: nlp
+                              to: sb
+                              style: reply
+                              text: "Abandon: immediate redelivery; dead-letter at 10 deliveries, never reprocessed"
+                              relationship: rel_service_bus_nlp
+                              state: implemented
+                              evidence:
+                                - nlp:src/pipesor_nlp_log_processor/infrastructure/settings.py:104-109
+                                - nlp:src/pipesor_nlp_log_processor/infrastructure/correlation_http.py:231-250
+                                - nlp:src/pipesor_nlp_log_processor/application/message_loop.py:81-111
+            - guard: "DENIED 422, MISMATCH 400, conflict 409 or capacity 413"
+              steps:
+                - message:
+                    from: cor
+                    to: nlp
+                    style: reply
+                    text: "4xx (permanent)"
+                    relationship: rel_nlp_correlation
+                    state: implemented
+                    evidence:
+                      - correlation:src/main/java/org/pipesor/correlation/context/interfaces/rest/ProcessedEvidenceController.java:113-122
+                - message:
+                    from: nlp
+                    to: sb
+                    style: reply
+                    text: "Dead-letter"
+                    relationship: rel_service_bus_nlp
+                    state: implemented
+                    evidence:
+                      - nlp:src/pipesor_nlp_log_processor/infrastructure/correlation_http.py:328-329
+                      - nlp:src/pipesor_nlp_log_processor/application/message_loop.py:81-111
+            - guard: "401 or 403 from Correlation"
+              steps:
+                - message:
+                    from: nlp
+                    to: nlp
+                    style: self
+                    text: "Abandon and pause consumption until the process restarts"
+                    implementation_only: true
+                    reason: "Comportamiento interno del bucle de NLP, no modelado."
+                    state: implemented
+                    evidence:
+                      - nlp:src/pipesor_nlp_log_processor/application/message_loop.py:71-80
+                      - nlp:src/pipesor_nlp_log_processor/main.py:128-131
+
+      - section: "Correlation context and delivery to Recommendation"
+      - message:
+          from: cor
+          to: pg
+          style: sync
+          text: "Correlation group (scope, execution, incident), correlated_contexts and correlation_receipts"
+          relationship: rel_correlation_postgresql
+          state: implemented
+          idempotency: "Receipt key (scope_key, producer_key, message_id): a replay returns the prepared context; once confirmed, duplicate"
+          note: "An unconfirmed group blocks new members; after a DLQ of NLP nobody resends it."
+          evidence:
+            - correlation:src/main/java/org/pipesor/correlation/context/infrastructure/persistence/jpa/DurableCorrelationStore.java:124-213
+            - correlation:src/main/java/org/pipesor/correlation/context/infrastructure/persistence/jpa/ReceiveProcessedEvidence.java:73-139
+            - correlation:src/main/resources/db/migration/V2__durable_correlation_groups.sql:17
+            - correlation:src/main/resources/db/migration/V2__durable_correlation_groups.sql:44
+      - message:
+          from: cor
+          to: rec
+          style: sync
+          text: "POST /internal/v1/correlated-contexts (Correlation.Contexts.Deliver, Idempotency-Key = contextId)"
+          relationship: rel_correlation_recommendation
+          state: implemented
+          note: "Synchronous only up to the durable receipt; the diagnosis continues in seq_a2_diagnosis."
+          evidence:
+            - correlation:src/main/java/org/pipesor/correlation/context/application/commandhandlers/ConfirmPreparedDelivery.java:20-44
+            - correlation:src/main/java/org/pipesor/correlation/context/infrastructure/delivery/HttpRecommendationDelivery.java:67-73
+            - correlation:src/main/java/org/pipesor/correlation/configuration/CorrelationRuntimeConfiguration.java:50
+            - recommendation:src/main/java/com/pipesor/recommendation/receipt/interfaces/rest/CorrelatedContextController.java:41-75
+            - recommendation:src/main/java/com/pipesor/recommendation/configuration/RecommendationRoutes.java:22-23
+      - message:
+          from: rec
+          to: pg
+          style: sync
+          text: "INSERT correlated_context_receipts ON CONFLICT DO NOTHING and diagnosis_jobs PENDING, one transaction"
+          relationship: rel_recommendation_service_postgresql
+          state: implemented
+          idempotency: "operation_id = context_id; same fingerprint: duplicate without a new job; other fingerprint: 409"
+          evidence:
+            - recommendation:src/main/java/com/pipesor/recommendation/receipt/ReceiptStore.java:20-87
+            - recommendation:src/main/resources/db/migration/V7__create_diagnosis_jobs.sql:4-13
+      - section: "Delivery result"
+      - fragment:
+          kind: alt
+          label: "delivery result"
+          branches:
+            - guard: "receipt committed"
+              steps:
+                - message:
+                    from: rec
+                    to: cor
+                    style: reply
+                    text: "200 accepted | duplicate"
+                    relationship: rel_correlation_recommendation
+                    state: implemented
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/receipt/ReceiptStore.java:64-77
+                - message:
+                    from: cor
+                    to: pg
+                    style: sync
+                    text: "Confirm delivery (correlation_groups.confirmed_context_id)"
+                    relationship: rel_correlation_postgresql
+                    state: implemented
+                    evidence:
+                      - correlation:src/main/java/org/pipesor/correlation/context/infrastructure/persistence/jpa/DurableCorrelationStore.java:347-370
+                - message:
+                    from: cor
+                    to: nlp
+                    style: reply
+                    text: "200 accepted"
+                    relationship: rel_nlp_correlation
+                    state: implemented
+                    evidence:
+                      - correlation:src/main/java/org/pipesor/correlation/context/interfaces/rest/ProcessedEvidenceController.java:114
+                - message:
+                    from: nlp
+                    to: sb
+                    style: reply
+                    text: "Complete"
+                    relationship: rel_service_bus_nlp
+                    state: implemented
+                    evidence:
+                      - nlp:src/pipesor_nlp_log_processor/application/message_loop.py:113
+            - guard: "Recommendation answers 4xx or 5xx, or is unreachable"
+              steps:
+                - message:
+                    from: cor
+                    to: nlp
+                    style: reply
+                    text: "503: every failure is treated as transient; the retry reuses contextId (duplicate)"
+                    relationship: rel_nlp_correlation
+                    state: implemented
+                    evidence:
+                      - correlation:src/main/java/org/pipesor/correlation/context/infrastructure/delivery/HttpRecommendationDelivery.java:116-126
+                      - correlation:src/main/java/org/pipesor/correlation/context/infrastructure/persistence/jpa/ReceiveProcessedEvidence.java:136-137
+
+  # ---------------------------------------------------------------------------------------------
+  - id: seq_a2_diagnosis
+    title: "Assisted diagnosis: job, RAG retrieval, Azure OpenAI inference and summary projection"
+    purpose: >-
+      Segunda mitad del flujo: el recibo de Correlation deja un job durable; un worker lo reclama,
+      comprueba el replay, recupera conocimiento por RAG, pide la hipótesis a Azure OpenAI con salida
+      estricta, valida las citas, persiste el diagnóstico y el outbox en una transacción y un segundo
+      worker proyecta el resumen en Pipeline.
+    participants:
+      - {id: cor, name: "Correlation", element: evidence_correlation_engine}
+      - {id: api, name: "Diagnostic API", element: diagnostic_api_component}
+      - id: worker
+        name: "Diagnosis worker"
+        implementation_only: true
+        parent: recommendation_service
+        kind: "Hilo por réplica que sondea diagnosis_jobs cada 5 s (DiagnosisWorker)"
+        evidence:
+          - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/DiagnosisWorker.java:39-52
+          - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/commandhandlers/DiagnoseAdmittedContextsHandler.java:60-64
+      - {id: orch, name: "Diagnostic Orchestrator", element: diagnostic_orchestrator_component}
+      - {id: rag, name: "RAG Retrieval", element: rag_retrieval}
+      - {id: aoai, name: "Azure OpenAI", element: pretrained_llm_diagnostic_service}
+      - {id: vec, name: "pgvector", element: pgvector_knowledge_store}
+      - {id: pg, name: "PostgreSQL", element: postgresql_operational_store}
+      - id: outbox
+        name: "Summary outbox worker"
+        implementation_only: true
+        parent: recommendation_service
+        kind: "Worker del outbox incident_summary_outbox que sondea cada 2 s (DiagnosisSummaryWorker)"
+        evidence:
+          - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/DiagnosisSummaryWorker.java:39-52
+          - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/commandhandlers/PublishDiagnosisSummariesHandler.java:48-50
+      - {id: pip, name: "Pipeline", element: pipeline_service}
+    untested:
+      - "Ningún test cruza servicios: en RecommendationApiTest la inferencia es un bean sustituto y RAG responde siempre no_match, así que el camino con fragmentos y fuentes no se recorre integrado."
+      - "Pipeline es un HttpServer falso para entitlements y resúmenes; la coherencia del contrato depende de fixtures espejo."
+      - "Sin prueba: timeout real del LLM, content_filter, prompt mayor de 128 KiB, reintentos del job por fallos del LLM, RAG 401 y 422 explícitos, invalid_context, admission_conflict y el bucle indefinido del outbox con 404 o 401."
+      - "Embeddings solo con cliente falso; pgvector solo con embeddings deterministas. Nunca contra Azure OpenAI real."
+    steps:
+      - section: "Admission of the correlated context"
+      - message:
+          from: cor
+          to: api
+          style: sync
+          text: "POST /internal/v1/correlated-contexts (workload token, Idempotency-Key, X-Correlation-ID; 256 KiB maximum)"
+          relationship: rel_correlation_diagnostic_api
+          state: implemented
+          evidence:
+            - recommendation:src/main/java/com/pipesor/recommendation/configuration/RecommendationRoutes.java:22-23
+            - recommendation:src/main/java/com/pipesor/recommendation/receipt/interfaces/rest/CorrelatedContextController.java:41-75
+            - recommendation:src/main/java/com/pipesor/recommendation/receipt/ReceiptJson.java:37-104
+      - message:
+          from: api
+          to: pg
+          style: sync
+          text: "Receipt ON CONFLICT DO NOTHING and diagnosis_jobs PENDING in the same transaction"
+          relationship: rel_recommendation_service_postgresql
+          state: implemented
+          idempotency: "PK operation_id = context_id; a job only when the receipt is inserted; other fingerprint: 409"
+          evidence:
+            - recommendation:src/main/java/com/pipesor/recommendation/receipt/ReceiptStore.java:20-87
+            - recommendation:src/main/resources/db/migration/V1__create_correlated_context_receipts.sql:4-30
+            - recommendation:src/main/resources/db/migration/V7__create_diagnosis_jobs.sql:4-13
+      - message:
+          from: api
+          to: cor
+          style: reply
+          text: "200 accepted | duplicate (a duplicate does not revive a FAILED job)"
+          relationship: rel_correlation_diagnostic_api
+          state: implemented
+          evidence:
+            - recommendation:src/main/java/com/pipesor/recommendation/receipt/ReceiptStore.java:56-77
+      - message:
+          from: api
+          to: worker
+          style: async
+          text: "Job PENDING in the durable queue diagnosis_jobs"
+          relationship: rel_diagnostic_api_orchestrator
+          state: divergent
+          note: "Modelled as an in-process synchronous delegation from the API to the orchestrator; in code a worker drives the orchestrator from diagnosis_jobs. Reconciliation question 13 is open."
+          evidence:
+            - recommendation:src/main/java/com/pipesor/recommendation/receipt/ReceiptStore.java:56-63
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/DiagnosisWorker.java:39-52
+
+      - section: "Claim and replay check"
+      - message:
+          from: worker
+          to: pg
+          style: sync
+          text: "Claim jobs: FOR UPDATE SKIP LOCKED, attempts + 1, lease 10 min"
+          relationship: rel_recommendation_service_postgresql
+          state: implemented
+          idempotency: "Settlement (DONE, retry or FAILED) only WHERE attempts = the claimed value"
+          evidence:
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/persistence/JdbcDiagnosisJobs.java:24-42
+            - recommendation:src/main/resources/application.yml:66-73
+      - message:
+          from: worker
+          to: pg
+          style: sync
+          text: "Rebuild the input from the receipt only (ordered signals, query of 4000 characters or fewer, top 3)"
+          relationship: rel_recommendation_service_postgresql
+          state: implemented
+          evidence:
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/persistence/JdbcAdmittedContexts.java:25-47
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/ContextReconstruction.java:32-56
+      - message:
+          from: worker
+          to: pg
+          style: sync
+          text: "Look up diagnosis UUIDv3(contextId) and its admission_fingerprint"
+          relationship: rel_recommendation_service_postgresql
+          state: implemented
+          evidence:
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/PersistedDiagnosticWorkflow.java:34-49
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:45-63
+      - fragment:
+          kind: opt
+          label: "replay"
+          branches:
+            - guard: "diagnosis already admitted with the same fingerprint"
+              steps:
+                - message:
+                    from: worker
+                    to: pg
+                    style: sync
+                    text: "Job DONE with the existing diagnosis, without RAG or LLM"
+                    relationship: rel_recommendation_service_postgresql
+                    state: implemented
+                    idempotency: "admission_fingerprint = SHA-256 of execution, incident, query and evidence"
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/PersistedDiagnosticWorkflow.java:36-37
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/commandhandlers/DiagnoseAdmittedContextsHandler.java:75-77
+      - message:
+          from: worker
+          to: orch
+          style: sync
+          text: "diagnose(execution, incident, query, evidence) in process"
+          implementation_only: true
+          reason: "Llamada en proceso desde el worker no modelado; el modelo solo tiene la delegación API → orquestador."
+          state: implemented
+          evidence:
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/commandhandlers/DiagnoseAdmittedContextsHandler.java:66-75
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/PersistedDiagnosticWorkflow.java:34-49
+
+      - section: "RAG request and vector search"
+      - message:
+          from: orch
+          to: rag
+          style: sync
+          text: "POST /internal/v1/retrieval/query (aud urn:pipesor:api:rag, Rag.Query; 5 s per attempt, 15 s budget)"
+          relationship: rel_orchestrator_rag
+          state: implemented
+          evidence:
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/DiagnosticOrchestrator.java:36-44
+            - recommendation:src/main/java/com/pipesor/recommendation/retrieval/infrastructure/RestRagKnowledgeRetriever.java:61-108
+            - recommendation:src/main/java/com/pipesor/recommendation/retrieval/infrastructure/WorkloadRagAccessTokenProvider.java:10-20
+            - recommendation:src/main/java/com/pipesor/recommendation/configuration/RagClientConfiguration.java:22-26
+            - rag:src/pipesor_rag_retrieval/authentication.py:107-152
+            - rag:src/pipesor_rag_retrieval/api.py:142-151
+      - message:
+          from: rag
+          to: aoai
+          style: sync
+          text: "Query embedding text-embedding-3-small, 1536 dimensions (managed identity)"
+          relationship: rel_rag_embeddings
+          state: implemented
+          evidence:
+            - rag:src/pipesor_rag_retrieval/infrastructure.py:39-108
+            - rag:src/pipesor_rag_retrieval/configuration.py:75-85
+            - iac:modules/workloads/main.tf:126-129
+      - message:
+          from: rag
+          to: vec
+          style: sync
+          text: "Chunks filtered by tenant, installation, repository, scope_revision, corpus and model; cosine order, LIMIT top_k"
+          relationship: rel_rag_pgvector
+          state: implemented
+          note: "scope_revision must equal the imported corpus revision; otherwise the answer is a silent no_match. No similarity threshold."
+          evidence:
+            - rag:src/pipesor_rag_retrieval/persistence.py:94-140
+            - rag:src/pipesor_rag_retrieval/application.py:37-69
+      - section: "Retrieval result"
+      - fragment:
+          kind: alt
+          label: "retrieval result"
+          branches:
+            - guard: "matches"
+              steps:
+                - message:
+                    from: rag
+                    to: orch
+                    style: reply
+                    text: "matches with score = 1 - distance and provenance"
+                    relationship: rel_orchestrator_rag
+                    state: implemented
+                    evidence:
+                      - rag:src/pipesor_rag_retrieval/api.py:152-183
+            - guard: "no_match"
+              steps:
+                - message:
+                    from: rag
+                    to: orch
+                    style: reply
+                    text: "no_match: the LLM runs without knowledge (chunkIds null)"
+                    relationship: rel_orchestrator_rag
+                    state: implemented
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/DiagnosticOrchestrator.java:40
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/AzureOpenAiInference.java:55
+            - guard: "429, 5xx or transport failure"
+              steps:
+                - message:
+                    from: rag
+                    to: orch
+                    style: reply
+                    text: "Two client retries within 15 s, then RagUnavailable (job retry rag_unavailable)"
+                    relationship: rel_orchestrator_rag
+                    state: implemented
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/retrieval/infrastructure/RestRagKnowledgeRetriever.java:70-86
+                      - rag:src/pipesor_rag_retrieval/application.py:67-68
+            - guard: "401, 403 or 422"
+              steps:
+                - message:
+                    from: rag
+                    to: orch
+                    style: reply
+                    text: "RagContractException: no client retry, but the job retries it (rag_rejected)"
+                    relationship: rel_orchestrator_rag
+                    state: divergent
+                    note: "The RAG contract v0.1 asks not to retry authentication or contract errors and leaves degradation open; Recommendation never degrades."
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/retrieval/infrastructure/RestRagKnowledgeRetriever.java:97-101
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/commandhandlers/DiagnoseAdmittedContextsHandler.java:84-85
+
+      - section: "LLM inference and citation check"
+      - message:
+          from: orch
+          to: aoai
+          style: sync
+          text: "POST /openai/v1/chat/completions: prompt diagnostic-hypothesis-v2, json_schema strict with citable ids, 60 s timeout"
+          relationship: rel_orchestrator_llm
+          state: implemented
+          note: "Evidence and knowledge go as untrusted data; Recommendation redacts nothing, it only validates the protected text it received."
+          evidence:
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/AzureOpenAiInference.java:31-40
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/AzureOpenAiInference.java:49-63
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/AzureOpenAiInference.java:73-131
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/InferenceProperties.java:14-30
+            - iac:modules/workloads/main.tf:116-119
+      - message:
+          from: aoai
+          to: orch
+          style: reply
+          text: "One choice, finish_reason stop, JSON object of six keys"
+          relationship: rel_orchestrator_llm
+          state: implemented
+          evidence:
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/AzureOpenAiInference.java:151-211
+      - message:
+          from: orch
+          to: orch
+          style: self
+          text: "Check texts and citations (existing, not repeated, at least one evidence); compose the Diagnosis with sources"
+          implementation_only: true
+          reason: "Paso interno; no existe un DiagnosticOutputComposer: la composición vive en el orquestador."
+          state: implemented
+          note: "rel_orchestrator_output and rel_output_postgresql are realised by the orchestrator and ReviewStore, without a composer class."
+          evidence:
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/DiagnosticOrchestrator.java:45-56
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/DiagnosticOrchestrator.java:66-78
+      - section: "Inference outcome"
+      - fragment:
+          kind: alt
+          label: "inference outcome"
+          branches:
+            - guard: "timeout, non-2xx (including the content filter), finish_reason not stop or refusal"
+              steps:
+                - message:
+                    from: orch
+                    to: worker
+                    style: reply
+                    text: "IllegalStateException: job retry inference_failed"
+                    implementation_only: true
+                    reason: "Respuesta al worker no modelado."
+                    state: implemented
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/AzureOpenAiInference.java:122-139
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/AzureOpenAiInference.java:157-159
+            - guard: "invalid shape or citation, or prompt over 128 KiB"
+              steps:
+                - message:
+                    from: orch
+                    to: worker
+                    style: reply
+                    text: "invalid_hypothesis or inference_failed: retried, even when the failure is deterministic"
+                    implementation_only: true
+                    reason: "Respuesta al worker no modelado."
+                    state: implemented
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/DiagnosticOrchestrator.java:46-52
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/AzureOpenAiInference.java:121
+            - guard: "valid hypothesis"
+              steps:
+                - message:
+                    from: orch
+                    to: worker
+                    style: reply
+                    text: "Diagnosis (hypothesis, cited evidence, sources, model and prompt version)"
+                    implementation_only: true
+                    reason: "Respuesta al worker no modelado."
+                    state: implemented
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/DiagnosticOrchestrator.java:53-56
+
+      - section: "Persistence in one transaction and retries"
+      - fragment:
+          kind: alt
+          label: "settlement of the job"
+          branches:
+            - guard: "valid hypothesis"
+              steps:
+                - message:
+                    from: worker
+                    to: pg
+                    style: sync
+                    text: "Advisory lock per incident, fingerprint re-check; INSERT diagnoses (version = max + 1, output jsonb) and upsert the outbox (generation + 1)"
+                    relationship: rel_recommendation_service_postgresql
+                    state: implemented
+                    idempotency: "Deterministic id, unique admitted context, UNIQUE (incident_id, version); 23505 becomes Conflict"
+                    note: "Recommendations, evidence and sources live in diagnoses.output; the domain's separate link tables do not exist."
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:65-112
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:207-217
+                      - recommendation:src/main/resources/db/migration/V6__index_diagnosis_context_and_execution.sql:3-23
+                      - recommendation:src/main/resources/db/migration/V9__create_incident_summary_outbox.sql:6-16
+                - message:
+                    from: worker
+                    to: pg
+                    style: sync
+                    text: "Job DONE"
+                    relationship: rel_recommendation_service_postgresql
+                    state: implemented
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/commandhandlers/DiagnoseAdmittedContextsHandler.java:75-77
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/persistence/JdbcDiagnosisJobs.java:45-50
+            - guard: "invalid_context or admission_conflict"
+              steps:
+                - message:
+                    from: worker
+                    to: pg
+                    style: sync
+                    text: "Job FAILED at once"
+                    relationship: rel_recommendation_service_postgresql
+                    state: implemented
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/commandhandlers/DiagnoseAdmittedContextsHandler.java:78-81
+            - guard: "retryable failure"
+              steps:
+                - fragment:
+                    kind: loop
+                    label: "backoff 30 s x 2^(n-1), 30 min cap, up to 8 attempts (about 61 min)"
+                    branches:
+                      - guard: "attempts below 8"
+                        steps:
+                          - message:
+                              from: worker
+                              to: pg
+                              style: sync
+                              text: "Job PENDING again with next_attempt_at"
+                              relationship: rel_recommendation_service_postgresql
+                              state: implemented
+                              evidence:
+                                - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/commandhandlers/DiagnoseAdmittedContextsHandler.java:39-43
+                                - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/commandhandlers/DiagnoseAdmittedContextsHandler.java:82-100
+                - message:
+                    from: worker
+                    to: pg
+                    style: sync
+                    text: "Job FAILED after 8 attempts; no automatic requeue (manual SQL), the incident reads 404 diagnosis_absent"
+                    relationship: rel_recommendation_service_postgresql
+                    state: implemented
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/commandhandlers/DiagnoseAdmittedContextsHandler.java:97-100
+                      - recommendation:docs/diagnosis-worker.md:48-52
+            - guard: "lease expired while the first worker is still running"
+              steps:
+                - message:
+                    from: worker
+                    to: pg
+                    style: sync
+                    text: "Another replica claims the job; the stale settlement does not apply (attempts fence)"
+                    relationship: rel_recommendation_service_postgresql
+                    state: implemented
+                    note: "Both may call RAG and the LLM; the advisory lock and the re-check avoid a duplicate diagnosis."
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/persistence/JdbcDiagnosisJobs.java:24-42
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:65-79
+
+      - section: "Summary projection to Pipeline (outbox)"
+      - message:
+          from: outbox
+          to: pg
+          style: sync
+          text: "Claim an outbox row (SKIP LOCKED, lease 30 s); read the highest admitted version (REPEATABLE READ)"
+          relationship: rel_recommendation_service_postgresql
+          state: implemented
+          evidence:
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/persistence/JdbcDiagnosisSummaryOutbox.java:27-48
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/persistence/JdbcDiagnosisReadModel.java:27-75
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/commandhandlers/PublishDiagnosisSummariesHandler.java:69-114
+      - message:
+          from: outbox
+          to: pip
+          style: sync
+          text: "PUT /internal/v1/incidents/{incidentId}/diagnosis-summary (Recommendation.DiagnosisSummaries.Write, 5 s)"
+          relationship: rel_recommendation_pipeline_diagnosis_summary
+          state: divergent
+          note: "Modelled as a synchronous call from Recommendation; in code it is a transactional outbox drained by a worker, asynchronous to the diagnosis."
+          evidence:
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/pipeline/PipelineDiagnosisSummaryPublisher.java:60-100
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/commandhandlers/PublishDiagnosisSummariesHandler.java:115-122
+            - pipeline:src/main/java/org/pipesor/pipeline/configuration/PipelineSecurityConfiguration.java:38-39
+            - pipeline:src/main/java/org/pipesor/pipeline/incident/interfaces/rest/DiagnosisSummaryController.java:27-54
+      - message:
+          from: pip
+          to: pg
+          style: sync
+          text: "Check ORIGIN, pipeline and repository; upsert incident_diagnoses only if (version, reviewRevision) is higher"
+          relationship: rel_pipeline_service_postgresql
+          state: implemented
+          idempotency: "Monotonic upsert: a replay answers applied = false"
+          evidence:
+            - pipeline:src/main/java/org/pipesor/pipeline/incident/application/commandhandlers/RecordDiagnosisSummaryCommandHandler.java:27-35
+            - pipeline:src/main/java/org/pipesor/pipeline/incident/infrastructure/persistence/jpa/SqlDiagnosisSummaryStore.java:44-69
+            - pipeline:src/main/resources/db/migration/V9__add_incident_queue_read_model.sql:4-24
+      - section: "Projection result"
+      - fragment:
+          kind: alt
+          label: "projection result"
+          branches:
+            - guard: "200 with a valid echo"
+              steps:
+                - message:
+                    from: pip
+                    to: outbox
+                    style: reply
+                    text: "200 applied | not applied"
+                    relationship: rel_recommendation_pipeline_diagnosis_summary
+                    state: implemented
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/pipeline/PipelineDiagnosisSummaryPublisher.java:103-126
+                - message:
+                    from: outbox
+                    to: pg
+                    style: sync
+                    text: "Delete the row WHERE generation = the one read (a newer generation stays pending)"
+                    relationship: rel_recommendation_service_postgresql
+                    state: implemented
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/persistence/JdbcDiagnosisSummaryOutbox.java:51-75
+            - guard: "400 or 409, for example SCOPE_MISMATCH for an execution that is not ORIGIN"
+              steps:
+                - message:
+                    from: pip
+                    to: outbox
+                    style: reply
+                    text: "Rejected: the row is deleted"
+                    relationship: rel_recommendation_pipeline_diagnosis_summary
+                    state: implemented
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/pipeline/PipelineDiagnosisSummaryPublisher.java:90
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/commandhandlers/PublishDiagnosisSummariesHandler.java:123-128
+            - guard: "404, 401, 403, 5xx, timeout or invalid echo"
+              steps:
+                - fragment:
+                    kind: loop
+                    label: "indefinitely, backoff 2 s x 2^(n-1) with a 10 min cap"
+                    branches:
+                      - guard: "not accepted"
+                        steps:
+                          - message:
+                              from: outbox
+                              to: pg
+                              style: sync
+                              text: "Keep the row; retry later (ERROR log once the cap is reached)"
+                              relationship: rel_recommendation_service_postgresql
+                              state: implemented
+                              evidence:
+                                - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/commandhandlers/PublishDiagnosisSummariesHandler.java:139-150
+
+  # ---------------------------------------------------------------------------------------------
+  - id: seq_a3_review
+    title: "Human review and diagnosis report: dashboard, Pipeline entitlement and GitHub Actions artifact"
+    purpose: >-
+      Consumo del diagnóstico: el dashboard lee la cola de incidentes de Pipeline y el diagnóstico de
+      Recommendation, que resuelve el permiso en Pipeline con el token de sujeto; la persona registra
+      la revisión con control de concurrencia e idempotencia, el outbox la reproyecta en Pipeline y el
+      workflow del repositorio monitorizado consulta el informe por OIDC y lo adjunta como artifact.
+    participants:
+      - {id: user, name: "Technical user", element: technical_users}
+      - {id: dash, name: "AIOps Web Dashboard", element: web_dashboard}
+      - {id: pip, name: "Pipeline", element: pipeline_service}
+      - {id: rec, name: "Recommendation", element: recommendation_service}
+      - {id: pg, name: "PostgreSQL", element: postgresql_operational_store}
+      - {id: gha, name: "GitHub Actions", element: github_actions}
+    untested:
+      - "Frontend sin pruebas de entities/diagnosis/model/api.ts, DiagnosisReview.tsx ni del espacio de trabajo del incidente."
+      - "RecommendationApiTest usa un Pipeline falso para el entitlement; el lado Pipeline se prueba aparte."
+      - "Ninguna prueba cubre una lectura VIEW de revisiones con revisiones existentes."
+      - "El workflow pipesor-report.yml no tiene prueba automatizada; solo hay evidencia empírica de ejecuciones OE3 en dev."
+    steps:
+      - section: "Incident queue"
+      - message:
+          from: user
+          to: dash
+          style: sync
+          text: "Open the incident queue"
+          relationship: rel_technical_users_dashboard
+          state: implemented
+          evidence:
+            - frontend:src/widgets/incident-queue/model/useIncidentQueue.ts:126-137
+      - message:
+          from: dash
+          to: pip
+          style: sync
+          text: "GET /api/v1/incidents?state=... (Bearer session)"
+          relationship: rel_dashboard_pipeline_service
+          state: implemented
+          evidence:
+            - frontend:src/entities/incident/model/api.ts:179-180
+            - pipeline:src/main/java/org/pipesor/pipeline/incident/interfaces/rest/IncidentController.java:69-88
+      - message:
+          from: pip
+          to: pg
+          style: sync
+          text: "incidents LEFT JOIN incident_diagnoses (no row = ABSENT)"
+          relationship: rel_pipeline_service_postgresql
+          state: implemented
+          evidence:
+            - pipeline:src/main/java/org/pipesor/pipeline/incident/infrastructure/persistence/jpa/IncidentRows.java:19-31
+            - pipeline:src/main/java/org/pipesor/pipeline/incident/infrastructure/persistence/jpa/SqlIncidentQueueLookup.java:131-133
+      - message:
+          from: pip
+          to: dash
+          style: reply
+          text: "Queue page with the diagnosis projection (a row lacking it is read from Recommendation)"
+          relationship: rel_dashboard_pipeline_service
+          state: implemented
+          evidence:
+            - frontend:src/widgets/incident-queue/model/useIncidentQueue.ts:219-243
+            - frontend:src/widgets/incident-queue/model/useIncidentQueue.ts:362-369
+      - section: "Diagnosis read and entitlement"
+      - message:
+          from: dash
+          to: rec
+          style: sync
+          text: "GET /api/v1/incidents/{incidentId}/diagnosis (Diagnosis.Read)"
+          relationship: rel_dashboard_recommendation_service
+          state: implemented
+          evidence:
+            - frontend:src/entities/diagnosis/model/api.ts:16-28
+            - frontend:src/pages/incident-workspace/ui/IncidentWorkspaceRoute.tsx:51-52
+            - recommendation:src/main/java/com/pipesor/recommendation/configuration/RecommendationRoutes.java:24-25
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/IncidentDiagnosisController.java:20-32
+      - message:
+          from: rec
+          to: pip
+          style: sync
+          text: "POST /internal/v1/diagnosis-read-entitlements with X-Pipesor-Subject-Token (no cache, 5 s)"
+          relationship: rel_recommendation_pipeline_diagnosis_entitlement
+          state: implemented
+          evidence:
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/pipeline/PipelineDiagnosisEntitlements.java:65-104
+            - pipeline:src/main/java/org/pipesor/pipeline/configuration/PipelineSecurityConfiguration.java:35-36
+            - pipeline:src/main/java/org/pipesor/pipeline/incident/interfaces/rest/DiagnosisEntitlementController.java:36-47
+            - pipeline:src/main/java/org/pipesor/pipeline/incident/application/queryhandlers/DiagnosisEntitlementQueryHandler.java:27-37
+      - fragment:
+          kind: alt
+          label: "entitlement"
+          branches:
+            - guard: "granted"
+              steps:
+                - message:
+                    from: pip
+                    to: rec
+                    style: reply
+                    text: "Pipeline, ORIGIN execution, installation, repository, tenant, capabilities VIEW / OPERATE"
+                    relationship: rel_recommendation_pipeline_diagnosis_entitlement
+                    state: implemented
+                    evidence:
+                      - pipeline:src/main/java/org/pipesor/pipeline/incident/application/queryhandlers/DiagnosisEntitlementQueryHandler.java:27-37
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/queryhandlers/Bindings.java:17-33
+                - message:
+                    from: rec
+                    to: pg
+                    style: sync
+                    text: "Highest admitted version for (incident, ORIGIN execution), no fallback"
+                    relationship: rel_recommendation_service_postgresql
+                    state: implemented
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/queryhandlers/IncidentDiagnosisQueryHandler.java:34-61
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/persistence/JdbcDiagnosisReadModel.java:27-75
+                - message:
+                    from: rec
+                    to: dash
+                    style: reply
+                    text: "Projection: hypothesis, evidence, sources, model, reviews without reviewer or text"
+                    relationship: rel_dashboard_recommendation_service
+                    state: implemented
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/queryhandlers/IncidentDiagnosisQueryHandler.java:34-61
+            - guard: "no incident or no VIEW (Pipeline 404), authority down, or scope not covering the version"
+              steps:
+                - message:
+                    from: rec
+                    to: dash
+                    style: reply
+                    text: "404 incident_not_found, 503 authority_unavailable or 409 diagnosis_stale"
+                    relationship: rel_dashboard_recommendation_service
+                    state: implemented
+                    evidence:
+                      - pipeline:src/main/java/org/pipesor/pipeline/incident/interfaces/rest/DiagnosisEntitlementController.java:43-46
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/queryhandlers/IncidentDiagnosisQueryHandler.java:37-59
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/DiagnosisProblemHandler.java:21-28
+      - message:
+          from: dash
+          to: rec
+          style: sync
+          text: "GET /api/v1/diagnoses/{id}/reviews (Diagnosis.Read, VIEW)"
+          relationship: rel_dashboard_recommendation_service
+          state: implemented
+          evidence:
+            - frontend:src/entities/diagnosis/model/api.ts:30-36
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/ReviewController.java:61-66
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/queryhandlers/ReviewAccessHandler.java:49-72
+
+      - section: "Review submission"
+      - message:
+          from: user
+          to: dash
+          style: sync
+          text: "Confirm, or 'Reject' with the actual cause (form only while PENDING)"
+          relationship: rel_technical_users_dashboard
+          state: partial
+          note: "The UI never sends REJECTED: its 'Reject' button sends CORRECTED with a cause."
+          evidence:
+            - frontend:src/features/validate-diagnosis/ui/DiagnosisReview.tsx:112-144
+            - frontend:src/features/validate-diagnosis/ui/DiagnosisReview.tsx:125
+            - frontend:src/features/validate-diagnosis/ui/DiagnosisReview.tsx:178
+      - message:
+          from: dash
+          to: rec
+          style: sync
+          text: "POST /api/v1/diagnoses/{id}/reviews {diagnosisVersion, expectedRevision, decision, comment?, actualCause?} + Idempotency-Key"
+          relationship: rel_dashboard_recommendation_service
+          state: implemented
+          idempotency: "Idempotency-Key = human_reviews.id; expectedRevision; UNIQUE (diagnostic_id, revision)"
+          evidence:
+            - frontend:src/entities/diagnosis/model/api.ts:54-69
+            - recommendation:src/main/java/com/pipesor/recommendation/configuration/RecommendationRoutes.java:28-29
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/ReviewController.java:68-83
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/ReviewController.java:93-105
+      - message:
+          from: rec
+          to: pip
+          style: sync
+          text: "Diagnosis entitlement with the subject token (OPERATE required)"
+          relationship: rel_recommendation_pipeline_diagnosis_entitlement
+          state: implemented
+          evidence:
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/queryhandlers/ReviewAccessHandler.java:35-46
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/queryhandlers/ReviewAccessHandler.java:70
+      - section: "Review outcome and re-projection"
+      - fragment:
+          kind: alt
+          label: "review outcome"
+          branches:
+            - guard: "OPERATE and expected revision"
+              steps:
+                - message:
+                    from: rec
+                    to: pg
+                    style: sync
+                    text: "SELECT ... FOR UPDATE; INSERT human_reviews (revision + 1) and upsert the summary outbox, one transaction"
+                    relationship: rel_human_review_postgresql
+                    state: implemented
+                    note: "Nothing is written to audit.audit_events; the trail is human_reviews."
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:153-200
+                      - recommendation:src/main/resources/db/migration/V2__persist_diagnostic_reviews.sql:12-28
+                - message:
+                    from: rec
+                    to: dash
+                    style: reply
+                    text: "Review view (the same key with the same body returns it without writing)"
+                    relationship: rel_dashboard_recommendation_service
+                    state: implemented
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:161-172
+            - guard: "revision, version or scope changed, same key with another body, or a concurrent write"
+              steps:
+                - message:
+                    from: rec
+                    to: dash
+                    style: reply
+                    text: "409 review_conflict; the dashboard reloads"
+                    relationship: rel_dashboard_recommendation_service
+                    state: implemented
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/DiagnosisProblemHandler.java:34
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:157-173
+                      - frontend:src/features/validate-diagnosis/ui/DiagnosisReview.tsx:39-44
+            - guard: "without OPERATE"
+              steps:
+                - message:
+                    from: rec
+                    to: dash
+                    style: reply
+                    text: "403 forbidden"
+                    relationship: rel_dashboard_recommendation_service
+                    state: implemented
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/queryhandlers/ReviewAccessHandler.java:57-70
+            - guard: "REJECTED without a comment (API only)"
+              steps:
+                - message:
+                    from: rec
+                    to: dash
+                    style: reply
+                    text: "400: the code requires a comment for REJECTED"
+                    relationship: rel_dashboard_recommendation_service
+                    state: divergent
+                    note: "DD-029 and DD-005 declare the comment optional; the controller and the V8 check require it. Recorded, not resolved."
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/ReviewController.java:127
+                      - recommendation:src/main/resources/db/migration/V8__make_review_comment_optional.sql:5-6
+      - message:
+          from: rec
+          to: pip
+          style: async
+          text: "Outbox worker re-projects status, reviewRevision and reviewedAt (PUT diagnosis-summary)"
+          relationship: rel_recommendation_pipeline_diagnosis_summary
+          state: divergent
+          note: "Same outbox as in seq_a2_diagnosis: modelled synchronous, implemented as outbox and worker."
+          evidence:
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/DiagnosisSummaryWorker.java:39-52
+            - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/pipeline/PipelineDiagnosisSummaryPublisher.java:60-100
+            - pipeline:src/main/java/org/pipesor/pipeline/incident/infrastructure/persistence/jpa/SqlDiagnosisSummaryStore.java:44-69
+
+      - section: "Diagnosis report in the monitored repository"
+      - message:
+          from: gha
+          to: gha
+          style: self
+          text: "Workflow 'Pipesor report' on workflow_run completed with failure or timed_out (id-token: write)"
+          implementation_only: true
+          reason: "Workflow del repositorio monitorizado (demo y escenarios), fuera del modelo."
+          state: implemented
+          note: "The validation scenarios use the same workflow with 15 s polls up to 1500 s."
+          evidence:
+            - demo:.github/workflows/pipesor-report.yml:7-10
+            - demo:.github/workflows/pipesor-report.yml:17-21
+            - validation_scenarios:.github/workflows/pipesor-report.yml:7-29
+      - fragment:
+          kind: loop
+          label: "every 10 s until 200 or 600 s"
+          branches:
+            - guard: "diagnosis not received"
+              steps:
+                - message:
+                    from: gha
+                    to: gha
+                    style: self
+                    text: "Request an OIDC token for audience urn:pipesor:api:recommendation"
+                    implementation_only: true
+                    reason: "Emisión del token OIDC por GitHub dentro del workflow; no es una relación del modelo."
+                    state: implemented
+                    evidence:
+                      - demo:.github/workflows/pipesor-report.yml:43-46
+                - message:
+                    from: gha
+                    to: rec
+                    style: sync
+                    text: "GET /api/v1/github-actions/repositories/{repositoryId}/runs/{runId}/attempts/{attempt}/report"
+                    relationship: rel_github_actions_diagnostic
+                    state: implemented
+                    note: "repository_id of the token must match the path; repository_owner_id is only checked for shape. The contract asks for backoff; the workflow polls at a fixed interval."
+                    evidence:
+                      - demo:.github/workflows/pipesor-report.yml:38-48
+                      - recommendation:src/main/java/com/pipesor/recommendation/configuration/RecommendationRoutes.java:30-31
+                      - recommendation:src/main/java/com/pipesor/recommendation/shared/security/GitHubActionsJwtDecoder.java:44-45
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/GitHubActionsReportController.java:33
+                - message:
+                    from: rec
+                    to: pg
+                    style: sync
+                    text: "Highest version for executionId = UUIDv5 of the run, without a Pipeline entitlement"
+                    relationship: rel_recommendation_service_postgresql
+                    state: implemented
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/queryhandlers/GitHubActionsReportQueryHandler.java:32-48
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/domain/ExecutionIds.java:19-25
+                      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/persistence/JdbcDiagnosisReadModel.java:54-59
+                - fragment:
+                    kind: alt
+                    label: "report route answer"
+                    branches:
+                      - guard: "no diagnosis yet, or Pipesor unreachable"
+                        steps:
+                          - message:
+                              from: rec
+                              to: gha
+                              style: reply
+                              text: "404 (or 000, 502, 503, 504): wait 10 s; any other status fails the job"
+                              relationship: rel_github_actions_diagnostic
+                              state: implemented
+                              evidence:
+                                - demo:.github/workflows/pipesor-report.yml:52-65
+                      - guard: "diagnosis available"
+                        steps:
+                          - message:
+                              from: rec
+                              to: gha
+                              style: reply
+                              text: "200 report and Markdown"
+                              relationship: rel_github_actions_diagnostic
+                              state: implemented
+                              evidence:
+                                - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/queryhandlers/ReportMarkdown.java:9-41
+                                - demo:.github/workflows/pipesor-report.yml:49-51
+      - section: "Artifact in the failed run"
+      - message:
+          from: gha
+          to: gha
+          style: self
+          text: "Write report.json and report.md, add them to the step summary, actions/upload-artifact (30 days)"
+          implementation_only: true
+          reason: "Paso del workflow del repositorio monitorizado; la publicación nativa del artifact no es una relación del modelo."
+          state: implemented
+          note: "A failed job leaves no artifact; the demo workflow gives up after 600 s, before the sixth diagnosis attempt."
+          evidence:
+            - demo:.github/workflows/pipesor-report.yml:67-87
+
+  # ---------------------------------------------------------------------------------------------
+  - id: seq_b_login
+    title: "GitHub sign-in with recorded consent, PKCE and Pipesor session token"
+    purpose: >-
+      Inicio de sesión: el navegador parte del dashboard hacia Ingestion con la versión de los
+      documentos aceptados; Ingestion custodia el verifier PKCE en Key Vault, redirige a GitHub,
+      consume el callback una sola vez, canjea el código, verifica la identidad, activa la conexión y
+      registra handoff y consentimiento; el dashboard canjea el handoff por un JWT firmado en Key
+      Vault que Pipeline y Recommendation validan con el JWKS de Ingestion.
+    participants:
+      - {id: user, name: "Technical user", element: technical_users}
+      - id: browser
+        name: "Browser"
+        implementation_only: true
+        kind: "Agente de usuario que sigue las redirecciones 302 entre Ingestion, GitHub y el dashboard"
+        evidence:
+          - frontend:src/entities/session/model/session.ts:135-144
+          - ingestion:src/main/java/org/pipesor/ingestion/auth/interfaces/rest/AuthController.java:169-172
+      - {id: spa, name: "AIOps Web Dashboard", element: web_dashboard}
+      - {id: ing, name: "Ingestion", element: ingestion_normalization_service}
+      - {id: kv, name: "Azure Key Vault", element: azure_key_vault}
+      - {id: pg, name: "PostgreSQL", element: postgresql_operational_store}
+      - {id: gh, name: "GitHub", element: github}
+      - {id: pip, name: "Pipeline", element: pipeline_service}
+      - {id: rec, name: "Recommendation", element: recommendation_service}
+    untested:
+      - "Frontend sin E2E ni pruebas de session.ts, SignInPage, AuthCompletePage, RequireSession o de los manejadores de 401 de client.ts."
+      - "Ninguna prueba recorre SPA → Ingestion → GitHub → callback → canje → Pipeline: los tests de flujo usan GitHub sintético, custodia en fichero y firma PEM."
+      - "Ninguna prueba valida un token de Ingestion contra su JWKS real desde otro servicio."
+      - "Sin prueba: logout HTTP con sesión válida, consent_required en el callback, fallo de Key Vault tras consumir el handoff, 503 en start, estado del vínculo tras fallar el consentimiento, rotación de claves y rate limit."
+    steps:
+      - section: "Start with recorded consent"
+      - message:
+          from: user
+          to: spa
+          style: sync
+          text: "Tick the consent box and press Continue on /login"
+          relationship: rel_technical_users_dashboard
+          state: implemented
+          evidence:
+            - frontend:src/pages/sign-in/ui/SignInPage.tsx:77-97
+            - frontend:src/pages/sign-in/ui/SignInPage.tsx:106-116
+            - frontend:src/shared/config/legal.ts:7
+      - message:
+          from: spa
+          to: ing
+          style: sync
+          text: "Full-page GET /api/v1/auth/github/start?return_to=...&consent_version=YYYY-MM-DD"
+          relationship: rel_dashboard_ingestion_github_connection
+          state: implemented
+          evidence:
+            - frontend:src/entities/session/model/session.ts:135-144
+            - frontend:src/shared/config/navigation.ts:192-202
+            - ingestion:src/main/java/org/pipesor/ingestion/auth/interfaces/rest/AuthController.java:84-108
+      - fragment:
+          kind: alt
+          label: "start rejected"
+          branches:
+            - guard: "consent_version missing, malformed, repeated or later than tomorrow (UTC)"
+              steps:
+                - message:
+                    from: ing
+                    to: spa
+                    style: reply
+                    text: "302 error=consent_required: no attempt, no custody, no GitHub call"
+                    relationship: rel_dashboard_ingestion_github_connection
+                    state: implemented
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:201-208
+                      - ingestion:src/main/java/org/pipesor/ingestion/auth/interfaces/rest/AuthController.java:103-107
+            - guard: "return_to not allowed"
+              steps:
+                - message:
+                    from: ing
+                    to: spa
+                    style: reply
+                    text: "400 INVALID_REQUEST as JSON, without a redirect"
+                    relationship: rel_dashboard_ingestion_github_connection
+                    state: implemented
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:84-86
+                      - ingestion:src/main/java/org/pipesor/ingestion/shared/interfaces/rest/ApiExceptionHandler.java:68
+      - section: "Login attempt, state and PKCE custody"
+      - message:
+          from: ing
+          to: ing
+          style: self
+          text: "state of 32 bytes, PKCE verifier of 64 bytes, S256 challenge"
+          implementation_only: true
+          reason: "Paso interno de Ingestion, no modelado."
+          state: implemented
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:80-99
+      - message:
+          from: ing
+          to: kv
+          style: sync
+          text: "setSecret github-pkce-<attemptId> in the custody vault"
+          relationship: rel_ingestion_key_vault
+          state: implemented
+          note: "The secret is never deleted (ingestion issue 24, open)."
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/custody/KeyVaultCredentialCustody.java:65-76
+            - ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/custody/KeyVaultCredentialCustody.java:24-27
+            - iac:modules/workloads/main.tf:108
+      - message:
+          from: ing
+          to: pg
+          style: sync
+          text: "INSERT github_login_attempts READY (state digest, PKCE reference, return path, consent version, 10 min)"
+          relationship: rel_ingestion_postgresql_connector_metadata
+          state: implemented
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/auth/infrastructure/persistence/JdbcLoginAttempts.java:20-28
+            - ingestion:src/main/resources/db/migration/V3__github_login_attempts.sql:20-34
+      - fragment:
+          kind: opt
+          label: "custody"
+          branches:
+            - guard: "custody vault unavailable"
+              steps:
+                - message:
+                    from: ing
+                    to: spa
+                    style: reply
+                    text: "503 JSON on the Ingestion origin, no redirect to the dashboard"
+                    relationship: rel_dashboard_ingestion_github_connection
+                    state: implemented
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/auth/interfaces/rest/AuthController.java:104
+                      - ingestion:src/main/java/org/pipesor/ingestion/shared/interfaces/rest/ApiExceptionHandler.java:66
+      - section: "Redirect to GitHub"
+      - fragment:
+          kind: opt
+          label: "first call only"
+          branches:
+            - guard: "client_id not cached (IaC does not set it)"
+              steps:
+                - message:
+                    from: ing
+                    to: gh
+                    style: sync
+                    text: "GET /app with the App JWT to read client_id"
+                    relationship: rel_ingestion_github_connection
+                    state: implemented
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/oauth/GitHubAppClientId.java:36-49
+                      - iac:modules/workloads/main.tf:98-109
+      - message:
+          from: ing
+          to: browser
+          style: reply
+          text: "302 github.com/login/oauth/authorize?client_id, redirect_uri, state, code_challenge, S256 (no-store)"
+          implementation_only: true
+          reason: "Redirección del navegador; el modelo no tiene una relación Ingestion → navegador."
+          state: implemented
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/auth/infrastructure/github/GitHubAuthorizeUrls.java:22-26
+            - ingestion:src/main/java/org/pipesor/ingestion/auth/interfaces/rest/AuthController.java:169-172
+
+      - section: "Authorization at GitHub"
+      - message:
+          from: browser
+          to: gh
+          style: sync
+          text: "GET /login/oauth/authorize"
+          implementation_only: true
+          reason: "Navegación del navegador tras el 302 de Ingestion."
+          state: implemented
+          note: "rel_dashboard_github_sign_in draws Dashboard → GitHub; in code this redirect from Ingestion realises it."
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/auth/infrastructure/github/GitHubAuthorizeUrls.java:22-26
+      - message:
+          from: user
+          to: gh
+          style: sync
+          text: "Authorise the GitHub App"
+          implementation_only: true
+          reason: "Interacción con la interfaz de GitHub; sin código de Pipesor."
+          state: external
+          evidence:
+            - iac:docs/dev-runtime-deployment.md:21-28
+      - message:
+          from: gh
+          to: browser
+          style: reply
+          text: "302 to the callback with code and state"
+          implementation_only: true
+          reason: "Redirección de GitHub; el callback se registra a mano en la App."
+          state: external
+          evidence:
+            - iac:docs/dev-runtime-deployment.md:21-28
+            - iac:modules/workloads/main.tf:102
+      - message:
+          from: browser
+          to: ing
+          style: sync
+          text: "GET /api/v1/auth/github/callback?code&state[&error] (public route)"
+          implementation_only: true
+          reason: "Navegación del navegador desde GitHub; correctamente fuera del modelo."
+          state: implemented
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/auth/interfaces/rest/AuthController.java:110-125
+            - ingestion:src/main/java/org/pipesor/ingestion/configuration/WebConfiguration.java:26
+      - section: "One-time callback"
+      - message:
+          from: ing
+          to: pg
+          style: sync
+          text: "Claim the attempt READY to CLAIMED (conditional UPDATE ... RETURNING)"
+          relationship: rel_ingestion_postgresql_connector_metadata
+          state: implemented
+          idempotency: "Single use: phase READY and not expired; only one caller wins"
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/auth/infrastructure/persistence/JdbcLoginAttempts.java:30-42
+            - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:101-107
+      - fragment:
+          kind: alt
+          label: "callback rejected"
+          branches:
+            - guard: "state unknown, expired, reused or forged"
+              steps:
+                - message:
+                    from: ing
+                    to: browser
+                    style: reply
+                    text: "302 to the dashboard with error=invalid_state"
+                    implementation_only: true
+                    reason: "Redirección del navegador, no modelada."
+                    state: implemented
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/auth/interfaces/rest/AuthController.java:119-124
+                      - ingestion:src/main/java/org/pipesor/ingestion/auth/interfaces/rest/AuthController.java:165-167
+            - guard: "user denied at GitHub, or attempt older than the consent records"
+              steps:
+                - message:
+                    from: ing
+                    to: browser
+                    style: reply
+                    text: "302 with error=access_denied (attempt FAILED) or consent_required"
+                    implementation_only: true
+                    reason: "Redirección del navegador, no modelada."
+                    state: implemented
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:110-111
+                      - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:143
+
+      - section: "Code exchange"
+      - message:
+          from: ing
+          to: kv
+          style: sync
+          text: "Read the PKCE verifier (exact version)"
+          relationship: rel_ingestion_key_vault
+          state: implemented
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/custody/KeyVaultCredentialCustody.java:69-70
+            - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:112
+      - message:
+          from: ing
+          to: gh
+          style: sync
+          text: "POST /login/oauth/access_token (code, code_verifier, redirect_uri, client_id, client_secret), no retry"
+          relationship: rel_ingestion_github_connection
+          state: implemented
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/oauth/GitHubOAuthUserTokens.java:54-57
+            - ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/oauth/GitHubOAuthUserTokens.java:65-100
+            - ingestion:src/main/java/org/pipesor/ingestion/configuration/GitHubConfiguration.java:81-84
+      - fragment:
+          kind: alt
+          label: "exchange"
+          branches:
+            - guard: "bad_verification_code, expired_token or access_denied"
+              steps:
+                - message:
+                    from: ing
+                    to: browser
+                    style: reply
+                    text: "302 with error=access_denied"
+                    implementation_only: true
+                    reason: "Redirección del navegador, no modelada."
+                    state: implemented
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/oauth/GitHubOAuthUserTokens.java:85-89
+                      - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:212-214
+            - guard: "any other error, or a token valid longer than 8 h 01 min"
+              steps:
+                - message:
+                    from: ing
+                    to: browser
+                    style: reply
+                    text: "302 with error=unavailable"
+                    implementation_only: true
+                    reason: "Redirección del navegador, no modelada."
+                    state: implemented
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:113
+                      - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:212-217
+      - section: "Identity verification"
+      - message:
+          from: ing
+          to: gh
+          style: sync
+          text: "GET /user, /user/installations (this App), repositories of each installation, /user again"
+          relationship: rel_ingestion_github_connection
+          state: implemented
+          note: "Login checks neither admission nor membership (ADR-025); access is checked per repository on each operation."
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/provider/GitHubReadProvider.java:114-136
+            - ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/provider/GitHubReadProvider.java:247-262
+
+      - section: "Connection activation"
+      - message:
+          from: ing
+          to: pg
+          style: sync
+          text: "github_connections and github_authorization_attempts: prepare, ready, claim (same UUID and pkce: reference), one transaction each"
+          relationship: rel_ingestion_postgresql_connector_metadata
+          state: implemented
+          note: "DD-026 says the two attempt tables use different UUIDs; the code reuses the login attempt's UUID on purpose."
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:119-126
+            - ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/persistence/jpa/TransactionalGitHubConnections.java:34-38
+            - ingestion:src/main/resources/db/migration/V1__github_connection_metadata.sql:111-123
+      - message:
+          from: ing
+          to: kv
+          style: sync
+          text: "setSecret github-generation-<id> with the access and refresh tokens"
+          relationship: rel_ingestion_key_vault
+          state: implemented
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:127-129
+            - ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/custody/KeyVaultCredentialCustody.java:58
+      - message:
+          from: ing
+          to: pg
+          style: sync
+          text: "Activate the generation (previous one INVALIDATED with a CLEANUP operation)"
+          relationship: rel_ingestion_postgresql_connector_metadata
+          state: implemented
+          idempotency: "Optimistic concurrency on the connection revision"
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/github/domain/model/aggregates/GitHubConnection.java:104-129
+            - ingestion:src/main/resources/db/migration/V1__github_connection_metadata.sql:138
+      - section: "Handoff and consent record"
+      - message:
+          from: ing
+          to: pg
+          style: sync
+          text: "One REQUIRES_NEW transaction: handoff of 32 bytes for 60 s (HANDOFF_READY) and INSERT consent_records (LOGIN_CHECKBOX)"
+          relationship: rel_ingestion_postgresql_connector_metadata
+          state: implemented
+          idempotency: "Handoff only from CLAIMED and one row; one consent record per login attempt"
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:130-140
+            - ingestion:src/main/java/org/pipesor/ingestion/auth/infrastructure/persistence/SpringLoginTransactions.java:12-17
+            - ingestion:src/main/java/org/pipesor/ingestion/auth/infrastructure/persistence/JdbcLoginAttempts.java:49-57
+            - ingestion:src/main/java/org/pipesor/ingestion/auth/infrastructure/persistence/JdbcConsentRecords.java:19-29
+            - ingestion:src/main/resources/db/migration/V6__login_consent_records.sql:37-46
+      - fragment:
+          kind: alt
+          label: "consent record"
+          branches:
+            - guard: "writing consent_records fails"
+              steps:
+                - message:
+                    from: ing
+                    to: browser
+                    style: reply
+                    text: "Rollback, attempt FAILED, 302 with error=unavailable; the GitHub link is already ACTIVE"
+                    implementation_only: true
+                    reason: "Redirección del navegador, no modelada."
+                    state: partial
+                    note: "Audit finding: the connection and the user token in custody were activated before this transaction, so ADR-029 'no login without proof' holds only for the session."
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:127-143
+            - guard: "recorded"
+              steps:
+                - message:
+                    from: ing
+                    to: spa
+                    style: reply
+                    text: "302 to /auth/complete?handoff=... (through the browser)"
+                    implementation_only: true
+                    reason: "Redirección del navegador hacia el dashboard; el modelo no tiene una relación Ingestion → dashboard."
+                    state: implemented
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/auth/interfaces/rest/AuthController.java:117-118
+                      - ingestion:src/main/java/org/pipesor/ingestion/configuration/SessionProperties.java:24-28
+
+      - section: "Session exchange"
+      - message:
+          from: spa
+          to: ing
+          style: sync
+          text: "POST /api/v1/auth/session {handoff} (read once and removed from the URL; no bearer, credentials omit)"
+          relationship: rel_dashboard_ingestion_github_connection
+          state: implemented
+          evidence:
+            - frontend:src/pages/sign-in/ui/AuthCompletePage.tsx:46-48
+            - frontend:src/entities/session/model/session.ts:146-169
+            - frontend:src/shared/api/client.ts:85-94
+            - ingestion:src/main/java/org/pipesor/ingestion/auth/interfaces/rest/AuthController.java:127-136
+      - message:
+          from: ing
+          to: pg
+          style: sync
+          text: "Consume the handoff HANDOFF_READY to COMPLETED; require the active connection and generation; read the consent"
+          relationship: rel_ingestion_postgresql_connector_metadata
+          state: implemented
+          idempotency: "Conditional UPDATE while handoff_expires_at is in the future"
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/auth/infrastructure/persistence/JdbcLoginAttempts.java:59-69
+            - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:148-163
+            - ingestion:src/main/java/org/pipesor/ingestion/auth/infrastructure/persistence/JdbcConsentRecords.java:31-35
+      - message:
+          from: ing
+          to: kv
+          style: sync
+          text: "Sign the session JWT RS256 with pipesor-session-signing (iss urn:pipesor:session, four audiences, exp of 1 h or less)"
+          relationship: rel_ingestion_key_vault
+          state: implemented
+          evidence:
+            - ingestion:src/main/java/org/pipesor/ingestion/shared/security/SessionTokens.java:43-57
+            - ingestion:src/main/java/org/pipesor/ingestion/shared/security/KeyVaultSigningKey.java:30-32
+            - iac:modules/workloads/main.tf:99
+      - section: "Session answer"
+      - fragment:
+          kind: alt
+          label: "session answer"
+          branches:
+            - guard: "handoff expired, reused or forged, generation no longer active, or no consent"
+              steps:
+                - message:
+                    from: ing
+                    to: spa
+                    style: reply
+                    text: "400 INVALID_HANDOFF; the dashboard shows 'rejected' and returns to /login"
+                    relationship: rel_dashboard_ingestion_github_connection
+                    state: implemented
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/shared/interfaces/rest/ApiExceptionHandler.java:67
+                      - frontend:src/pages/sign-in/ui/AuthCompletePage.tsx:52-56
+            - guard: "Key Vault unavailable while signing"
+              steps:
+                - message:
+                    from: ing
+                    to: spa
+                    style: reply
+                    text: "503 LOGIN_UNAVAILABLE after the handoff was consumed: sign in again"
+                    relationship: rel_dashboard_ingestion_github_connection
+                    state: implemented
+                    note: "At start-up the service does not start if the signing key cannot be read."
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:151-168
+                      - ingestion:src/main/java/org/pipesor/ingestion/shared/interfaces/rest/ApiExceptionHandler.java:66
+                      - ingestion:src/main/java/org/pipesor/ingestion/shared/security/KeyVaultSigningKey.java:17-26
+            - guard: "issued"
+              steps:
+                - message:
+                    from: ing
+                    to: spa
+                    style: reply
+                    text: "200 no-store {accessToken, expiresAt, user, returnTo, consent}"
+                    relationship: rel_dashboard_ingestion_github_connection
+                    state: implemented
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/auth/interfaces/rest/AuthController.java:133-135
+                - message:
+                    from: spa
+                    to: spa
+                    style: self
+                    text: "Keep the token in memory and in sessionStorage; navigate to the sanitised returnTo"
+                    implementation_only: true
+                    reason: "Estado interno del dashboard, no modelado."
+                    state: divergent
+                    note: "ADR-022 keeps tokens in memory only; the contract records this as a known divergence (reconciliation question 21, open)."
+                    evidence:
+                      - frontend:src/entities/session/model/session.ts:35-78
+                      - frontend:src/pages/sign-in/ui/AuthCompletePage.tsx:50
+
+      - section: "Authenticated calls"
+      - fragment:
+          kind: par
+          label: "API calls with the session"
+          branches:
+            - guard: "to Pipeline"
+              steps:
+                - message:
+                    from: spa
+                    to: pip
+                    style: sync
+                    text: "Authorization: Bearer <session JWT> (CORS for the dashboard origin, no credentials)"
+                    relationship: rel_dashboard_pipeline_service
+                    state: implemented
+                    evidence:
+                      - frontend:src/shared/api/client.ts:76-83
+                      - pipeline:src/main/java/org/pipesor/pipeline/configuration/PipelineSecurityConfiguration.java:43-56
+                - message:
+                    from: pip
+                    to: ing
+                    style: sync
+                    text: "GET /.well-known/jwks.json (public, max-age 300); local validation afterwards"
+                    implementation_only: true
+                    reason: "La obtención del JWKS no es una relación del modelo."
+                    state: implemented
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/shared/security/JwksController.java:25-28
+                      - pipeline:src/main/java/org/pipesor/pipeline/shared/security/PlatformJwtDecoder.java:118-134
+                      - iac:modules/workloads/main.tf:85-88
+            - guard: "to Recommendation"
+              steps:
+                - message:
+                    from: spa
+                    to: rec
+                    style: sync
+                    text: "Authorization: Bearer <session JWT>; Diagnosis.* scopes, validated with the cached JWKS"
+                    relationship: rel_dashboard_recommendation_service
+                    state: implemented
+                    evidence:
+                      - recommendation:src/main/java/com/pipesor/recommendation/configuration/WebConfiguration.java:36-39
+                      - recommendation:src/main/java/com/pipesor/recommendation/configuration/RecommendationRoutes.java:24-29
+      - fragment:
+          kind: opt
+          label: "GitHub data needed"
+          branches:
+            - guard: "Pipeline must verify GitHub access"
+              steps:
+                - message:
+                    from: pip
+                    to: ing
+                    style: sync
+                    text: "Internal call with the session as X-Pipesor-Subject-Token"
+                    relationship: rel_pipeline_ingestion_github_access
+                    state: implemented
+                    evidence:
+                      - pipeline:src/main/java/org/pipesor/pipeline/catalog/infrastructure/github/IngestionGitHubConnector.java:183-186
+                      - ingestion:src/main/java/org/pipesor/ingestion/shared/security/SubjectTokenFilter.java:42-71
+      - section: "Expiry and logout"
+      - fragment:
+          kind: alt
+          label: "end of the session"
+          branches:
+            - guard: "exp reached (dashboard timer) or any 401"
+              steps:
+                - message:
+                    from: spa
+                    to: spa
+                    style: self
+                    text: "Drop the session and go to /login?return_to (no refresh token, no logout call)"
+                    implementation_only: true
+                    reason: "Comportamiento interno del dashboard, no modelado."
+                    state: implemented
+                    note: "Local expiry leaves the GitHub link and the refresh token in custody."
+                    evidence:
+                      - frontend:src/entities/session/model/session.ts:80-96
+                      - frontend:src/shared/api/client.ts:103
+                      - frontend:src/app/RequireSession.tsx:12-15
+            - guard: "the user logs out"
+              steps:
+                - message:
+                    from: spa
+                    to: ing
+                    style: sync
+                    text: "POST /api/v1/auth/logout (Bearer)"
+                    relationship: rel_dashboard_ingestion_github_connection
+                    state: implemented
+                    note: "The relationship label does not mention logout."
+                    evidence:
+                      - frontend:src/entities/session/model/session.ts:175-183
+                      - ingestion:src/main/java/org/pipesor/ingestion/auth/interfaces/rest/AuthController.java:156-163
+                - message:
+                    from: ing
+                    to: pg
+                    style: sync
+                    text: "Clear active_generation_id, generation INVALIDATED, CLEANUP operation (two tries on conflict)"
+                    relationship: rel_ingestion_postgresql_connector_metadata
+                    state: implemented
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:171-187
+                      - ingestion:src/main/java/org/pipesor/ingestion/github/domain/model/aggregates/GitHubConnection.java:227-235
+                - message:
+                    from: ing
+                    to: spa
+                    style: reply
+                    text: "204; the dashboard clears the session even if the call fails; the JWT stays valid until exp"
+                    relationship: rel_dashboard_ingestion_github_connection
+                    state: implemented
+                    evidence:
+                      - ingestion:src/main/java/org/pipesor/ingestion/auth/interfaces/rest/AuthController.java:162
+                      - frontend:src/entities/session/model/session.ts:175-183

@@ -1739,6 +1739,19 @@ conserva únicamente la representación protegida y su política de retención.
 - límites: modelar no acredita despliegue ni migraciones de entorno. No se modifican `architecture.yml`, presupuestos ni membresías de vistas. La política de privacidad debe declarar este registro, su finalidad y su retención (ADR-029).
 - reversibilidad: retirar la tabla o la columna, o fijar una purga, requiere decisión explícita.
 
+<a id="DD-029"></a>
+
+### DD-029 — Comentario opcional en REJECTED, confirmado por el responsable
+
+- autoridad: respuesta del responsable del 24/11/2026 a la pregunta 4 de la [auditoría documental](../docs/architecture/cross-repository-reconciliation.md#respuestas-del-responsable--24112026) (divergencia 4 de [DD-027](#DD-027)).
+- decisión: se conserva [DD-005](#dd-005--human-review-confirmedcorrectedrejected). El comentario de una revisión humana es opcional también en REJECTED; CORRECTED sigue exigiendo causa corregida. `domain.yml` no cambia: no representa `human_reviews_comment_check`.
+- motivo del responsable: en este semestre, no exigir comentario evita contaminar el corpus que se usa en las validaciones.
+- divergencia que queda: la migración V8 de Recommendation (`V8__make_review_comment_optional.sql`, `c3ce559`) hace opcional el comentario en CONFIRMED y CORRECTED, pero lo sigue exigiendo en REJECTED. Alinear esa CHECK es un cambio de Recommendation, fuera de este repositorio.
+- intención futura, no aprobada: para OE4 se contempla usar cada REJECTED como insumo para mejorar el diagnóstico asistido mediante el RAG. Es el alcance de [PD-037](../docs/architecture/pending-decisions.md), que sigue abierta. Esta decisión no la cierra ni modela ese flujo.
+- contrato: el [MVP HTTP API v1](../docs/architecture/contracts/mvp-http-api-v1.md#reviews) también dice que `comment` «is required only for `REJECTED`» y describe la regla que Recommendation aplica hoy. Alinear contrato e implementación es un cambio coordinado con Recommendation que este DD no hace.
+- límites: no acredita despliegue ni cambia el contrato.
+- reversibilidad: exigir el comentario en REJECTED requiere una decisión explícita que enmiende DD-005.
+
 ## Assumptions
 
 - **A-001** (assumption): UUID asignados por cada servicio; no default ni extensión generadora de UUID.

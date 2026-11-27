@@ -38,7 +38,9 @@ def printed(svg):
 class DocumentFigureTests(unittest.TestCase):
     def test_every_presentation_and_component_view_has_a_document_figure(self):
         expected = {"logica_expo_01", "logica_expo_02", "logica_expo_03", "fisica_expo_01", "fisica_expo_02",
-                    "fisica_expo_03", "c4_expo_2a", "c4_expo_2b", "c4_component_diagnostic"}
+                    "fisica_expo_03", "c4_expo_2a", "c4_expo_2b", "c4_context", "c4_component_diagnostic",
+                    # The Ingestion component view prints in two parts (model/c4_presentation.yml print_parts).
+                    "c4_component_ingestion_capture", "c4_component_ingestion_identity"}
         self.assertEqual({f.id for f in doc.figures()}, expected)
         for fid in expected:
             self.assertTrue((OUT / f"{fid}.svg").is_file(), fid)

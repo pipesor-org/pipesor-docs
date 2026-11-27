@@ -1,0 +1,807 @@
+# Overlay de implementación: estado del código frente a los hechos ya modelados.
+#
+# Autorizado por el responsable el 27/11/2026 (fase 2 de la auditoría de diagramas, decisión 2).
+# Solo referencia IDs existentes de model/architecture.yml y model/domain.yml. No crea, retira ni
+# reinterpreta arquitectura, no cambia `status` ni `source` y no cierra preguntas abiertas ni PD:
+# registra dónde está implementado cada hecho, o que no lo está, con evidencia repo:ruta:línea.
+# Los generadores lo usan para marcar en cada diagrama lo implementado frente a lo propuesto.
+model_version: "1.0.0"
+evidence_cutoff: "2026-11-27"
+
+# Revisiones fijadas de las que sale toda la evidencia. La ruta es relativa al directorio que
+# contiene los clones (tools/generators/evidence.py --workspace).
+repositories:
+  ingestion: {path: services/pipesor-ingestion-normalization-service, revision: a41188a}
+  pipeline: {path: services/pipesor-pipeline-service, revision: f6b64c3}
+  log_event: {path: services/pipesor-log-event-service, revision: 5f3475f}
+  nlp: {path: services/pipesor-nlp-log-processor, revision: d70a81a}
+  correlation: {path: services/pipesor-evidence-correlation-engine, revision: be231a0}
+  recommendation: {path: services/pipesor-recommendation-service, revision: c3ce559}
+  rag: {path: services/pipesor-rag-retrieval, revision: 312b520}
+  frontend: {path: pipesor-frontend, revision: 2806ae1}
+  iac: {path: pipesor-iac, revision: 318af56}
+  ci: {path: pipesor-ci, revision: 43c70cd}
+  demo: {path: pipesor-demo, revision: 2ed10e1}
+  validation_scenarios: {path: pipesor-validation-scenarios, revision: 27f0bfb}
+  workspace: {path: pipesor-workspace, revision: 168d72d}
+
+# Observación de solo lectura del entorno desplegado (decisión 7). No es una aprobación de despliegue:
+# deployment.mvp_preparation.deployment_authorized sigue en false en architecture.yml (ADR-019).
+deployment_observation:
+  environment: dev
+  observed_at: "2026-11-27T22:07Z"
+  method: "az containerapp list, az containerapp revision show, az containerapp job list, az postgres flexible-server show y az servicebus topic subscription list (solo lectura)"
+  container_apps: "8 Container Apps Healthy (ingestion, pipeline, log-event, nlp, correlation, recommendation, rag, dashboard), una réplica, con los digests de environments/dev/images.json"
+  jobs: "job-database-setup, job-ingestion-authority-import y job-rag-migrations (Manual)"
+  postgresql: "pg-pipesor-dev-04f339b7, PostgreSQL 17, Standard_D2s_v3, detenido en el momento de la observación"
+  service_bus: "topic workflow-evidence con las suscripciones pipeline, log-event y nlp"
+  evidence:
+    - "iac:environments/dev/images.json:1-62"
+
+# Verificación estructural del dominio: el 27/11/2026 se aplicaron las migraciones reales con Flyway 12.4
+# (33) y Alembic 1.20.1 (3) en PostgreSQL 17.12/pgvector 0.8.7 y se compararon por introspección con
+# build/schema.sql + build/extras.sql generados desde domain.yml 1.11.0. Columnas, tipos, nulabilidad, PK,
+# únicas, CHECK, FK y triggers coinciden salvo lo listado aquí como partial, divergent o not_implemented, ya
+# registrado en DD-026, DD-027, DD-028 y DD-029. La evidencia de cada tabla es su CREATE TABLE.
+domain_verification:
+  date: "2026-11-27"
+  method: "Flyway 12.4 + Alembic 1.20.1 sobre PostgreSQL 17.12/pgvector 0.8.7; pg_dump --schema-only e introspección de catálogo"
+  decisions: [DD-026, DD-027, DD-028, DD-029]
+
+architecture:
+  elements:
+    technical_users:
+      status: external
+      reason: Actor humano; se verifica a través del dashboard al que accede.
+      evidence:
+      - frontend:src/pages/sign-in/ui/SignInPage.tsx:77-116
+    github:
+      status: external
+      reason: Sistema externo; el código solo verifica la integración de solo lectura con la GitHub App.
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/provider/GitHubReadProvider.java:21-262
+    github_actions:
+      status: external
+      reason: Sistema externo; el workflow del repo monitorizado consulta el informe y sube el artifact.
+      evidence:
+      - demo:.github/workflows/pipesor-report.yml:38-87
+    observability_sources:
+      status: partial
+      note: Solo existe el workspace de Log Analytics con logs de plataforma de ACA. Application Insights está desactivado en dev y ningún servicio consume esta evidencia ni la instrumenta (ADR-002).
+      evidence:
+      - iac:modules/container-platform/main.tf:28-41
+      - iac:modules/container-platform/main.tf:62-85
+      decisions:
+      - Q12
+    ingestion_normalization_service:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/IngestionServiceApplication.java:1-11
+      - iac:modules/workloads/main.tf:196-245
+    azure_service_bus:
+      status: implemented
+      evidence:
+      - iac:modules/service-bus/main.tf:1-61
+      - iac:environments/dev/terraform.tfvars.example:17-26
+      note: 'Un topic workflow-evidence y tres suscripciones con filtro SQL (PD-015: aprobación no verificable).'
+    azure_key_vault:
+      status: implemented
+      evidence:
+      - iac:modules/key-vault/main.tf:8-41
+      - iac:modules/workloads/main.tf:157-169
+      note: 'Dos vaults: material de la App y claves, y custodia de tokens de usuario.'
+    nlp_log_processor:
+      status: partial
+      note: Consume Service Bus, sanea y calcula plantillas Drain3 en memoria y llama a Correlation. El atributo embedding_model (Azure OpenAI) no tiene implementación y Correlation descarta la plantilla.
+      evidence:
+      - nlp:src/pipesor_nlp_log_processor/main.py:1-20
+      - nlp:src/pipesor_nlp_log_processor/infrastructure/drain_parser.py:14-31
+    pipeline_service:
+      status: implemented
+      evidence:
+      - pipeline:src/main/java/org/pipesor/pipeline/PipelineServiceApplication.java:1-12
+      - iac:modules/workloads/main.tf:196-245
+    log_event_service:
+      status: partial
+      note: Registra evidencia y verifica pertenencia; las consultas de logs, eventos y evidencia del modelo no existen.
+      evidence:
+      - log_event:src/main/java/org/pipesor/logevent/evidence/interfaces/messaging/ServiceBusEvidenceConsumer.java:55-114
+      - log_event:src/main/java/org/pipesor/logevent/evidence/interfaces/rest/EvidenceMembershipController.java:52-54
+    evidence_correlation_engine:
+      status: implemented
+      evidence:
+      - correlation:src/main/java/org/pipesor/correlation/CorrelationApplication.java:1-11
+      - correlation:src/main/java/org/pipesor/correlation/context/infrastructure/persistence/jpa/ReceiveProcessedEvidence.java:73-139
+    recommendation_service:
+      status: partial
+      note: diagnostic_output no tiene confidence (PD-004) ni failure_summary, y reduce execution_context al executionId; una sola recomendación.
+      evidence:
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/queries/DiagnosisProjection.java:11-26
+      - recommendation:src/main/java/com/pipesor/recommendation/RecommendationServiceApplication.java:1-11
+      decisions:
+      - PD-004
+      - PD-011
+    human_review_component:
+      status: partial
+      note: Registra CONFIRMED/CORRECTED/REJECTED con revisiones; no hay clasificación de riesgo, marcado crítico ni exigencia de aprobación (PD-009/DCQ-001).
+      evidence:
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:153-219
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/queryhandlers/ReviewAccessHandler.java:17-67
+      decisions:
+      - PD-009
+      - DCQ-001
+    diagnostic_api_component:
+      status: partial
+      note: Existe para consultas y revisión; la recepción del contexto correlacionado está en el paquete receipt.
+      evidence:
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/IncidentDiagnosisController.java:20-32
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/ReviewController.java:38-83
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/GitHubActionsReportController.java:21-33
+    diagnostic_orchestrator_component:
+      status: divergent
+      note: Lo invoca el worker de la cola durable diagnosis_jobs, no la API (pregunta 13, abierta).
+      evidence:
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/DiagnosticOrchestrator.java:18-57
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/DiagnosisWorker.java:18-52
+      decisions:
+      - Q13
+    diagnostic_output_component:
+      status: partial
+      note: 'No existe como componente: la composición está en DiagnosticOrchestrator, la traducción en AzureOpenAiInference y la persistencia en ReviewStore; no expone confidence ni varias recomendaciones.'
+      evidence:
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/DiagnosticOrchestrator.java:45-56
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/AzureOpenAiInference.java:151-172
+      decisions:
+      - PD-004
+    rag_retrieval:
+      status: implemented
+      evidence:
+      - rag:src/pipesor_rag_retrieval/api.py:132-183
+      - rag:src/pipesor_rag_retrieval/persistence.py:79-142
+      note: La identidad es user-assigned y única para runtime y migraciones, frente a system-assigned del modelo y ADR-021 (pregunta 19).
+    pretrained_llm_diagnostic_service:
+      status: external
+      reason: Servicio gestionado de Azure; los deployments están declarados en IaC.
+      evidence:
+      - iac:modules/foundry/main.tf:45-60
+      - iac:environments/dev/terraform.tfvars.example:46-51
+    postgresql_operational_store:
+      status: implemented
+      evidence:
+      - iac:modules/postgresql/main.tf:27-50
+    pgvector_knowledge_store:
+      status: implemented
+      evidence:
+      - iac:modules/postgresql/main.tf:64-70
+      - rag:src/pipesor_rag_retrieval/persistence.py:79-140
+    web_dashboard:
+      status: implemented
+      evidence:
+      - iac:modules/workloads/main.tf:248-300
+      - frontend:src/main.tsx:1-10
+    ingestion_webhook_component:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/webhook/GitHubWebhookServlet.java:19-89
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/webhook/GitHubWorkflowWebhook.java:21-114
+    ingestion_capture_component:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jdbc/JdbcCaptureAuthority.java:37-320
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/application/commandhandlers/CaptureHandler.java:16-107
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jpa/JpaCaptureLedger.java:24-296
+    ingestion_preparation_component:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/scheduling/PreparationRunner.java:13-51
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/application/commandhandlers/PrepareGitHubCapture.java:18-75
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/github/GitHubMachineTransport.java:25-135
+    ingestion_normalization_component:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/normalization/application/commandhandlers/NormalizeObservationHandler.java:12-50
+      - ingestion:src/main/java/org/pipesor/ingestion/normalization/infrastructure/protection/BoundedEvidenceProtection.java:10-76
+      note: Service y environment del evento canónico van siempre null.
+    ingestion_publication_component:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/scheduling/PublicationRunner.java:10-27
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/application/commandhandlers/PublicationWorker.java:12-52
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/messaging/AzureServiceBusPublisher.java:13-30
+    ingestion_sign_in_component:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/auth/interfaces/rest/AuthController.java:46-172
+      - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:45-231
+      - ingestion:src/main/java/org/pipesor/ingestion/shared/security/SessionTokens.java:18-57
+    ingestion_github_connector_component:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/github/interfaces/rest/GitHubController.java:37-263
+      - ingestion:src/main/java/org/pipesor/ingestion/github/domain/model/aggregates/GitHubConnection.java:22-291
+      - ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/provider/GitHubReadProvider.java:21-262
+  relationships:
+    rel_github_actions_ingestion_event:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/configuration/GitHubWebhookConfiguration.java:24-28
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/webhook/GitHubWorkflowWebhook.java:54-57
+      - iac:modules/workloads/main.tf:110-115
+      note: Lo emite la GitHub App; desactivado por defecto y activo en dev con webhook_secret_version.
+    rel_service_bus_pipeline_service:
+      status: implemented
+      evidence:
+      - pipeline:src/main/java/org/pipesor/pipeline/configuration/ServiceBusConfiguration.java:37-46
+      - pipeline:src/main/java/org/pipesor/pipeline/execution/interfaces/messaging/ServiceBusSnapshotConsumer.java:66-83
+    rel_service_bus_log_event_service:
+      status: partial
+      note: Entrega la evidencia para su registro; la consulta («querying») no existe.
+      evidence:
+      - log_event:src/main/java/org/pipesor/logevent/configuration/ServiceBusConfiguration.java:42-53
+      - log_event:src/main/java/org/pipesor/logevent/evidence/interfaces/messaging/ServiceBusEvidenceConsumer.java:55-114
+    rel_ingestion_postgresql_connector_metadata:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jpa/JpaCaptureLedger.java:24
+      - ingestion:src/main/java/org/pipesor/ingestion/auth/infrastructure/persistence/JdbcConsentRecords.java:14
+      - ingestion:src/main/resources/db/migration/V1__github_connection_metadata.sql:4
+    rel_pipeline_service_postgresql:
+      status: implemented
+      evidence:
+      - pipeline:src/main/java/org/pipesor/pipeline/execution/infrastructure/persistence/jpa/SqlSnapshotStore.java:73-98
+      - pipeline:src/main/resources/db/migration/V2__create_operational_model.sql:15
+    rel_log_event_service_postgresql:
+      status: implemented
+      evidence:
+      - log_event:src/main/java/org/pipesor/logevent/evidence/infrastructure/persistence/jdbc/JdbcEvidenceStore.java:51-58
+    rel_recommendation_service_postgresql:
+      status: implemented
+      evidence:
+      - recommendation:src/main/java/com/pipesor/recommendation/receipt/ReceiptStore.java:20-87
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:65-112
+      note: La recomendación y la evidencia citada viajan en diagnoses.output; no hay tablas propias (DD-027, divergencia 2).
+    rel_ingestion_github_actions_read:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/github/GitHubMachineTransport.java:64-135
+      note: No descarga artifacts de workflow (ADR-014 los menciona como evidencia indirecta).
+    rel_ingestion_service_bus:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/configuration/MessagingConfiguration.java:22-32
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/messaging/AzureServiceBusPublisher.java:21-30
+    rel_service_bus_nlp:
+      status: implemented
+      evidence:
+      - nlp:src/pipesor_nlp_log_processor/infrastructure/service_bus.py:86-119
+      - nlp:src/pipesor_nlp_log_processor/application/message_loop.py:63-102
+    rel_nlp_correlation:
+      status: implemented
+      evidence:
+      - nlp:src/pipesor_nlp_log_processor/infrastructure/correlation_http.py:184-250
+      - correlation:src/main/java/org/pipesor/correlation/context/interfaces/rest/ProcessedEvidenceController.java:36-63
+    rel_correlation_postgresql:
+      status: implemented
+      evidence:
+      - correlation:src/main/java/org/pipesor/correlation/context/infrastructure/persistence/jpa/DurableCorrelationStore.java:137-195
+    rel_rag_pgvector:
+      status: implemented
+      evidence:
+      - rag:src/pipesor_rag_retrieval/persistence.py:79-140
+    rel_rag_embeddings:
+      status: implemented
+      evidence:
+      - rag:src/pipesor_rag_retrieval/infrastructure.py:39-93
+    rel_github_github_actions:
+      status: external
+      reason: Relación entre dos sistemas externos; no hay código propio que la verifique.
+    rel_observability_sources_ingestion:
+      status: not_implemented
+      reason: Ningún servicio consume Azure Monitor ni recibe telemetría; pregunta 12 sin responder.
+      decisions:
+      - Q12
+    rel_technical_users_dashboard:
+      status: implemented
+      evidence:
+      - iac:modules/workloads/main.tf:248-268
+      - frontend:src/pages/sign-in/ui/SignInPage.tsx:77-116
+    rel_correlation_recommendation:
+      status: implemented
+      evidence:
+      - correlation:src/main/java/org/pipesor/correlation/context/infrastructure/delivery/HttpRecommendationDelivery.java:20-73
+      - recommendation:src/main/java/com/pipesor/recommendation/receipt/interfaces/rest/CorrelatedContextController.java:31-66
+      note: Solo acredita el recibo durable y el encolado; el diagnóstico es asíncrono.
+    rel_recommendation_rag:
+      status: implemented
+      evidence:
+      - recommendation:src/main/java/com/pipesor/recommendation/retrieval/infrastructure/RestRagKnowledgeRetriever.java:28-108
+      - rag:src/pipesor_rag_retrieval/api.py:142-151
+    rel_recommendation_llm:
+      status: implemented
+      evidence:
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/AzureOpenAiInference.java:73-131
+    rel_dashboard_github_sign_in:
+      status: partial
+      note: El dashboard navega a Ingestion; el 302 hacia GitHub lo emite Ingestion.
+      evidence:
+      - frontend:src/entities/session/model/session.ts:135-144
+      - ingestion:src/main/java/org/pipesor/ingestion/auth/interfaces/rest/AuthController.java:84-108
+    rel_dashboard_pipeline_service:
+      status: implemented
+      evidence:
+      - frontend:src/entities/incident/model/api.ts:179-361
+      - pipeline:src/main/java/org/pipesor/pipeline/incident/interfaces/rest/IncidentController.java:43-140
+    rel_dashboard_log_event_service:
+      status: not_implemented
+      reason: El dashboard solo usa las APIs de ingestion, pipeline y recommendation, y Log/Event tiene ingress interno; pregunta 12 sin responder.
+      evidence:
+      - frontend:src/shared/config/env.ts:11
+      - iac:modules/workloads/main.tf:4
+      decisions:
+      - Q12
+    rel_dashboard_recommendation_service:
+      status: implemented
+      evidence:
+      - frontend:src/entities/diagnosis/model/api.ts:16-69
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/ReviewController.java:61-83
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/IncidentDiagnosisController.java:20-32
+    rel_recommendation_human_review:
+      status: implemented
+      evidence:
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/queryhandlers/ReviewAccessHandler.java:42-67
+    rel_human_review_postgresql:
+      status: implemented
+      evidence:
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:153-200
+    rel_github_actions_diagnostic:
+      status: implemented
+      evidence:
+      - demo:.github/workflows/pipesor-report.yml:38-87
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/GitHubActionsReportController.java:21-33
+    rel_dashboard_diagnostic_api:
+      status: implemented
+      evidence:
+      - frontend:src/entities/diagnosis/model/api.ts:16-69
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/ReviewController.java:61-83
+    rel_correlation_diagnostic_api:
+      status: partial
+      note: El receptor es el intake de recibos (paquete receipt), no la API de consultas del diagnóstico.
+      evidence:
+      - recommendation:src/main/java/com/pipesor/recommendation/receipt/interfaces/rest/CorrelatedContextController.java:31-66
+    rel_diagnostic_api_orchestrator:
+      status: divergent
+      note: 'Asíncrona: el intake encola diagnosis_jobs y un worker invoca al orquestador (pregunta 13; diagnosis_jobs inferred).'
+      evidence:
+      - recommendation:src/main/java/com/pipesor/recommendation/receipt/ReceiptStore.java:56-63
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/DiagnosisWorker.java:39-52
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/commandhandlers/DiagnoseAdmittedContextsHandler.java:60-75
+      decisions:
+      - Q13
+    rel_orchestrator_rag:
+      status: implemented
+      evidence:
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/DiagnosticOrchestrator.java:36-44
+    rel_orchestrator_llm:
+      status: implemented
+      evidence:
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/DiagnosticOrchestrator.java:45-52
+    rel_orchestrator_output:
+      status: partial
+      note: La composición está dentro de DiagnosticOrchestrator; no hay componente separado.
+      evidence:
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/DiagnosticOrchestrator.java:53-56
+    rel_output_postgresql:
+      status: partial
+      note: Persiste ReviewStore.admit, la misma clase que la revisión humana.
+      evidence:
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:65-112
+    rel_diagnostic_api_human_review:
+      status: partial
+      note: La revisión pasa por la API; el registro del diagnóstico lo hace el worker.
+      evidence:
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/ReviewController.java:68-83
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/application/queryhandlers/ReviewAccessHandler.java:35-46
+    rel_github_actions_diagnostic_api:
+      status: implemented
+      evidence:
+      - demo:.github/workflows/pipesor-report.yml:38-87
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/interfaces/rest/GitHubActionsReportController.java:21-33
+    rel_dashboard_ingestion_github_connection:
+      status: implemented
+      evidence:
+      - frontend:src/entities/session/model/session.ts:135-169
+      - ingestion:src/main/java/org/pipesor/ingestion/auth/interfaces/rest/AuthController.java:84-136
+      - ingestion:src/main/java/org/pipesor/ingestion/github/interfaces/rest/GitHubController.java:95-263
+    rel_ingestion_github_connection:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/oauth/GitHubOAuthUserTokens.java:54-96
+      - ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/provider/GitHubReadProvider.java:114-136
+    rel_ingestion_key_vault:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/shared/security/KeyVaultSigningKey.java:18-31
+      - ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/custody/KeyVaultCredentialCustody.java:58-88
+    rel_pipeline_key_vault:
+      status: implemented
+      evidence:
+      - pipeline:src/main/java/org/pipesor/pipeline/shared/security/KeyVaultSigningKey.java:18-31
+    rel_log_event_key_vault:
+      status: implemented
+      evidence:
+      - log_event:src/main/java/org/pipesor/logevent/shared/security/KeyVaultSigningKey.java:18-31
+    rel_nlp_key_vault:
+      status: implemented
+      evidence:
+      - nlp:src/pipesor_nlp_log_processor/infrastructure/platform_identity.py:63-88
+    rel_correlation_key_vault:
+      status: implemented
+      evidence:
+      - correlation:src/main/java/org/pipesor/correlation/shared/security/KeyVaultSigningKey.java:18-31
+    rel_recommendation_key_vault:
+      status: implemented
+      evidence:
+      - recommendation:src/main/java/com/pipesor/recommendation/shared/security/KeyVaultSigningKey.java:18-31
+    rel_pipeline_ingestion_github_access:
+      status: implemented
+      evidence:
+      - pipeline:src/main/java/org/pipesor/pipeline/catalog/infrastructure/github/IngestionGitHubConnector.java:40-43
+      - pipeline:src/main/java/org/pipesor/pipeline/catalog/infrastructure/capture/HttpCaptureScopeSync.java:33-34
+      - ingestion:src/main/java/org/pipesor/ingestion/github/interfaces/rest/GitHubController.java:59-73
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/rest/CaptureScopeController.java:23-38
+    rel_log_event_pipeline_operational_evidence:
+      status: implemented
+      evidence:
+      - log_event:src/main/java/org/pipesor/logevent/evidence/infrastructure/authority/HttpPipelineAuthority.java:39-40
+      - pipeline:src/main/java/org/pipesor/pipeline/execution/interfaces/rest/validation/OperationalReferenceCheckController.java:39-56
+    rel_pipeline_ingestion_machine_scope:
+      status: implemented
+      evidence:
+      - pipeline:src/main/java/org/pipesor/pipeline/execution/infrastructure/access/HttpIngestionScopeAuthority.java:33-34
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/rest/MachineScopeServlet.java:160-172
+    rel_correlation_pipeline_operational_references:
+      status: implemented
+      evidence:
+      - correlation:src/main/java/org/pipesor/correlation/context/infrastructure/validation/HttpOwnerReferences.java:28-29
+      - correlation:src/main/java/org/pipesor/correlation/context/infrastructure/validation/HttpOwnerReferences.java:84-102
+    rel_correlation_log_event_evidence_membership:
+      status: implemented
+      evidence:
+      - correlation:src/main/java/org/pipesor/correlation/context/infrastructure/validation/HttpOwnerReferences.java:29
+      - log_event:src/main/java/org/pipesor/logevent/evidence/interfaces/rest/EvidenceMembershipController.java:52-54
+    rel_recommendation_pipeline_diagnosis_entitlement:
+      status: implemented
+      evidence:
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/pipeline/PipelineDiagnosisEntitlements.java:37-40
+      - pipeline:src/main/java/org/pipesor/pipeline/incident/interfaces/rest/DiagnosisEntitlementController.java:27-36
+    rel_recommendation_pipeline_diagnosis_summary:
+      status: divergent
+      note: Modelada como llamada síncrona; la dispara un outbox transaccional con worker y el PUT es idempotente (ADR-027).
+      evidence:
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/review/ReviewStore.java:207-217
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/DiagnosisSummaryWorker.java:39-52
+      - recommendation:src/main/java/com/pipesor/recommendation/diagnosis/infrastructure/pipeline/PipelineDiagnosisSummaryPublisher.java:29-33
+    rel_github_actions_ingestion_webhook:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/webhook/GitHubWebhookServlet.java:35-89
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/webhook/GitHubWorkflowWebhook.java:89-114
+    rel_ingestion_webhook_capture:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/webhook/GitHubWorkflowWebhook.java:60-78
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/application/commandhandlers/CaptureHandler.java:25-29
+    rel_ingestion_preparation_capture:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/application/commandhandlers/PreparationWorker.java:41-98
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jpa/JpaCaptureLedger.java:132-176
+    rel_ingestion_preparation_github_actions:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/github/GitHubMachineTransport.java:64-135
+    rel_ingestion_preparation_normalization:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/normalization/application/commandhandlers/NormalizeObservationHandler.java:19-50
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/application/services/FailedRunEvidenceProfile.java:67-103
+    rel_ingestion_preparation_key_vault:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/credentials/KeyVaultAppMaterial.java:16-81
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/github/GitHubAppJwtSigner.java:16
+    rel_ingestion_publication_capture:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/application/commandhandlers/PublicationWorker.java:12-52
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jpa/JpaCaptureLedger.java:204-249
+    rel_ingestion_publication_service_bus:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/messaging/AzureServiceBusPublisher.java:21-30
+    rel_ingestion_capture_postgresql:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jpa/JpaCaptureLedger.java:87-116
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/infrastructure/persistence/jdbc/JdbcCaptureAuthority.java:179-238
+    rel_pipeline_ingestion_scope_sync:
+      status: implemented
+      evidence:
+      - pipeline:src/main/java/org/pipesor/pipeline/catalog/infrastructure/capture/HttpCaptureScopeSync.java:87-93
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/rest/CaptureScopeController.java:23-66
+    rel_pipeline_ingestion_machine_scope_check:
+      status: implemented
+      evidence:
+      - pipeline:src/main/java/org/pipesor/pipeline/execution/infrastructure/access/HttpIngestionScopeAuthority.java:33-34
+      - ingestion:src/main/java/org/pipesor/ingestion/capture/interfaces/rest/MachineScopeServlet.java:160-172
+    rel_dashboard_ingestion_run_analysis:
+      status: implemented
+      evidence:
+      - frontend:src/entities/workflow-run/model/api.ts:43-89
+      - ingestion:src/main/java/org/pipesor/ingestion/github/interfaces/rest/AnalysisController.java:23-42
+    rel_dashboard_ingestion_sign_in:
+      status: implemented
+      evidence:
+      - frontend:src/entities/session/model/session.ts:135-169
+      - ingestion:src/main/java/org/pipesor/ingestion/auth/interfaces/rest/AuthController.java:84-136
+    rel_ingestion_sign_in_github:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/oauth/GitHubOAuthUserTokens.java:54-96
+      - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:112-113
+    rel_ingestion_sign_in_connector:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:119-129
+      note: El vínculo se activa antes de la transacción del consentimiento (GitHubLoginHandler.java:137-140).
+    rel_ingestion_sign_in_key_vault:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/auth/application/commandhandlers/GitHubLoginHandler.java:92
+      - ingestion:src/main/java/org/pipesor/ingestion/shared/security/SessionTokens.java:43-57
+    rel_ingestion_sign_in_postgresql:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/auth/infrastructure/persistence/JdbcLoginAttempts.java:20-69
+      - ingestion:src/main/java/org/pipesor/ingestion/auth/infrastructure/persistence/JdbcConsentRecords.java:19-35
+    rel_dashboard_ingestion_connector:
+      status: implemented
+      evidence:
+      - frontend:src/entities/github-access/model/api.ts:15-198
+      - ingestion:src/main/java/org/pipesor/ingestion/github/interfaces/rest/GitHubController.java:95-263
+    rel_pipeline_ingestion_connector:
+      status: implemented
+      evidence:
+      - pipeline:src/main/java/org/pipesor/pipeline/catalog/infrastructure/github/IngestionGitHubConnector.java:40-43
+      - ingestion:src/main/java/org/pipesor/ingestion/github/interfaces/rest/GitHubController.java:59-73
+    rel_ingestion_connector_github:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/provider/GitHubReadProvider.java:52-262
+    rel_ingestion_connector_key_vault:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/custody/KeyVaultCredentialCustody.java:58-88
+    rel_ingestion_connector_postgresql:
+      status: implemented
+      evidence:
+      - ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/persistence/jpa/JpaConnectionRepository.java:15
+      - ingestion:src/main/java/org/pipesor/ingestion/github/infrastructure/persistence/jdbc/JdbcPipesorConnections.java:20
+
+domain:
+  entities:
+    repositories:
+      status: implemented
+      evidence:
+      - pipeline:src/main/resources/db/migration/V1__create_repositories.sql:1
+    pipelines:
+      status: implemented
+      evidence:
+      - pipeline:src/main/resources/db/migration/V2__create_operational_model.sql:15
+    pipeline_executions:
+      status: implemented
+      evidence:
+      - pipeline:src/main/resources/db/migration/V2__create_operational_model.sql:31
+    execution_stages:
+      status: implemented
+      evidence:
+      - pipeline:src/main/resources/db/migration/V2__create_operational_model.sql:50
+    incidents:
+      status: implemented
+      evidence:
+      - pipeline:src/main/resources/db/migration/V2__create_operational_model.sql:63
+      note: Pipeline V8 inicializa severity desde la criticidad del pipeline; DQ-001, A-005 y PD-003 siguen abiertas (DD-027, divergencia 7; pregunta 7).
+      decisions:
+      - DQ-001
+      - PD-003
+    incident_runs:
+      status: implemented
+      evidence:
+      - pipeline:src/main/resources/db/migration/V2__create_operational_model.sql:81
+    pipeline_access_grants:
+      status: implemented
+      evidence:
+      - pipeline:src/main/resources/db/migration/V4__create_pipeline_access_grants.sql:3
+    execution_event_receipts:
+      status: implemented
+      evidence:
+      - pipeline:src/main/resources/db/migration/V5__create_execution_event_receipts.sql:3
+    incident_diagnoses:
+      status: implemented
+      evidence:
+      - pipeline:src/main/resources/db/migration/V9__add_incident_queue_read_model.sql:4
+    evidence_items:
+      status: implemented
+      evidence:
+      - log_event:src/main/resources/db/migration/V1__create_evidence_items.sql:7
+    correlation_groups:
+      status: implemented
+      evidence:
+      - correlation:src/main/resources/db/migration/V2__durable_correlation_groups.sql:9
+    correlated_contexts:
+      status: implemented
+      evidence:
+      - correlation:src/main/resources/db/migration/V1__create_correlated_contexts.sql:3
+    correlation_receipts:
+      status: implemented
+      evidence:
+      - correlation:src/main/resources/db/migration/V2__durable_correlation_groups.sql:35
+    correlated_context_receipts:
+      status: implemented
+      evidence:
+      - recommendation:src/main/resources/db/migration/V1__create_correlated_context_receipts.sql:4
+    diagnoses:
+      status: partial
+      evidence:
+      - recommendation:src/main/resources/db/migration/V2__persist_diagnostic_reviews.sql:1
+      note: Seis columnas del modelo no existen en la tabla (status, probable_cause, explanation, limitations, confidence, diagnosis_ready_at); parte de su contenido viaja en output (DD-027, divergencia
+        1; pregunta 1).
+      decisions:
+      - Q1
+    recommendations:
+      status: not_implemented
+      reason: Ninguna migración de Recommendation (V1–V9) crea la tabla; su contenido viaja en diagnoses.output (DD-027, divergencia 2; pregunta 2).
+      decisions:
+      - Q2
+    diagnosis_evidence_links:
+      status: not_implemented
+      reason: Ninguna migración de Recommendation (V1–V9) crea la tabla; su contenido viaja en diagnoses.output (DD-027, divergencia 2; pregunta 2).
+      decisions:
+      - Q2
+    diagnosis_source_links:
+      status: not_implemented
+      reason: Ninguna migración de Recommendation (V1–V9) crea la tabla; su contenido viaja en diagnoses.output (DD-027, divergencia 2; pregunta 2).
+      decisions:
+      - Q2
+    human_reviews:
+      status: implemented
+      evidence:
+      - recommendation:src/main/resources/db/migration/V2__persist_diagnostic_reviews.sql:12
+      note: La migración V8 exige comentario en REJECTED; DD-029 lo declara opcional y alinearlo es un cambio de Recommendation.
+      decisions:
+      - DD-029
+    diagnosis_jobs:
+      status: implemented
+      evidence:
+      - recommendation:src/main/resources/db/migration/V7__create_diagnosis_jobs.sql:4
+    incident_summary_outbox:
+      status: implemented
+      evidence:
+      - recommendation:src/main/resources/db/migration/V9__create_incident_summary_outbox.sql:6
+    knowledge_documents:
+      status: implemented
+      evidence:
+      - rag:migrations/versions/20261111_01_knowledge_foundation.py:18-19
+    knowledge_chunks:
+      status: implemented
+      evidence:
+      - rag:migrations/versions/20261111_01_knowledge_foundation.py:49-50
+      note: La FK document_id tiene ON DELETE CASCADE en la migración; domain.yml no representa acciones referenciales (DD-027, divergencia 5; pregunta 5).
+      decisions:
+      - Q5
+    audit_events:
+      status: implemented
+      evidence:
+      - pipeline:src/main/resources/db/migration/V6__create_audit_events_if_absent.sql:13
+      note: La crea y escribe solo Pipeline (V6); el modelo la asigna a shared (DD-027, divergencia 6; pregunta 6).
+      decisions:
+      - Q6
+    github_connections:
+      status: implemented
+      evidence:
+      - ingestion:src/main/resources/db/migration/V1__github_connection_metadata.sql:4
+    github_connection_generations:
+      status: implemented
+      evidence:
+      - ingestion:src/main/resources/db/migration/V1__github_connection_metadata.sql:16
+    github_authorization_attempts:
+      status: implemented
+      evidence:
+      - ingestion:src/main/resources/db/migration/V1__github_connection_metadata.sql:39
+    github_credential_operations:
+      status: implemented
+      evidence:
+      - ingestion:src/main/resources/db/migration/V1__github_connection_metadata.sql:78
+    capture_receipts:
+      status: implemented
+      evidence:
+      - ingestion:src/main/resources/db/migration/V2__capture_publication_ledger.sql:3
+    capture_delivery_aliases:
+      status: implemented
+      evidence:
+      - ingestion:src/main/resources/db/migration/V2__capture_publication_ledger.sql:65
+    capture_observations:
+      status: implemented
+      evidence:
+      - ingestion:src/main/resources/db/migration/V2__capture_publication_ledger.sql:77
+    publication_outputs:
+      status: implemented
+      evidence:
+      - ingestion:src/main/resources/db/migration/V2__capture_publication_ledger.sql:117
+    github_login_attempts:
+      status: implemented
+      evidence:
+      - ingestion:src/main/resources/db/migration/V3__github_login_attempts.sql:3
+    repository_admissions:
+      status: implemented
+      evidence:
+      - ingestion:src/main/resources/db/migration/V4__capture_admissions_and_scopes.sql:2
+    capture_workflow_scopes:
+      status: implemented
+      evidence:
+      - ingestion:src/main/resources/db/migration/V4__capture_admissions_and_scopes.sql:17
+    consent_records:
+      status: implemented
+      evidence:
+      - ingestion:src/main/resources/db/migration/V6__login_consent_records.sql:24
+  attributes:
+    diagnoses.status:
+      status: not_implemented
+      reason: La columna no existe en diagnosis.diagnoses (Recommendation V2, V3 y V6); DD-027, divergencia 1; pregunta 1.
+      decisions:
+      - Q1
+    diagnoses.probable_cause:
+      status: not_implemented
+      reason: La columna no existe en diagnosis.diagnoses (Recommendation V2, V3 y V6); DD-027, divergencia 1; pregunta 1.
+      decisions:
+      - Q1
+    diagnoses.explanation:
+      status: not_implemented
+      reason: La columna no existe en diagnosis.diagnoses (Recommendation V2, V3 y V6); DD-027, divergencia 1; pregunta 1.
+      decisions:
+      - Q1
+    diagnoses.limitations:
+      status: not_implemented
+      reason: La columna no existe en diagnosis.diagnoses (Recommendation V2, V3 y V6); DD-027, divergencia 1; pregunta 1.
+      decisions:
+      - Q1
+    diagnoses.confidence:
+      status: not_implemented
+      reason: La columna no existe en diagnosis.diagnoses (Recommendation V2, V3 y V6); DD-027, divergencia 1; pregunta 1.
+      decisions:
+      - Q1
+    diagnoses.diagnosis_ready_at:
+      status: not_implemented
+      reason: La columna no existe en diagnosis.diagnoses (Recommendation V2, V3 y V6); DD-027, divergencia 1; pregunta 1.
+      decisions:
+      - Q1
+  constraints:
+    diagnoses_append_only:
+      status: not_implemented
+      reason: La implementación no tiene el trigger append-only de diagnoses (DD-003); la inmutabilidad la garantiza la aplicación (DD-027, divergencia 3; pregunta 3).
+      decisions:
+      - Q3
+    human_reviews_comment_check:
+      status: divergent
+      note: Exige comentario en REJECTED, frente a DD-029; no está representada en domain.yml.
+      evidence:
+      - recommendation:src/main/resources/db/migration/V8__make_review_comment_optional.sql:3-6
+      decisions:
+      - DD-029
+    knowledge_chunks_document_id_on_delete_cascade:
+      status: divergent
+      note: ON DELETE CASCADE en la migración; domain.yml no tiene vocabulario para acciones referenciales.
+      evidence:
+      - rag:migrations/versions/20261111_01_knowledge_foundation.py:49-60
+      decisions:
+      - Q5

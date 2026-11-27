@@ -370,6 +370,123 @@ elements:
       - "TP202620027 - Plan de trabajo v.1.0.xlsx#Plan de Trabajo!B21:C26"
       - SRC_ADR_001
 
+  # ----------------------------------------------------------
+  # Ingestion components (C4 Level 3), inferred from code — 27/11/2026
+  # ----------------------------------------------------------
+  - id: ingestion_webhook_component
+    name: "Workflow Webhook Intake"
+    kind: component
+    layer: L3
+    parent: ingestion_normalization_service
+    responsibilities:
+      - verify_webhook_signature
+      - accept_completed_workflow_runs
+      - resolve_capture_scope
+      - record_durable_receipt
+    status: inferred
+    basis: "Componente inferido del código de Ingestion y autorizado por el responsable el 27/11/2026 (fase 2 de la auditoría de diagramas, decisión 3). Evidencia en model/implementation_status.yml; no aprueba arquitectura nueva."
+    source:
+      - SRC_ADR_023
+      - "docs/architecture/contracts/github-workflow-webhook-v1.md"
+
+  - id: ingestion_capture_component
+    name: "Capture Authority & Ledger"
+    kind: component
+    layer: L3
+    parent: ingestion_normalization_service
+    responsibilities:
+      - repository_admissions
+      - workflow_capture_scopes
+      - machine_scope_checks
+      - durable_capture_ledger
+      - on_demand_run_analysis
+    status: inferred
+    basis: "Componente inferido del código de Ingestion y autorizado por el responsable el 27/11/2026 (fase 2 de la auditoría de diagramas, decisión 3). Evidencia en model/implementation_status.yml; no aprueba arquitectura nueva."
+    source:
+      - SRC_ADR_023
+      - SRC_ADR_024
+      - "model/domain_decisions.md#DD-021"
+
+  - id: ingestion_preparation_component
+    name: "Capture Preparation"
+    kind: component
+    layer: L3
+    parent: ingestion_normalization_service
+    responsibilities:
+      - mint_installation_tokens
+      - read_run_jobs_and_logs
+      - select_failed_job_evidence
+    status: inferred
+    basis: "Componente inferido del código de Ingestion y autorizado por el responsable el 27/11/2026 (fase 2 de la auditoría de diagramas, decisión 3). Evidencia en model/implementation_status.yml; no aprueba arquitectura nueva."
+    source:
+      - SRC_ADR_005
+      - SRC_ADR_020
+
+  - id: ingestion_normalization_component
+    name: "Normalization & Protection"
+    kind: component
+    layer: L3
+    parent: ingestion_normalization_service
+    responsibilities:
+      - canonical_event_mapping
+      - masking
+      - secret_filtering
+      - data_minimization
+    status: inferred
+    basis: "Componente inferido del código de Ingestion y autorizado por el responsable el 27/11/2026 (fase 2 de la auditoría de diagramas, decisión 3). Evidencia en model/implementation_status.yml; no aprueba arquitectura nueva."
+    source:
+      - SRC_ADR_018
+      - SRC_DRIFT#Proteccion-de-informacion-sensible
+
+  - id: ingestion_publication_component
+    name: "Evidence Publication"
+    kind: component
+    layer: L3
+    parent: ingestion_normalization_service
+    responsibilities:
+      - claim_frozen_outputs
+      - publish_to_service_bus
+      - confirm_publication
+    status: inferred
+    basis: "Componente inferido del código de Ingestion y autorizado por el responsable el 27/11/2026 (fase 2 de la auditoría de diagramas, decisión 3). Evidencia en model/implementation_status.yml; no aprueba arquitectura nueva."
+    source:
+      - SRC_DRIFT#Broker-de-eventos
+      - "model/domain_decisions.md#DD-021"
+
+  - id: ingestion_sign_in_component
+    name: "GitHub Sign-in & Session"
+    kind: component
+    layer: L3
+    parent: ingestion_normalization_service
+    responsibilities:
+      - start_pkce_sign_in
+      - record_login_consent
+      - exchange_handoff_for_session
+      - sign_session_tokens
+    status: inferred
+    basis: "Componente inferido del código de Ingestion y autorizado por el responsable el 27/11/2026 (fase 2 de la auditoría de diagramas, decisión 3). Evidencia en model/implementation_status.yml; no aprueba arquitectura nueva."
+    source:
+      - SRC_ADR_022
+      - SRC_ADR_025
+      - SRC_ADR_029
+
+  - id: ingestion_github_connector_component
+    name: "GitHub User Connector"
+    kind: component
+    layer: L3
+    parent: ingestion_normalization_service
+    responsibilities:
+      - github_user_connection
+      - github_user_access_verification
+      - github_repository_workflow_discovery
+      - user_token_custody
+    status: inferred
+    basis: "Componente inferido del código de Ingestion y autorizado por el responsable el 27/11/2026 (fase 2 de la auditoría de diagramas, decisión 3). Evidencia en model/implementation_status.yml; no aprueba arquitectura nueva."
+    source:
+      - SRC_ADR_020
+      - SRC_ADR_024
+      - SRC_ADR_028
+
   - id: azure_service_bus
     name: Azure Service Bus
     kind: container
@@ -904,7 +1021,7 @@ relationships:
   - id: rel_recommendation_service_postgresql
     from: recommendation_service
     to: postgresql_operational_store
-    label: "Persists diagnosis, recommendations and evidence links"
+    label: "Persists diagnoses with their recommendation and cited evidence"
     protocol: PostgreSQL
     style: sync
     status: confirmed
@@ -915,7 +1032,7 @@ relationships:
   - id: rel_ingestion_github_actions_read
     from: ingestion_normalization_service
     to: github_actions
-    label: "Retrieves authorized logs, artifacts and metadata"
+    label: "Retrieves authorized run metadata, jobs and logs"
     protocol: GitHub API/HTTPS
     style: sync
     access: read_only
@@ -1080,7 +1197,7 @@ relationships:
   - id: rel_dashboard_pipeline_service
     from: web_dashboard
     to: pipeline_service
-    label: "Routes pipeline, execution, incident queue and insights queries, registration, grants and incident lifecycle commands"
+    label: "Queries pipelines, executions, the incident queue and insights; registers workflows, grants access and changes incident state"
     protocol: REST/HTTPS
     style: sync
     status: confirmed
@@ -1097,7 +1214,7 @@ relationships:
   - id: rel_dashboard_log_event_service
     from: web_dashboard
     to: log_event_service
-    label: Routes log, event and evidence queries
+    label: Queries logs, events and evidence
     protocol: REST/HTTPS
     style: sync
     status: confirmed
@@ -1110,7 +1227,7 @@ relationships:
   - id: rel_dashboard_recommendation_service
     from: web_dashboard
     to: recommendation_service
-    label: Routes diagnosis and review queries and operations
+    label: Reads diagnoses and records human reviews
     protocol: REST/HTTPS
     style: sync
     status: confirmed
@@ -1161,7 +1278,7 @@ relationships:
   - id: rel_dashboard_diagnostic_api
     from: web_dashboard
     to: diagnostic_api_component
-    label: Routes diagnosis and review queries and operations
+    label: Reads diagnoses and records human reviews
     protocol: REST/HTTPS
     style: sync
     status: confirmed
@@ -1231,7 +1348,7 @@ relationships:
   - id: rel_output_postgresql
     from: diagnostic_output_component
     to: postgresql_operational_store
-    label: "Persists diagnosis, recommendations and evidence links"
+    label: "Persists diagnoses with their recommendation and cited evidence"
     protocol: PostgreSQL
     style: sync
     status: confirmed
@@ -1456,6 +1573,252 @@ relationships:
     source:
       - SRC_ADR_027
       - "docs/architecture/contracts/mvp-http-api-v1.md#internal-diagnosis-summaries-adr-027"
+
+  # ----------------------------------------------------------
+  # Ingestion component relationships (C4 Level 3), inferred from code — 27/11/2026
+  # ----------------------------------------------------------
+  - id: rel_github_actions_ingestion_webhook
+    from: github_actions
+    to: ingestion_webhook_component
+    label: "Delivers signed workflow_run events"
+    protocol: HTTPS/Webhook
+    style: event
+    access: read_only
+    status: inferred
+    derived_from: rel_github_actions_ingestion_event
+    source:
+      - SRC_ADR_023
+
+  - id: rel_ingestion_webhook_capture
+    from: ingestion_webhook_component
+    to: ingestion_capture_component
+    label: "Records the admitted delivery as a durable receipt"
+    protocol: in-process
+    style: sync
+    status: inferred
+    source:
+      - SRC_ADR_023
+
+  - id: rel_ingestion_preparation_capture
+    from: ingestion_preparation_component
+    to: ingestion_capture_component
+    label: "Claims accepted receipts and freezes the publication plan"
+    protocol: in-process
+    style: sync
+    status: inferred
+    source:
+      - "model/domain_decisions.md#DD-021"
+
+  - id: rel_ingestion_preparation_github_actions
+    from: ingestion_preparation_component
+    to: github_actions
+    label: "Reads run metadata, jobs and logs with an installation token"
+    protocol: GitHub API/HTTPS
+    style: sync
+    access: read_only
+    status: inferred
+    derived_from: rel_ingestion_github_actions_read
+    source:
+      - SRC_ADR_005
+
+  - id: rel_ingestion_preparation_normalization
+    from: ingestion_preparation_component
+    to: ingestion_normalization_component
+    label: "Normalizes and protects the failed-run observation"
+    protocol: in-process
+    style: sync
+    status: inferred
+    source:
+      - SRC_ADR_018
+
+  - id: rel_ingestion_preparation_key_vault
+    from: ingestion_preparation_component
+    to: azure_key_vault
+    label: "Reads GitHub App signing material"
+    protocol: Azure Key Vault API/HTTPS
+    style: sync
+    status: inferred
+    derived_from: rel_ingestion_key_vault
+    source:
+      - SRC_ADR_022
+
+  - id: rel_ingestion_publication_capture
+    from: ingestion_publication_component
+    to: ingestion_capture_component
+    label: "Claims frozen outputs and confirms their publication"
+    protocol: in-process
+    style: sync
+    status: inferred
+    source:
+      - "model/domain_decisions.md#DD-021"
+
+  - id: rel_ingestion_publication_service_bus
+    from: ingestion_publication_component
+    to: azure_service_bus
+    label: "Publishes execution snapshots and protected evidence"
+    protocol: Azure Service Bus
+    style: async
+    status: inferred
+    derived_from: rel_ingestion_service_bus
+    source:
+      - SRC_DRIFT#Broker-de-eventos
+
+  - id: rel_ingestion_capture_postgresql
+    from: ingestion_capture_component
+    to: postgresql_operational_store
+    label: "Persists admissions, workflow scopes and the capture/publication ledger"
+    protocol: PostgreSQL
+    style: sync
+    status: inferred
+    derived_from: rel_ingestion_postgresql_connector_metadata
+    source:
+      - "model/domain_decisions.md#DD-021"
+
+  - id: rel_pipeline_ingestion_scope_sync
+    from: pipeline_service
+    to: ingestion_capture_component
+    label: "Synchronizes workflow capture scopes"
+    protocol: REST/HTTPS
+    style: sync
+    status: inferred
+    derived_from: rel_pipeline_ingestion_github_access
+    source:
+      - SRC_ADR_023
+
+  - id: rel_pipeline_ingestion_machine_scope_check
+    from: pipeline_service
+    to: ingestion_capture_component
+    label: "Verifies the machine scope of a protected evidence capture"
+    protocol: REST/HTTPS
+    style: sync
+    status: inferred
+    derived_from: rel_pipeline_ingestion_machine_scope
+    source:
+      - SRC_ADR_023
+
+  - id: rel_dashboard_ingestion_run_analysis
+    from: web_dashboard
+    to: ingestion_capture_component
+    label: "Requests analysis of a chosen workflow run"
+    protocol: REST/HTTPS
+    style: sync
+    status: inferred
+    derived_from: rel_dashboard_ingestion_github_connection
+    source:
+      - SRC_ADR_024
+
+  - id: rel_dashboard_ingestion_sign_in
+    from: web_dashboard
+    to: ingestion_sign_in_component
+    label: "Starts GitHub sign-in with consent and exchanges the handoff for a session"
+    protocol: REST/HTTPS
+    style: sync
+    status: inferred
+    derived_from: rel_dashboard_ingestion_github_connection
+    source:
+      - SRC_ADR_022
+      - SRC_ADR_029
+
+  - id: rel_ingestion_sign_in_github
+    from: ingestion_sign_in_component
+    to: github
+    label: "Exchanges the sign-in code with the PKCE verifier"
+    protocol: OAuth/HTTPS
+    style: sync
+    access: read_only
+    status: inferred
+    derived_from: rel_ingestion_github_connection
+    source:
+      - SRC_ADR_022
+
+  - id: rel_ingestion_sign_in_connector
+    from: ingestion_sign_in_component
+    to: ingestion_github_connector_component
+    label: "Activates the user's GitHub connection"
+    protocol: in-process
+    style: sync
+    status: inferred
+    source:
+      - SRC_ADR_020
+
+  - id: rel_ingestion_sign_in_key_vault
+    from: ingestion_sign_in_component
+    to: azure_key_vault
+    label: "Signs session tokens and keeps PKCE verifiers in custody"
+    protocol: Azure Key Vault API/HTTPS
+    style: sync
+    status: inferred
+    derived_from: rel_ingestion_key_vault
+    source:
+      - SRC_ADR_022
+
+  - id: rel_ingestion_sign_in_postgresql
+    from: ingestion_sign_in_component
+    to: postgresql_operational_store
+    label: "Persists login attempts and consent records"
+    protocol: PostgreSQL
+    style: sync
+    status: inferred
+    derived_from: rel_ingestion_postgresql_connector_metadata
+    source:
+      - SRC_ADR_029
+
+  - id: rel_dashboard_ingestion_connector
+    from: web_dashboard
+    to: ingestion_github_connector_component
+    label: "Discovers repositories, workflows and collaborators"
+    protocol: REST/HTTPS
+    style: sync
+    status: inferred
+    derived_from: rel_dashboard_ingestion_github_connection
+    source:
+      - SRC_ADR_020
+      - SRC_ADR_028
+
+  - id: rel_pipeline_ingestion_connector
+    from: pipeline_service
+    to: ingestion_github_connector_component
+    label: "Requests verified user access and workflow metadata"
+    protocol: REST/HTTPS
+    style: sync
+    status: inferred
+    derived_from: rel_pipeline_ingestion_github_access
+    source:
+      - SRC_ADR_020
+
+  - id: rel_ingestion_connector_github
+    from: ingestion_github_connector_component
+    to: github
+    label: "Verifies identity, installations, repository access and collaborators"
+    protocol: REST/HTTPS
+    style: sync
+    access: read_only
+    status: inferred
+    derived_from: rel_ingestion_github_connection
+    source:
+      - SRC_ADR_020
+
+  - id: rel_ingestion_connector_key_vault
+    from: ingestion_github_connector_component
+    to: azure_key_vault
+    label: "Keeps user tokens in custody"
+    protocol: Azure Key Vault API/HTTPS
+    style: sync
+    status: inferred
+    derived_from: rel_ingestion_key_vault
+    source:
+      - SRC_ADR_020
+
+  - id: rel_ingestion_connector_postgresql
+    from: ingestion_github_connector_component
+    to: postgresql_operational_store
+    label: "Persists connection metadata"
+    protocol: PostgreSQL
+    style: sync
+    status: inferred
+    derived_from: rel_ingestion_postgresql_connector_metadata
+    source:
+      - "model/domain_decisions.md#DD-020"
 
 outputs:
   - id: diagnostic_hypothesis
@@ -1896,6 +2259,9 @@ views:
     - recommendation_service
     - postgresql_operational_store
     - github_actions
+    # Added on 27/11/2026 at the owner's request (decision 5): sign-in through Ingestion and Key Vault.
+    - ingestion_normalization_service
+    - azure_key_vault
 
   - id: c4_component_diagnostic
     kind: c4_component
@@ -1916,6 +2282,31 @@ views:
     - postgresql_operational_store
     - web_dashboard
     - github_actions
+
+  - id: c4_component_ingestion
+    kind: c4_component
+    title: C4 Level 3 — Ingestion Components
+    zoom_from: c4_container_processing
+    zoom_target: ingestion_normalization_service
+    container: ingestion_normalization_service
+    status: draft
+    final: false
+    basis: "Vista autorizada por el responsable el 27/11/2026 (decisión 3); componentes inferred."
+    elements:
+    - ingestion_webhook_component
+    - ingestion_capture_component
+    - ingestion_preparation_component
+    - ingestion_normalization_component
+    - ingestion_publication_component
+    - ingestion_sign_in_component
+    - ingestion_github_connector_component
+    - github_actions
+    - github
+    - web_dashboard
+    - pipeline_service
+    - azure_service_bus
+    - azure_key_vault
+    - postgresql_operational_store
 
   - id: physical_01_ingestion
     kind: physical
