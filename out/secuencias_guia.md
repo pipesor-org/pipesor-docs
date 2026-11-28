@@ -33,12 +33,8 @@ mencionan en las notas siguen abiertas: el diagrama las señala, no las resuelve
   outbox). Discontinua con punta llena: respuesta. Flecha sobre el mismo participante: paso interno.
 - Una relación del contenedor se acepta para un participante componente y al revés; las respuestas
   recorren la relación en sentido inverso.
-- Las notas solo aparecen en la vista completa (`out/<id>.svg`); en la impresión están en esta guía.
-- La impresión omite el título (va en el pie de figura del documento) y los estereotipos, como las
-  demás figuras para documentos: azul, contenedor o componente; gris, sistema externo o persona; verde,
-  almacén de datos; blanca con borde discontinuo, implementación no modelada.
-- Las variantes de impresión A4 (`out/doc/seq_*`) dividen las secuencias largas por secciones en
-  partes con numeración continua; sus tamaños están en `out/doc/guia_figuras.md`.
+- Las notas aparecen en la vista completa (`out/<id>.svg`). Las figuras para documentos están en
+  `out/figuras/05-secuencias/`.
 
 ## seq_a1_capture: CI/CD failure capture: from the GitHub Actions webhook to the Recommendation receipt
 

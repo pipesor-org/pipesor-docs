@@ -21,7 +21,7 @@ El responsable aprobó el 27/11/2026 las siete decisiones propuestas al cerrar l
 | 3 | C4 nivel 3 de Ingestion con componentes `inferred` y fuentes en el código; Recommendation conserva los cuatro componentes de ADR-017 con marcas de divergencia, sin cerrar la pregunta 13 | `model/architecture.yml` (7 componentes, 22 relaciones derivadas o internas, vista `c4_component_ingestion`) |
 | 4 | Diagramas de agregados por bounded context con estado por clase y referencias al código; marcar en CD-1..3 las clases que no existen | `model/design.yml`, `model/design_decisions.md`, `tools/validate_design.py`, `tools/generators/classes.py` |
 | 5 | Key Vault y Dashboard → Ingestion en una vista de contenedores; corregir las etiquetas que mencionaban artifacts y tablas inexistentes y los verbos «Routes»; las relaciones sin implementación se quedan y se marcan | Vista 2B (`c4_container_consumption`) y `c4_expo_2b`; seis etiquetas de `architecture.yml` y tres de presentación |
-| 6 | Variantes A4 del contexto, las clases, el ER (por contexto), las secuencias y el despliegue; lenguaje y framework como tecnología C4; descripciones legibles desde un mapa de presentación | `tools/generators/document_figures.py`, `tools/generators/er_print.py`, `model/c4_presentation.yml` |
+| 6 | Variantes A4 del contexto, las clases, el ER (por contexto), las secuencias y el despliegue; lenguaje y framework como tecnología C4; descripciones legibles desde un mapa de presentación | `model/c4_presentation.yml` (tecnología y descripciones). Las variantes A4 de `out/doc/` se sustituyeron el mismo día por las figuras documentales (sección siguiente) |
 | 7 | Lectura de solo lectura en Azure para acreditar «desplegado»; sobre ramas, dibujar solo lo definido y marcar el resto como TBD | `deployment_observation` del overlay; figura `deploy_environments_delivery` |
 
 No se cambian `status`, `source` ni invariantes existentes. `deployment.mvp_preparation.deployment_authorized`
@@ -39,20 +39,45 @@ README (1 commit por repo).
 
 ## Estado final de cada diagrama
 
-| Diagrama | Figura completa · impresión A4 | Fuente | Qué representa |
+| Diagrama | Figura completa · figura para documentos (`out/figuras/`) | Fuente | Qué representa |
 |---|---|---|---|
-| C4 L1 contexto | `out/c4_context.svg` · `out/doc/c4_context` | `architecture.yml` | Vista `draft` con estado de implementación por relación agregada |
-| C4 L2 2A y 2B | `out/c4_container_*.svg`, `out/c4_expo_2a/2b` · `out/doc/c4_expo_2a/2b` | `architecture.yml`, `c4_container_presentation.yml` | 2B incluye ahora Ingestion y Key Vault; Dashboard → Log/Event y Observability → Ingestion se dibujan como «modeled, not implemented» |
-| C4 L3 Recommendation | `out/c4_component_diagnostic.svg` · `out/doc/c4_component_diagnostic` | `architecture.yml` | Componentes de ADR-017; orquestación «implemented differently» (cola `diagnosis_jobs`), composer y API «partial» |
-| C4 L3 Ingestion | `out/c4_component_ingestion.svg` · `out/doc/c4_component_ingestion_capture` e `_identity` | `architecture.yml` | Componentes `inferred` del código, todos implementados |
-| Clases | `out/CD-*.svg` · `out/doc/CD-*` | `design.yml` | CD-1..3 propuestos con marca por clase; diagramas de agregados implementados por bounded context |
-| ER | `out/er.svg` · `out/doc/er_*` (9 figuras) | `domain.yml` + overlay | 33 de 36 tablas implementadas; `diagnoses` en parte; 3 tablas y 6 columnas solo modeladas |
-| Secuencias | `out/seq_*.svg` · `out/doc/seq_*` | `sequence_presentation.yml` | Implementado y desplegado en dev, con divergencias marcadas |
-| Despliegue | `out/deploy_*.svg` · `out/doc/deploy_*` | `deployment_presentation.yml` | dev desplegado (observado el 27/11); qa/preprod/prod propuestos; ramas: lo definido y TBD |
+| C4 L1 contexto | `out/c4_context.svg` · `c4-contexto` | `architecture.yml` | Vista `draft` con estado de implementación por relación agregada |
+| C4 L2 2A y 2B | `out/c4_container_*.svg`, `out/c4_expo_2a/2b` · `c4-contenedores-procesamiento` y `-consumo` | `architecture.yml`, `c4_container_presentation.yml` | 2B incluye ahora Ingestion y Key Vault; Dashboard → Log/Event y Observability → Ingestion se dibujan como «modeled, not implemented» |
+| C4 L3 Recommendation | `out/c4_component_diagnostic.svg` · `componentes-diagnostico` | `architecture.yml` | Componentes de ADR-017; orquestación «implemented differently» (cola `diagnosis_jobs`), composer y API «partial» |
+| C4 L3 Ingestion | `out/c4_component_ingestion.svg` · `componentes-ingesta` | `architecture.yml` | Componentes `inferred` del código, todos implementados |
+| Clases | `out/CD-*.svg` · `clases-operacion`, `-ingesta`, `-correlacion` y `-diagnostico` | `design.yml` | CD-1..3 propuestos con marca por clase; diagramas de agregados implementados por bounded context |
+| ER | `out/er.svg` · `datos-*` (5 figuras, una por esquema) | `domain.yml` + overlay | 33 de 36 tablas implementadas; `diagnoses` en parte; 3 tablas y 6 columnas solo modeladas |
+| Secuencias | `out/seq_*.svg` · `secuencia-*` (4 figuras) | `sequence_presentation.yml` | Implementado y desplegado en dev, con divergencias marcadas |
+| Despliegue | `out/deploy_*.svg` · `despliegue-dev` y `despliegue-entornos-ramas` | `deployment_presentation.yml` | dev desplegado (observado el 27/11); qa/preprod/prod propuestos; ramas: lo definido y TBD |
 
 La matriz de trazabilidad completa (cada elemento → ID de modelo, ADR/DD y `repo:ruta:línea`) está en
-[`out/trazabilidad.md`](../../out/trazabilidad.md). Las guías de cada familia: `out/doc/guia_figuras.md`,
+[`out/trazabilidad.md`](../../out/trazabilidad.md). Las guías de cada familia: [`out/figuras/README.md`](../../out/figuras/README.md),
 `out/secuencias_guia.md`, `out/despliegue_guia.md` y `out/c4_expo_guia.md`.
+
+## Figuras para documentos (segundo nivel) — 27/11/2026
+
+Petición posterior del responsable: las variantes A4 de `out/doc/` partían figuras hasta en ocho partes y no
+servían para Word. Se sustituyen por un segundo nivel de figuras con formato APA 7, generado desde un modelo de
+presentación nuevo, `model/document_figures.yml`, con `tools/generators/figuras.py` (`make figuras`). El modelo
+selecciona y rotula en español hechos ya modelados; no crea arquitectura ni cambia estados, ADR, DD, PD o
+preguntas abiertas.
+
+- Reglas que el generador comprueba antes de escribir: una figura por página y sin partes; como máximo
+  15,9 × 19,0 cm en vertical (24,6 × 13,0 cm en apaisado solo para figuras exclusivas del Capstone); texto de
+  9 pt o más al ancho de inserción; PNG a 300 ppp; nombres en kebab-case sin número de parte; cada PNG en el
+  README de su carpeta; SVG intermedios en `build/figuras/` sin `repo:`, hashes, `rel_` ni «Generated».
+  `tests/test_figuras.py` y `tools/verify_artifacts.py` repiten esas comprobaciones.
+- Límites de contenido por tipo (palabras por relación, componentes, clases, atributos, columnas, líneas de
+  vida, mensajes y fragmentos) y nota APA de hasta 60 palabras que explica solo los estados dibujados.
+- Tres estados: implementado (continuo), parcial (ámbar discontinuo; agrupa `partial` y `divergent`) y
+  propuesto (rojo punteado; agrupa `not_implemented`, `proposed` y `tbd`).
+- Veinte figuras, por encima de la guía de 15–18: el responsable aprobó cuatro figuras de clases (una por
+  bounded context con agregado implementado) y la división del C4 L2 en dos figuras.
+- Se retiraron `out/doc/` (221 archivos: SVG, PNG y `guia_figuras.md`), `tools/generators/document_figures.py`,
+  `tools/generators/er_print.py`, las opciones `--document(s)` de clases, secuencias y despliegue y los
+  `print_parts` de `model/design.yml` y `model/c4_presentation.yml`. Las vistas completas de `out/*.svg`, las
+  guías técnicas y la trazabilidad no cambian, salvo los enlaces que apuntaban a `out/doc/`.
+- La sección de destino de cada figura es una propuesta «a confirmar por el equipo».
 
 ## Modelo de datos frente a migraciones
 

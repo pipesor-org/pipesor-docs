@@ -3,6 +3,8 @@
 
 Freshness compares every tracked out/* and model/db.dbml byte for byte.
 Repeatability additionally compares the entire build/ and out/ inventories.
+Layout checks the document figures: out/figuras holds only PNG files and README.md, every
+figure passes the print checks of tools/generators/figuras.py, and the retired out/doc is gone.
 No timestamp/ID normalization hides changes. A failure leaves diagnostics in stdout.
 """
 import os
@@ -25,6 +27,19 @@ def inventory(root):
             for p in (root / folder).rglob('*') if p.is_file()} | {'model/db.dbml'}
 
 
+def layout(copy, tracked):
+    """Document-figure layout problems in a regenerated copy and in the tracked tree."""
+    sys.path.insert(0, str(copy / 'tools' / 'generators'))
+    import figuras
+    sys.path.pop(0)
+    out = copy / 'out' / 'figuras'
+    problems = [f'out/figuras holds {p.relative_to(copy)}' for p in out.rglob('*')
+                if p.is_file() and p.suffix != '.png' and p.name != 'README.md']
+    problems += figuras.check_outputs(figuras.models()['figures'], out, copy / 'build' / 'figuras')
+    problems += [f'retired path still tracked: {p}' for p in sorted(tracked) if p.startswith('out/doc/')]
+    return problems
+
+
 def main():
     tracked = subprocess.check_output(['git', 'ls-files', '-z'], cwd=ROOT).decode().split('\0')
     artifacts = {p for p in tracked if p.startswith('out/') or p == 'model/db.dbml'}
@@ -39,10 +54,11 @@ def main():
                 return result.returncode
         stale = compare(ROOT, copies[0], artifacts)
         drift = compare(*copies, inventory(copies[0]) | inventory(copies[1]))
-        for label, paths in [('STALE', stale), ('NONREPRODUCIBLE', drift)]:
+        misplaced = layout(copies[0], tracked)
+        for label, paths in [('STALE', stale), ('NONREPRODUCIBLE', drift), ('LAYOUT', misplaced)]:
             for path in paths:
                 print(f'{label}: {path}')
-        if stale or drift:
+        if stale or drift or misplaced:
             return 1
         print(f'Artifacts current: {len(artifacts)}; repeatable outputs: {len(inventory(copies[0]))}')
     return 0

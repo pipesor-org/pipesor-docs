@@ -10,7 +10,6 @@ sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(ROOT / "tools" / "generators"))
 
 import c4  # noqa: E402
-import er_print  # noqa: E402
 import evidence  # noqa: E402
 import implementation_status  # noqa: E402
 import traceability  # noqa: E402
@@ -131,10 +130,6 @@ class MarkedDiagramTests(unittest.TestCase):
         self.assertIn('recommendations: "recommendations [modeled, not implemented]"', source)
         self.assertIn('confidence: "jsonb · modeled, not implemented"', source)
         self.assertIn("33 of 36 tables implemented", source)
-
-    def test_er_print_groups_cover_each_table_once(self):
-        drawn = [e["id"] for _, _, members in er_print.groups(self.domain) for e in members]
-        self.assertEqual(sorted(drawn), sorted(e["id"] for e in self.domain["entities"]))
 
     def test_traceability_lists_every_view_and_table(self):
         text = traceability.generate()

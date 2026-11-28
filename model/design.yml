@@ -67,12 +67,6 @@ class_diagrams:
       - "Correlated context is received via REST/HTTPS; the architecture does not specify a URI."
       - "Review and query operations already derive from IA/ADR; no additional endpoints."
       - "The orchestrator and repository are detailed in CD-2; human review is detailed in CD-3."
-    # A4 print parts (DC-007): together they keep every member and relationship of the figure.
-    print_parts:
-      - {suffix: a, title: diagnosis command side, elements: [DiagnosisCommandController, GenerateDiagnosisCommandService, GenerateDiagnosisCommand, GenerateDiagnosisCommandServiceImpl, DiagnosticOrchestrator, DiagnosisRepository]}
-      - {suffix: b, title: diagnosis query contract, elements: [DiagnosisQueryController, DiagnosisQueryService, GetDiagnosisQuery, DiagnosisQueryServiceImpl]}
-      - {suffix: c, title: diagnosis query projection, elements: [DiagnosisQueryServiceImpl, DiagnosticView, DiagnosisRepository]}
-      - {suffix: d, title: human review entry points, elements: [HumanReviewCommandController, HumanReviewQueryController, HumanReviewCommandService, HumanReviewQueryService]}
   - id: CD-2
     title: "CD-2 — Diagnostic Orchestration, RAG and LLM"
     kind: component_design
@@ -99,14 +93,6 @@ class_diagrams:
       - "Only sanitized evidence, authorized context and RAG knowledge reach the gateway."
       - "Each diagnostic snapshot is immutable; DIAGNOSIS_READY requires a probable cause and a timestamp."
       - "Recommendations and links are inserted with the snapshot; logical IDs connect contexts."
-    # A4 print parts (DC-007): together they keep every member and relationship of the figure.
-    print_parts:
-      - {suffix: a, title: RAG retrieval port and adapter, elements: [DiagnosticOrchestrator, KnowledgeRetrievalPort, RagRetrievalHttpAdapter, RagRetrievalExternal]}
-      - {suffix: b, title: LLM gateway and Azure OpenAI adapter, elements: [DiagnosticOrchestrator, DiagnosticLlmGateway, SanitizedDiagnosticContext, AzureOpenAiDiagnosticAdapter, AzureOpenAiExternal, LlmResponseTranslator]}
-      - {suffix: c, title: output composition, elements: [DiagnosticOrchestrator, DiagnosticOutputComposer, Diagnosis]}
-      - {suffix: d, title: response translation and probable cause, elements: [LlmResponseTranslator, Diagnosis, ProbableCause]}
-      - {suffix: e, title: snapshot persistence, elements: [JpaDiagnosisRepositoryAdapter, Diagnosis, Recommendation]}
-      - {suffix: f, title: repository port, elements: [DiagnosticOrchestrator, DiagnosisRepository, JpaDiagnosisRepositoryAdapter]}
   - id: CD-3
     title: "CD-3 — Human Review and Diagnostic Governance"
     kind: component_design
@@ -132,13 +118,6 @@ class_diagrams:
       - "PENDING is derived from the absence of a review; it is not persisted in HumanReview."
       - "Risk classification and critical marking require an approved policy; no invented thresholds."
       - "Cross-cutting auditing to audit.audit_events with sanitized metadata and correlation IDs."
-    # A4 print parts (DC-007): together they keep every member and relationship of the figure.
-    print_parts:
-      - {suffix: a, title: review command, elements: [HumanReviewCommandController, HumanReviewCommandService, RecordHumanReviewCommand, HumanReviewCommandServiceImpl, RiskClassificationService]}
-      - {suffix: b, title: audit trail, elements: [HumanReviewCommandServiceImpl, AuditTrailPort, PostgresAuditTrailAdapter]}
-      - {suffix: c, title: review query contract, elements: [HumanReviewQueryController, HumanReviewQueryService, HumanReviewQueryServiceImpl]}
-      - {suffix: d, title: review query projection, elements: [HumanReviewQueryServiceImpl, HumanReviewRepository, HumanReview]}
-      - {suffix: e, title: review aggregate and persistence, elements: [HumanReviewCommandServiceImpl, HumanReview, HumanReviewDecision, HumanReviewRepository, JpaHumanReviewRepositoryAdapter]}
   - id: CD-4
     title: "CD-4 — Pipeline: Incident aggregate"
     kind: bounded_context
@@ -163,13 +142,6 @@ class_diagrams:
     notes:
       - "Incident is the aggregate root; its value objects are Java records."
       - "Tables without a domain class (pipelines, executions, stages, grants, event receipts, incident_diagnoses) are not drawn."
-    # A4 print parts (DC-007): together they keep every member and relationship of the figure.
-    print_parts:
-      - {suffix: a, title: root and its value objects, elements: [Incident, IncidentDetails, IncidentLifecycle, ExecutionOutcome]}
-      - {suffix: b, title: transitions, elements: [Incident, VerificationExecution, IncidentAction]}
-      - {suffix: c, title: enums and repository catalog, elements: [IncidentDetails, IncidentLifecycle, IncidentStatus, Severity, PipelineStage, GitHubRepository]}
-      - {suffix: d, title: store port, elements: [IncidentStore, JpaIncidentStore, Incident]}
-      - {suffix: e, title: JPA rows, elements: [JpaIncidentStore, IncidentJpaEntity, IncidentRunJpaEntity, IncidentRunRole]}
   - id: CD-5
     title: "CD-5 — Ingestion: GitHubConnection aggregate"
     kind: bounded_context
@@ -193,15 +165,6 @@ class_diagrams:
     notes:
       - "The entities are immutable records of ConnectionRecords, changed only through GitHubConnection."
       - "Not drawn: enums CleanupState, Result and Scope (ConnectionRecords.java:14-18) and the four ConnectionJpaEntities rows."
-    # A4 print parts (DC-007): together they keep every member and relationship of the figure.
-    print_parts:
-      - {suffix: a, title: root record, elements: [GitHubConnection, ConnectionRoot]}
-      - {suffix: b, title: repository, elements: [ConnectionRepository, JpaConnectionRepository, GitHubConnection]}
-      - {suffix: c, title: generations, elements: [GitHubConnection, ConnectionGeneration]}
-      - {suffix: d, title: generation and root value objects, elements: [ConnectionGeneration, GenerationState, SecretReference, ConnectionRoot, ConnectionIdentity]}
-      - {suffix: e, title: authorization attempts, elements: [GitHubConnection, ConnectionAttempt]}
-      - {suffix: f, title: attempt value objects, elements: [ConnectionAttempt, StateDigest, AttemptPhase, SecretReference]}
-      - {suffix: g, title: credential operations, elements: [GitHubConnection, ConnectionOperation, OperationKind, OperationPhase]}
   - id: CD-6
     title: "CD-6 — Ingestion: CaptureReceipt aggregate and WorkflowObservation"
     kind: bounded_context
@@ -223,16 +186,6 @@ class_diagrams:
     notes:
       - "CaptureReceipt.phase is a String in the code."
       - "Not drawn: sign-in, consent, admission and workflow-scope tables, written by JDBC adapters without domain classes."
-    # A4 print parts (DC-007): together they keep every member and relationship of the figure.
-    print_parts:
-      - {suffix: a, title: receipt and scope, elements: [JpaCaptureLedger, CaptureReceipt, CaptureScope]}
-      - {suffix: b, title: ledger port, elements: [CaptureLedger, JpaCaptureLedger]}
-      - {suffix: c, title: prepared observation check, elements: [CaptureReceipt, WorkflowObservation]}
-      - {suffix: d, title: observation persistence, elements: [JpaCaptureLedger, WorkflowObservation]}
-      - {suffix: e, title: scope to capture context, elements: [CaptureScope, ObservationCaptureContext]}
-      - {suffix: f, title: capture context and pipeline, elements: [WorkflowObservation, ObservationCaptureContext, ObservationPipeline]}
-      - {suffix: g, title: execution and stages, elements: [WorkflowObservation, ObservationExecution, ObservationStage, ObservationStageName]}
-      - {suffix: h, title: failure and evidence, elements: [WorkflowObservation, ObservationFailure, ObservationEvidence]}
   - id: CD-7
     title: "CD-7 — Log/Event: evidence registration without an aggregate"
     kind: bounded_context
@@ -248,10 +201,6 @@ class_diagrams:
       - JdbcEvidenceStore
     notes:
       - "No aggregate or entity: the EvidenceInput command record carries the evidence.evidence_items row."
-    # A4 print parts (DC-007): together they keep every member and relationship of the figure.
-    print_parts:
-      - {suffix: a, title: registration, elements: [RegisterEvidenceHandler, EvidenceInput, EvidenceStore, JdbcEvidenceStore]}
-      - {suffix: b, title: evidence value objects, elements: [EvidenceInput, EvidenceScope, EvidencePipelineStage, EvidenceIdentity]}
   - id: CD-8
     title: "CD-8 — Correlation: CorrelationGroup aggregate"
     kind: bounded_context
@@ -268,12 +217,6 @@ class_diagrams:
       - CorrelatedContextEntity
     notes:
       - "A group's evidenceIds are stored in correlated_contexts.evidence_ids; its revision is the size of the set."
-    # A4 print parts (DC-007): together they keep every member and relationship of the figure.
-    print_parts:
-      - {suffix: a, title: group and contribution, elements: [CorrelationGroup, CorrelationContext, CorrelationContribution]}
-      - {suffix: b, title: contribution value objects, elements: [CorrelationContribution, EvidenceSignal, ScopeEnvelope, CorrelationSourceLocator]}
-      - {suffix: c, title: durable store, elements: [DurableCorrelationStore, CorrelationGroup, CorrelationContribution]}
-      - {suffix: d, title: correlated context snapshot, elements: [DurableCorrelationStore, CorrelatedContextEntity]}
   - id: CD-9
     title: "CD-9 — Recommendation: implemented records against the proposed aggregates"
     kind: bounded_context
@@ -300,14 +243,6 @@ class_diagrams:
       - "The code has no aggregate root: diagnoses, reviews, receipts, jobs and outbox are records handled by JDBC stores."
       - "Proposed classes are shown without members; CD-2 and CD-3 detail them."
       - "Hypothesis.recommendation (String) stands in for the proposed Recommendation entity."
-    # A4 print parts (DC-007): together they keep every member and relationship of the figure.
-    print_parts:
-      - {suffix: a, title: "diagnosis record, hypothesis and model", elements: [OrchestratorDiagnosis, OrchestratorHypothesis, OrchestratorModel, Diagnosis, Recommendation]}
-      - {suffix: b, title: cited evidence and sources, elements: [OrchestratorDiagnosis, OrchestratorEvidence, OrchestratorSource]}
-      - {suffix: c, title: review record, elements: [ReviewRecord, ReviewDecision, HumanReview]}
-      - {suffix: d, title: review submission, elements: [ReviewSubmission, ReviewDecision]}
-      - {suffix: e, title: correlated context receipts, elements: [AdmittedContext, ReceiptSubmission]}
-      - {suffix: f, title: jobs and outbox, elements: [DiagnosisJob, SummaryClaim]}
   - id: CD-10
     title: "CD-10 — NLP: protected evidence value objects"
     kind: bounded_context
@@ -326,11 +261,6 @@ class_diagrams:
       - CorrelationEvidence
     notes:
       - "Frozen dataclasses; the service persists nothing."
-    # A4 print parts (DC-007): together they keep every member and relationship of the figure.
-    print_parts:
-      - {suffix: a, title: inbound protected evidence, elements: [ProtectedEvidenceMessage, NlpCaptureContext, NlpPipelineContext, NlpExecutionContext, NlpCommitContext, NlpEvidenceContext]}
-      - {suffix: b, title: outbound correlation evidence, elements: [CorrelationEvidence, NlpCaptureContext, NlpPipelineContext, NlpExecutionContext, NlpCommitContext]}
-      - {suffix: c, title: log processing, elements: [LogEnvelope, ParsedTemplate, ProcessedLog]}
   - id: CD-11
     title: "CD-11 — RAG: knowledge chunks and SQLAlchemy records"
     kind: bounded_context
@@ -352,13 +282,6 @@ class_diagrams:
     notes:
       - "There is no KnowledgeDocument domain class: KnowledgeChunk joins chunk and document fields."
       - "Ports are typing.Protocol classes; the adapters conform structurally."
-    # A4 print parts (DC-007): together they keep every member and relationship of the figure.
-    print_parts:
-      - {suffix: a, title: knowledge chunk, elements: [KnowledgeChunk, RagAuthorizationScope, RagCorpusKind]}
-      - {suffix: b, title: retrieval repository, elements: [KnowledgeRepository, PostgreSQLKnowledgeRepository, KnowledgeChunk]}
-      - {suffix: c, title: SQLAlchemy records, elements: [PostgreSQLKnowledgeRepository, KnowledgeDocumentRecord, KnowledgeChunkRecord]}
-      - {suffix: d, title: corpus store, elements: [CorpusStore, PostgreSQLCorpusStore, PreparedDocument, PreparedChunk]}
-      - {suffix: e, title: corpus import, elements: [PreparedDocument, CorpusImport, RagAuthorizationScope, RagCorpusKind]}
 
 classes:
   - id: DiagnosisCommandController

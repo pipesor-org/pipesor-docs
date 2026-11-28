@@ -5,9 +5,9 @@ PHYSICAL_GENERATOR := tools/generators/physical.py
 DOMAIN_MODEL := model/domain.yml
 DESIGN_MODEL := model/design.yml
 WORKSPACE ?= ..
-.PHONY: all check-env validate validate-domain validate_design validate-logical-expo validate-physical-expo validate-c4-expo validate-doc-figures classes physical physical-expo logical logical-expo c4 c4-expo doc-figures db dbml sql er dictionary sequences deployment traceability evidence clean
+.PHONY: all check-env validate validate-domain validate_design validate-logical-expo validate-physical-expo validate-c4-expo validate-figuras classes physical physical-expo logical logical-expo c4 c4-expo figuras db dbml sql er dictionary sequences deployment traceability evidence clean
 
-all: check-env validate physical physical-expo logical logical-expo c4 c4-expo doc-figures db classes sequences deployment traceability
+all: check-env validate physical physical-expo logical logical-expo c4 c4-expo db classes sequences deployment traceability figuras
 
 check-env:
 	@PYTHON="$(PYTHON)" bash tools/check_env.sh
@@ -73,12 +73,13 @@ c4-expo: validate-c4-expo
 	@echo "==> Generating slide-sized C4 container views"
 	@$(PYTHON) tools/generators/c4_container_presentation.py
 
-validate-doc-figures: validate
-	@$(PYTHON) tools/generators/document_figures.py --validate-only
+validate-figuras: validate
+	@$(PYTHON) tools/generators/figuras.py --validate-only
 
-doc-figures: validate-doc-figures
-	@echo "==> Generating print-legible document figures (Graphviz)"
-	@$(PYTHON) tools/generators/document_figures.py
+# Document figures (out/figuras/): one PNG per page at 300 ppp, APA README per folder.
+figuras: validate-figuras
+	@echo "==> Generating document figures for Word (Graphviz + PlantUML)"
+	@$(PYTHON) tools/generators/figuras.py
 
 sequences: validate
 	@echo "==> Generating sequence diagrams (PlantUML)"
@@ -98,9 +99,8 @@ evidence:
 
 clean:
 	@echo "==> Cleaning generated artifacts"
-	@find build -mindepth 1 -maxdepth 1 -type f -delete
-	@find out -mindepth 1 -maxdepth 1 -type f -delete
-	@for dir in build/doc out/doc; do if [ -d "$$dir" ]; then find "$$dir" -type f -delete; fi; done
+	@find build out -mindepth 1 -type f -delete 2>/dev/null || true
+	@find build out -mindepth 1 -type d -empty -delete 2>/dev/null || true
 
 .PHONY: test verify-artifacts test-postgres
 test:

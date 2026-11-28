@@ -1,14 +1,11 @@
-"""Deployment views: validation of the presentation model, deterministic DOT and legible A4 print."""
+"""Deployment views: validation of the presentation model and deterministic DOT."""
 
 import copy
 from pathlib import Path
-import struct
 import tempfile
 import unittest
-import xml.etree.ElementTree as ET
 
 from tools.generators import deployment as dep
-from tools.generators import document_figures as doc
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -130,21 +127,20 @@ class DeploymentRenderingTests(unittest.TestCase):
 
     def test_dot_is_deterministic(self):
         for fig in self.figures:
-            for document in (False, True):
-                first = dep.generate_dot(fig, self.architecture, document=document)
-                again = dep.generate_dot(copy.deepcopy(fig), self.architecture, document=document)
-                self.assertEqual(first, again, fig["id"])
+            first = dep.generate_dot(fig, self.architecture)
+            again = dep.generate_dot(copy.deepcopy(fig), self.architecture)
+            self.assertEqual(first, again, fig["id"])
 
     def test_dot_draws_states_numbers_and_the_tbd_panel(self):
         runtime = figure(self.presentation, "deploy_dev_runtime")
-        source = dep.generate_dot(runtime, self.architecture, document=True)
+        source = dep.generate_dot(runtime, self.architecture)
         self.assertIn('id=r_bus_pipeline', source)
         self.assertRegex(source, r"id=r_bus_pipeline[^\]]*style=solid")
         self.assertRegex(source, r"id=r_app_insights_workspace[^\]]*style=dashed")
         self.assertIn("<B>19</B>", source)
         self.assertNotIn("<B>20</B>", source)
         delivery = figure(self.presentation, "deploy_environments_delivery")
-        source = dep.generate_dot(delivery, self.architecture, document=True)
+        source = dep.generate_dot(delivery, self.architecture)
         self.assertIn("No definido (TBD)", source)
         self.assertNotIn("\tt_gates [", source)
         self.assertIn("deployment_authorized: false (ADR-019)", source)
@@ -164,31 +160,6 @@ class DeploymentRenderingTests(unittest.TestCase):
         self.assertIn("«implementación no modelada»", guide)
         self.assertIn("observación 27/11", guide)
         self.assertIn("deployment_authorized", guide)
-
-    def test_print_variants_fit_a4_at_eight_points(self):
-        with tempfile.TemporaryDirectory() as directory:
-            out, build = Path(directory) / "out", Path(directory) / "build"
-            results = dep.render_documents(out, build)
-            self.assertEqual([r["id"] for r in results], ["deploy_dev_runtime", "deploy_environments_delivery"])
-            for result in results:
-                self.assertEqual(set(result), {"id", "title", "page", "legend", "width_cm", "height_cm", "min_pt"})
-                self.assertIn(result["legend"], ("en la figura", "tabla en la guía"))
-                self.assertGreaterEqual(result["min_pt"], doc.MIN_POINTS, result["id"])
-                width, height = doc.PAGES[result["page"]]
-                self.assertLessEqual(result["width_cm"], width + 0.01, result["id"])
-                self.assertLessEqual(result["height_cm"], height + 0.01, result["id"])
-                svg = out / f"{result['id']}.svg"
-                root = ET.parse(svg).getroot()
-                width_cm = float(root.get("width").removesuffix("cm"))
-                sizes = [float(el.get("font-size")) for el in root.iter()
-                         if el.tag.endswith("text") and el.get("font-size") and "".join(el.itertext()).strip()]
-                printed = min(sizes) * width_cm / 2.54 * 72 / float(root.get("viewBox").split()[2])
-                self.assertGreaterEqual(round(printed, 1), doc.MIN_POINTS, result["id"])
-                data = (out / f"{result['id']}.png").read_bytes()
-                self.assertIn(b"pHYs" + struct.pack(">IIB", 11811, 11811, 1), data)
-            self.assertEqual(sorted(p.name for p in out.iterdir()),
-                             ["deploy_dev_runtime.png", "deploy_dev_runtime.svg",
-                              "deploy_environments_delivery.png", "deploy_environments_delivery.svg"])
 
 
 if __name__ == "__main__":

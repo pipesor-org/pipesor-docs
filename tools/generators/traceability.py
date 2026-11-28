@@ -65,6 +65,13 @@ def state_of(entry):
     return STATE_ES.get(entry.get("status") if isinstance(entry, dict) else None, "sin estado")
 
 
+def document_figures(match):
+    """Document figures (out/figuras/) that `match` selects from model/document_figures.yml."""
+    figures = (load("document_figures.yml") or {}).get("figures") or []
+    found = [f"`out/figuras/{f['folder']}/{f['id']}.png`" for f in figures if match(f)]
+    return ", ".join(found) or "—"
+
+
 def c4_section(architecture, overlay):
     lines = []
     projections, _ = c4.prepare(architecture)
@@ -74,8 +81,10 @@ def c4_section(architecture, overlay):
     for projection in projections:
         view = projection.view
         lines += [f"### {view['title']} (`{view['id']}`)", "",
-                  f"Figuras: `out/{view['id']}.svg`" + (", variantes en `out/doc/`" if view["kind"] != "c4_container" else
-                                                          ", `out/c4_expo_*` y `out/doc/c4_expo_*`") + ".", "",
+                  f"Figuras: `out/{view['id']}.svg`" + ("" if view["kind"] != "c4_container" else ", `out/c4_expo_*`")
+                  + "; para documentos: " + document_figures(
+                      lambda f, v=view: f.get("view") == v["id"] or (v["kind"] == "c4_container" and f["kind"] == "c4_container"))
+                  + ".", "",
                   "| Elemento dibujado | ID de modelo | Estado del modelo | Fuentes | Implementación | Evidencia |",
                   "|---|---|---|---|---|---|"]
         for node in projection.outside + projection.inside:
@@ -103,7 +112,8 @@ def c4_section(architecture, overlay):
 
 def er_section(domain, overlay):
     dom = overlay.get("domain") or {}
-    lines = ["### Modelo de datos (ER) — `out/er.svg` y `out/doc/er_*`", "",
+    lines = ["### Modelo de datos (ER) — `out/er.svg`", "",
+             "Figuras para documentos, una por esquema: " + document_figures(lambda f: f["kind"] == "data") + ".", "",
              "| Tabla | ID de entidad | Owner | Estado del modelo | Fuentes | Implementación | Evidencia (CREATE TABLE) |",
              "|---|---|---|---|---|---|---|"]
     for e in domain["entities"]:

@@ -20,7 +20,7 @@
 #   modelado, lleva `implementation_only: true` y `reason`. Los pasos internos (`self`) son siempre
 #   implementation_only.
 # - `state` usa tools/generators/evidence.py STATUSES; `evidence` es repo:ruta:línea[-línea].
-# - `section` separa etapas: en la vista completa es un divisor y en la impresión, un punto de corte.
+# - `section` separa etapas: en la vista completa es un divisor.
 model_version: "1.0.0"
 purpose: >-
   Diagramas de secuencia para la Memoria de Tesis y el Capstone (A4): la primera mitad del fallo

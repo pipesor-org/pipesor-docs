@@ -60,11 +60,11 @@ La categoría de un elemento del modelo sale de su `kind` (actor y sistema exter
 
 ## Despliegue del entorno dev en Azure (`deploy_dev_runtime`)
 
-Vista: [SVG](deploy_dev_runtime.svg) · Impresión A4 (`--document`): [SVG](doc/deploy_dev_runtime.svg) · [PNG](doc/deploy_dev_runtime.png)
+Vista: [SVG](deploy_dev_runtime.svg)
 
 Recursos del root environments/dev de pipesor-iac y sus dependencias externas. Las 8 Container Apps, los 3 jobs, PostgreSQL y el topic de Service Bus se observaron el 27/11; el resto consta en IaC y no se observó. Las llamadas REST entre servicios por el ingress interno no se dibujan (ver las vistas C4).
 
-En la vista, cada flecha lleva su número y su etiqueta; en la versión impresa solo el número, y esta guía hace de leyenda (tabla de aristas y leyenda de estados y colores).
+En la vista, cada flecha lleva su número y su etiqueta; esta guía trae la tabla de aristas y la leyenda de estados y colores. La figura para documentos está en `out/figuras/06-despliegue/`.
 
 21 nodos: 15 elementos distintos del modelo, 5 implementaciones no modeladas y 0 puntos TBD.
 
@@ -139,11 +139,11 @@ En la vista, cada flecha lleva su número y su etiqueta; en la versión impresa 
 
 ## Entornos y entrega de imágenes (`deploy_environments_delivery`)
 
-Vista: [SVG](deploy_environments_delivery.svg) · Impresión A4 (`--document`): [SVG](doc/deploy_environments_delivery.svg) · [PNG](doc/deploy_environments_delivery.png)
+Vista: [SVG](deploy_environments_delivery.svg)
 
 Flujo trunk-based definido en los repositorios hasta el entorno dev, y roots de Terraform de qa, preprod y prod, que solo tienen fundaciones. Lo que ningún documento ni código define se marca TBD con su motivo, sin proponer una estrategia.
 
-En la vista, cada flecha lleva su número y su etiqueta; en la versión impresa solo el número, y esta guía hace de leyenda (tabla de aristas y leyenda de estados y colores). Los puntos TBD no tienen aristas: van en el recuadro «No definido (TBD)» bajo el dibujo.
+En la vista, cada flecha lleva su número y su etiqueta; esta guía trae la tabla de aristas y la leyenda de estados y colores. La figura para documentos está en `out/figuras/06-despliegue/`. Los puntos TBD no tienen aristas: van en el recuadro «No definido (TBD)» bajo el dibujo.
 
 19 nodos: 0 elementos distintos del modelo, 13 implementaciones no modeladas y 6 puntos TBD.
 

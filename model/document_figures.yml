@@ -1,0 +1,696 @@
+# Figuras documentales para la Memoria de Tesis y el Capstone (APA 7, Word).
+#
+# Pedidas por el responsable el 27/11/2026: un segundo nivel de figuras, generado desde los mismos
+# modelos, con una figura por página (A4 vertical 15,9 × 19,0 cm como máximo), texto de 9 pt o más,
+# etiquetas en español y sin título, notas ni referencias técnicas dentro de la imagen. Las vistas
+# técnicas completas de out/*.svg y out/trazabilidad.md siguen siendo el respaldo.
+#
+# Modelo de presentación. Solo selecciona y rotula en español hechos ya modelados: cada nodo,
+# relación, clase, tabla o nodo de despliegue se cita por su ID en architecture.yml, design.yml,
+# domain.yml, sequence_presentation.yml o deployment_presentation.yml, y el estado de implementación
+# se deriva del overlay (model/implementation_status.yml) o de design.yml; aquí no se declara.
+# No crea arquitectura, no cambia status ni source y no resuelve preguntas abiertas ni hallazgos.
+#
+# Estados (tres como máximo): implementado; parcial (en parte o de otra forma que el modelo);
+# propuesto (modelado, sin implementar).
+model_version: "1.0.0"
+authorization:
+  date: "2026-11-27"
+  requested_by: responsable del proyecto
+  scope: "Figuras documentales en out/figuras/ (sustituyen a out/doc/)"
+sources:
+  architecture: model/architecture.yml
+  design: model/design.yml
+  domain: model/domain.yml
+  sequences: model/sequence_presentation.yml
+  deployment: model/deployment_presentation.yml
+  overlay: model/implementation_status.yml
+annex: "repositorio pipesor-docs (Anexo C)"
+
+folders:
+  01-contexto-contenedores: "Contexto y contenedores (C4, niveles 1 y 2)"
+  02-componentes: "Componentes (C4, nivel 3)"
+  03-clases: "Clases de dominio por bounded context"
+  04-datos: "Modelo de datos por esquema"
+  05-secuencias: "Secuencias"
+  06-despliegue: "Despliegue y estrategia de ramas"
+
+figures:
+  # ------------------------------------------------------------------------------------------------
+  - id: c4-contexto
+    folder: 01-contexto-contenedores
+    order: 1
+    kind: c4_context
+    view: c4_context
+    orientation: portrait
+    destination: {documents: [Memoria, Capstone], section: "Diseño de la solución: arquitectura del sistema (a confirmar por el equipo)"}
+    title: "Contexto del prototipo AIOps de diagnóstico de fallos de CI/CD"
+    note: "*Nota.* Elaboración propia a partir del modelo de arquitectura del prototipo. Línea continua: implementado; ámbar discontinua: parcial; roja punteada: propuesto. Cada relación agrupa los flujos entre el sistema y un actor externo. El detalle completo está en el repositorio pipesor-docs (Anexo C)."
+    call: "La Figura N sitúa el prototipo frente a las personas y los sistemas con los que interactúa. Conviene observar que GitHub Actions es a la vez fuente de evidencia y consumidor del informe de diagnóstico, y que la telemetría de observabilidad sigue siendo una propuesta."
+    alt: "Diagrama de contexto: usuarios técnicos, GitHub, GitHub Actions, Azure OpenAI y observabilidad alrededor del prototipo."
+    simplifications:
+      - "Cada flecha agrupa todas las relaciones del modelo entre el sistema y un elemento externo."
+      - "Los contenedores internos se muestran en la figura de contenedores."
+    nodes:
+      ey_aiops_ci_cd_diagnosis: {name: "Prototipo AIOps de diagnóstico CI/CD", text: "Captura fallos, correlaciona evidencia y propone causas probables"}
+      technical_users: {name: "Usuarios técnicos", text: "Desarrollo, DevOps/SRE, QA, liderazgo técnico y seguridad"}
+      github: {name: "GitHub", text: "Repositorios y GitHub App de solo lectura"}
+      github_actions: {name: "GitHub Actions", text: "Ejecuta los workflows de CI/CD"}
+      pretrained_llm_diagnostic_service: {name: "Azure OpenAI", text: "Modelo de lenguaje y embeddings"}
+      observability_sources: {name: "Fuentes de observabilidad", text: "Azure Monitor y telemetría de ejecución"}
+    edges:
+      - {from: technical_users, to: ey_aiops_ci_cd_diagnosis, label: "Consultan diagnósticos y registran revisiones"}
+      - {from: github_actions, to: ey_aiops_ci_cd_diagnosis, label: "Envía eventos y consulta el informe"}
+      - {from: ey_aiops_ci_cd_diagnosis, to: github_actions, label: "Lee ejecuciones, jobs y logs"}
+      - {from: ey_aiops_ci_cd_diagnosis, to: github, label: "Autentica usuarios y verifica accesos"}
+      - {from: github, to: github_actions, label: "Aloja repositorios y workflows"}
+      - {from: ey_aiops_ci_cd_diagnosis, to: pretrained_llm_diagnostic_service, label: "Solicita embeddings e inferencia"}
+      - {from: observability_sources, to: ey_aiops_ci_cd_diagnosis, label: "Aporta telemetría operacional"}
+
+  # ------------------------------------------------------------------------------------------------
+  - id: c4-contenedores-procesamiento
+    folder: 01-contexto-contenedores
+    order: 2
+    kind: c4_container
+    orientation: portrait
+    destination: {documents: [Memoria, Capstone], section: "Diseño de la solución: arquitectura del sistema (a confirmar por el equipo)"}
+    title: "Contenedores de captura, procesamiento y diagnóstico"
+    note: "*Nota.* Elaboración propia a partir del modelo de arquitectura (vista 2A) y del código de los servicios. Azul: contenedores del prototipo; gris: sistemas externos. Línea continua: implementado; ámbar discontinua: parcial; roja punteada: propuesto. El detalle completo está en el repositorio pipesor-docs (Anexo C)."
+    call: "La Figura N muestra el recorrido de un fallo por los contenedores del prototipo, desde la captura hasta el diagnóstico. Conviene seguir el desacoplamiento mediante Service Bus y notar que la telemetría de observabilidad sigue siendo una propuesta."
+    alt: "Contenedores de procesamiento: ingesta, Service Bus, Pipeline, Log/Event, NLP, correlación, diagnóstico y RAG."
+    simplifications:
+      - "La persistencia en PostgreSQL, la firma de tokens y los permisos y el resumen hacia Pipeline se muestran en la figura de consumo."
+      - "Se omiten las comprobaciones de referencias entre Correlation, Pipeline, Log/Event e Ingesta."
+      - "La consulta del informe desde GitHub Actions se explica con la secuencia de revisión."
+      - "No se dibuja el marco del sistema: el color distingue los contenedores del prototipo (azul) de los sistemas externos (gris)."
+    boundary: none
+    rankdir: [TB]
+    same_rank: [[ingestion_normalization_service, azure_service_bus]]
+    nodes:
+      github_actions: {name: "GitHub Actions"}
+      observability_sources: {name: "Observabilidad"}
+      pretrained_llm_diagnostic_service: {name: "Azure OpenAI"}
+      ingestion_normalization_service: {name: "Ingesta", tech: "Java / Spring Boot", text: "Captura y protege"}
+      azure_service_bus: {name: "Service Bus", tech: "Topic, 3 suscripciones", text: "Desacopla el flujo"}
+      pipeline_service: {name: "Pipeline", tech: "Java / Spring Boot", text: "Ejecuciones e incidentes"}
+      log_event_service: {name: "Log/Event", tech: "Java / Spring Boot", text: "Registra evidencia"}
+      nlp_log_processor: {name: "NLP", tech: "Python / FastAPI", text: "Sanea logs"}
+      evidence_correlation_engine: {name: "Correlación", tech: "Java / Spring Boot", text: "Contexto del incidente"}
+      recommendation_service: {name: "Diagnóstico", tech: "Java / Spring Boot", text: "Causa probable"}
+      rag_retrieval: {name: "RAG", tech: "Python / FastAPI", text: "Conocimiento autorizado"}
+    edges:
+      - {relationships: [rel_github_actions_ingestion_event], label: "Eventos"}
+      - {relationships: [rel_ingestion_github_actions_read], label: "Lee logs"}
+      - {relationships: [rel_observability_sources_ingestion], label: "Telemetría"}
+      - {relationships: [rel_ingestion_service_bus], label: "Publica"}
+      - {relationships: [rel_service_bus_pipeline_service], label: "Snapshot"}
+      - {relationships: [rel_service_bus_log_event_service], label: "Evidencia"}
+      - {relationships: [rel_service_bus_nlp], label: "Evidencia"}
+      - {relationships: [rel_nlp_correlation], label: "Evidencia"}
+      - {relationships: [rel_correlation_recommendation], label: "Contexto"}
+      - {relationships: [rel_recommendation_rag], label: "Conocimiento"}
+      - {relationships: [rel_rag_embeddings], label: "Embeddings"}
+      - {relationships: [rel_recommendation_llm], label: "Inferencia"}
+
+  - id: c4-contenedores-consumo
+    folder: 01-contexto-contenedores
+    order: 3
+    kind: c4_container
+    orientation: portrait
+    destination: {documents: [Memoria, Capstone], section: "Diseño de la solución: arquitectura del sistema (a confirmar por el equipo)"}
+    title: "Contenedores de consulta, revisión humana y gobierno"
+    note: "*Nota.* Elaboración propia a partir del modelo de arquitectura (vista 2B) y del código de los servicios. Azul: prototipo; gris: externos. Línea continua: implementado; ámbar discontinua: parcial; roja punteada: propuesto. Persistencia y firma de tokens se agrupan por destino. El detalle completo está en el repositorio pipesor-docs (Anexo C)."
+    call: "La Figura N muestra cómo las personas acceden al prototipo y cómo se gobiernan la identidad y los datos. El lector puede observar que el inicio de sesión pasa por la ingesta y que la consulta directa de evidencia desde el dashboard sigue propuesta."
+    alt: "Contenedores de consumo: usuarios, dashboard, ingesta, Pipeline, Log/Event, diagnóstico, PostgreSQL, Key Vault y GitHub."
+    simplifications:
+      - "Las relaciones de persistencia y de firma con Key Vault se agrupan en una flecha por destino."
+      - "La captura y el procesamiento se muestran en la figura de contenedores de procesamiento."
+      - "No se dibuja el marco del sistema: el color distingue los contenedores del prototipo (azul) de los elementos externos (gris)."
+    boundary: none
+    rankdir: [TB]
+    stack: [[pipeline_service, ingestion_normalization_service], [recommendation_service, log_event_service]]
+    services_group: "Servicios de backend"
+    nodes:
+      technical_users: {name: "Usuarios técnicos"}
+      github: {name: "GitHub"}
+      web_dashboard: {name: "Dashboard web", tech: "TypeScript / React", text: "Cola, diagnóstico y revisión"}
+      ingestion_normalization_service: {name: "Ingesta", tech: "Java / Spring Boot", text: "Inicio de sesión", group: services}
+      pipeline_service: {name: "Pipeline", tech: "Java / Spring Boot", text: "Incidentes y permisos", group: services}
+      log_event_service: {name: "Log/Event", tech: "Java / Spring Boot", text: "Evidencia normalizada", group: services}
+      recommendation_service: {name: "Diagnóstico", tech: "Java / Spring Boot", text: "Diagnóstico y revisión", group: services}
+      postgresql_operational_store: {name: "PostgreSQL", tech: "PostgreSQL 17", text: "Un esquema por servicio"}
+      azure_key_vault: {name: "Key Vault", tech: "Claves no exportables", text: "Firma y custodia"}
+    edges:
+      - {relationships: [rel_technical_users_dashboard], label: "Consulta y revisa"}
+      - {relationships: [rel_dashboard_ingestion_github_connection], label: "Inicio de sesión"}
+      - {relationships: [rel_dashboard_pipeline_service], label: "Cola de incidentes"}
+      - {relationships: [rel_dashboard_recommendation_service], label: "Diagnóstico y revisión"}
+      - {relationships: [rel_dashboard_log_event_service], label: "Evidencia"}
+      - {relationships: [rel_ingestion_github_connection], label: "OAuth con PKCE"}
+      - {relationships: [rel_recommendation_pipeline_diagnosis_entitlement, rel_recommendation_pipeline_diagnosis_summary], label: "Permisos y resumen"}
+      - {from_group: services, to: postgresql_operational_store, label: "Persisten datos",
+         relationships: [rel_ingestion_postgresql_connector_metadata, rel_pipeline_service_postgresql, rel_log_event_service_postgresql,
+                         rel_recommendation_service_postgresql, rel_human_review_postgresql]}
+      - {from_group: services, to: azure_key_vault, label: "Firman tokens",
+         relationships: [rel_ingestion_key_vault, rel_pipeline_key_vault, rel_log_event_key_vault, rel_recommendation_key_vault]}
+
+  # ------------------------------------------------------------------------------------------------
+  - id: componentes-diagnostico
+    folder: 02-componentes
+    order: 4
+    kind: c4_component
+    view: c4_component_diagnostic
+    orientation: portrait
+    destination: {documents: [Memoria, Capstone], section: "Diseño de la solución: servicio de diagnóstico (a confirmar por el equipo)"}
+    title: "Componentes del servicio de diagnóstico y recomendación"
+    note: "*Nota.* Elaboración propia a partir del modelo de arquitectura (ADR-017) y del código del servicio. Línea continua: implementado; ámbar discontinua: parcial, es decir, implementado en parte o de otra forma. El detalle completo está en el repositorio pipesor-docs (Anexo C)."
+    call: "La Figura N descompone el servicio de diagnóstico en sus cuatro componentes de diseño. Lo relevante es que la orquestación se ejecuta de forma asíncrona y que el compositor de salida no existe como pieza separada, por lo que esas relaciones aparecen como parciales."
+    alt: "Componentes del diagnóstico: API, orquestador, compositor de salida y revisión humana, con RAG, Azure OpenAI y PostgreSQL."
+    simplifications:
+      - "Se muestran los cuatro componentes del diseño; el intake de recibos, la cola de diagnóstico y el outbox del código se explican en la figura de secuencia de diagnóstico."
+    container_name: "Diagnóstico y recomendación [Java / Spring Boot]"
+    rankdir: [TB]
+    same_rank: [[rag_retrieval, pretrained_llm_diagnostic_service, postgresql_operational_store]]
+    nodes:
+      diagnostic_api_component: {name: "API de diagnóstico", text: "Expone el diagnóstico y recibe revisiones"}
+      diagnostic_orchestrator_component: {name: "Orquestador de diagnóstico", text: "Coordina contexto, RAG e inferencia"}
+      diagnostic_output_component: {name: "Compositor de salida", text: "Arma causa, evidencia, fuentes y limitaciones"}
+      human_review_component: {name: "Revisión humana", text: "Registra la validación humana del diagnóstico"}
+      evidence_correlation_engine: {name: "Correlación de evidencia"}
+      web_dashboard: {name: "Dashboard web"}
+      github_actions: {name: "GitHub Actions"}
+      rag_retrieval: {name: "Recuperación RAG"}
+      pretrained_llm_diagnostic_service: {name: "Azure OpenAI"}
+      postgresql_operational_store: {name: "PostgreSQL"}
+    edges:
+      - {relationships: [rel_dashboard_diagnostic_api], label: "Lee y revisa diagnósticos"}
+      - {relationships: [rel_correlation_diagnostic_api], label: "Entrega el contexto"}
+      - {relationships: [rel_github_actions_diagnostic_api], label: "Consulta el informe"}
+      - {relationships: [rel_diagnostic_api_orchestrator], label: "Delega el diagnóstico"}
+      - {relationships: [rel_orchestrator_rag], label: "Pide conocimiento"}
+      - {relationships: [rel_orchestrator_llm], label: "Pide inferencia"}
+      - {relationships: [rel_orchestrator_output], label: "Entrega el resultado"}
+      - {relationships: [rel_output_postgresql], label: "Persiste el diagnóstico"}
+      - {relationships: [rel_diagnostic_api_human_review], label: "Delega la revisión"}
+      - {relationships: [rel_human_review_postgresql], label: "Persiste revisiones"}
+
+  # ------------------------------------------------------------------------------------------------
+  - id: componentes-ingesta
+    folder: 02-componentes
+    order: 5
+    kind: c4_component
+    view: c4_component_ingestion
+    orientation: portrait
+    destination: {documents: [Memoria], section: "Implementación: servicio de ingesta (a confirmar por el equipo)"}
+    title: "Componentes del servicio de ingesta y normalización"
+    note: "*Nota.* Elaboración propia a partir del código del servicio de ingesta; los componentes se infirieron del código y el responsable autorizó modelarlos. Todos están implementados. Se omiten la persistencia y el uso de Key Vault. El detalle completo está en el repositorio pipesor-docs (Anexo C)."
+    call: "La Figura N muestra los siete componentes del servicio de ingesta. La captura sigue un recorrido de webhook, recibo durable, preparación, normalización y publicación, mientras que el inicio de sesión y el conector de GitHub forman una vía independiente."
+    alt: "Componentes de ingesta: webhook, captura, preparación, normalización, publicación, inicio de sesión y conector de GitHub."
+    simplifications:
+      - "Se omiten PostgreSQL y Key Vault: la persistencia del registro de captura, de los inicios de sesión y del conector, y la firma y custodia de credenciales."
+      - "Se omite el análisis bajo demanda que pide el dashboard."
+      - "Se omiten las llamadas de Pipeline a la autoridad de captura y al conector."
+    container_name: "Ingesta y normalización [Java / Spring Boot]"
+    rankdir: [TB]
+    stack: [[ingestion_webhook_component, ingestion_capture_component], [ingestion_capture_component, ingestion_preparation_component],
+            [ingestion_preparation_component, ingestion_normalization_component], [ingestion_sign_in_component, ingestion_github_connector_component]]
+    same_rank: [[github_actions, web_dashboard]]
+    nodes:
+      ingestion_webhook_component: {name: "Webhook", text: "Verifica firma y registra recibo"}
+      ingestion_capture_component: {name: "Registro de captura", text: "Admisiones, ámbitos y recibos"}
+      ingestion_preparation_component: {name: "Preparación", text: "Lee run y logs"}
+      ingestion_normalization_component: {name: "Normalización", text: "Enmascara y minimiza"}
+      ingestion_publication_component: {name: "Publicación", text: "Publica las salidas"}
+      ingestion_sign_in_component: {name: "Inicio de sesión", text: "PKCE, consentimiento y sesión"}
+      ingestion_github_connector_component: {name: "Conector de GitHub", text: "Vínculo, accesos y workflows"}
+      github_actions: {name: "GitHub Actions"}
+      github: {name: "GitHub"}
+      web_dashboard: {name: "Dashboard web"}
+      azure_service_bus: {name: "Azure Service Bus"}
+    edges:
+      - {relationships: [rel_github_actions_ingestion_webhook], label: "Eventos"}
+      - {relationships: [rel_ingestion_webhook_capture], label: "Recibo"}
+      - {relationships: [rel_ingestion_preparation_capture], label: "Reclama"}
+      - {relationships: [rel_ingestion_preparation_github_actions], label: "Lee logs"}
+      - {relationships: [rel_ingestion_preparation_normalization], label: "Normaliza"}
+      - {relationships: [rel_ingestion_publication_capture], label: "Reclama"}
+      - {relationships: [rel_ingestion_publication_service_bus], label: "Publica"}
+      - {relationships: [rel_dashboard_ingestion_sign_in], label: "Sesión"}
+      - {relationships: [rel_ingestion_sign_in_github], label: "Canje PKCE"}
+      - {relationships: [rel_ingestion_sign_in_connector], label: "Vínculo"}
+      - {relationships: [rel_dashboard_ingestion_connector], label: "Descubre"}
+      - {relationships: [rel_ingestion_connector_github], label: "Accesos"}
+
+  # ------------------------------------------------------------------------------------------------
+  - id: clases-operacion
+    folder: 03-clases
+    order: 6
+    kind: classes
+    container: pipeline_service
+    orientation: portrait
+    destination: {documents: [Memoria], section: "Diseño de la solución: modelo de dominio (a confirmar por el equipo)"}
+    title: "Agregado Incident del contexto de operación (Pipeline)"
+    note: "*Nota.* Elaboración propia a partir del código del servicio Pipeline. Todas las clases están implementadas. Se muestran solo el agregado, sus entidades y value objects clave, con atributos y reglas seleccionados. El detalle completo está en el repositorio pipesor-docs (Anexo C)."
+    call: "La Figura N presenta el agregado Incident, que concentra las reglas del ciclo de vida de un incidente. El lector puede observar que el origen es siempre una ejecución fallida y que las transiciones de estado se validan dentro del agregado."
+    alt: "Clases del agregado Incident: detalles, ciclo de vida, ejecución de origen, verificación, estado, severidad y repositorio."
+    simplifications:
+      - "Se omiten puertos, adaptadores y filas JPA (IncidentStore, JpaIncidentStore e IncidentJpaEntity)."
+      - "Se muestran hasta seis atributos por clase y solo los métodos que expresan reglas de negocio."
+    classes:
+      Incident: {attributes: [id, pipelineId, origin, details, lifecycle], methods: [fromFailedExecution, transition]}
+      IncidentDetails: {attributes: [stage, summary, detectedAt, severity]}
+      IncidentLifecycle: {attributes: [status, remediationStartedAt, resolvedAt, verificationExecutionIds]}
+      ExecutionOutcome: {attributes: [executionId, pipelineId, failed]}
+      VerificationExecution: {attributes: [id, status, conclusion], methods: [successful]}
+      IncidentStatus: {}
+      Severity: {methods: [initialFor]}
+      GitHubRepository: {attributes: [id, githubRepositoryId, fullName, defaultBranch]}
+    relationship_labels:
+      Incident>IncidentDetails: "detalles"
+      Incident>IncidentLifecycle: "ciclo de vida"
+      Incident>ExecutionOutcome: "origen"
+      Incident>VerificationExecution: "verifica"
+      IncidentDetails>Severity: "severidad"
+      IncidentLifecycle>IncidentStatus: "estado"
+
+  - id: clases-ingesta
+    folder: 03-clases
+    order: 7
+    kind: classes
+    container: ingestion_normalization_service
+    orientation: portrait
+    destination: {documents: [Memoria], section: "Diseño de la solución: modelo de dominio (a confirmar por el equipo)"}
+    title: "Agregados GitHubConnection y CaptureReceipt del contexto de ingesta"
+    note: "*Nota.* Elaboración propia a partir del código del servicio de ingesta. Todas las clases están implementadas. Se muestran los dos agregados con sus entidades y value objects clave; se omiten operaciones de credenciales, enumeraciones y persistencia. El detalle completo está en el repositorio pipesor-docs (Anexo C)."
+    call: "La Figura N reúne los dos agregados del servicio de ingesta. GitHubConnection gobierna el vínculo del usuario con GitHub por generaciones de credenciales, y CaptureReceipt garantiza que cada evento capturado deje un recibo durable con su ámbito."
+    alt: "Clases de ingesta: GitHubConnection con raíz, generaciones e intentos; CaptureReceipt con ámbito y observación del workflow."
+    simplifications:
+      - "Se omiten las operaciones de credenciales (ConnectionRecords.Operation), los value objects de identidad y secreto y las demás enumeraciones."
+      - "WorkflowObservation se muestra sin sus records anidados (contexto, ejecución, etapas, fallo y evidencia)."
+      - "Se omiten puertos, adaptadores y filas JPA."
+    classes:
+      GitHubConnection: {attributes: [id, root, generations, attempts], methods: [prepare, claim, activate]}
+      ConnectionRoot: {attributes: [id, identity, revision, activeGenerationId]}
+      ConnectionGeneration: {attributes: [id, githubUserId, state, accessExpiresAt, refreshExpiresAt]}
+      ConnectionAttempt: {attributes: [id, stateDigest, expiresAt, phase]}
+      GenerationState: {}
+      CaptureReceipt: {attributes: [id, scope, runId, runAttempt, phase, observationId], methods: [requireClaim, requirePreparedObservation]}
+      CaptureScope: {attributes: [tenantId, installationId, repositoryId, workflowId, scopeRevision]}
+      WorkflowObservation: {attributes: [execution, commitSha, correlationId, sourceUpdatedAt]}
+    relationship_labels:
+      GitHubConnection>ConnectionRoot: "raíz"
+      GitHubConnection>ConnectionGeneration: "generaciones"
+      GitHubConnection>ConnectionAttempt: "intentos"
+      ConnectionGeneration>GenerationState: "estado"
+      CaptureReceipt>CaptureScope: "ámbito"
+      CaptureReceipt>WorkflowObservation: "observación"
+
+  - id: clases-correlacion
+    folder: 03-clases
+    order: 8
+    kind: classes
+    container: evidence_correlation_engine
+    orientation: portrait
+    destination: {documents: [Memoria], section: "Diseño de la solución: modelo de dominio (a confirmar por el equipo)"}
+    title: "Agregado CorrelationGroup del contexto de correlación"
+    note: "*Nota.* Elaboración propia a partir del código del servicio de correlación. Todas las clases están implementadas. Se muestran el agregado, su contexto y los value objects de cada contribución; se omiten el almacén durable y la entidad de persistencia. El detalle completo está en el repositorio pipesor-docs (Anexo C)."
+    call: "La Figura N muestra cómo se agrupa la evidencia de una ejecución fallida en un CorrelationGroup. Cada contribución aporta una señal y un ámbito, y la revisión del grupo crece con cada evidencia incluida."
+    alt: "Clases de correlación: CorrelationGroup con su contexto y contribuciones con señal de evidencia y ámbito."
+    simplifications:
+      - "Se omiten DurableCorrelationStore, CorrelatedContextEntity y SourceLocator."
+    classes:
+      CorrelationGroup: {attributes: [id, context, evidenceIds], methods: [start, include, revision]}
+      CorrelationContext: {attributes: [scope, executionId, incidentId]}
+      CorrelationContribution: {attributes: [producerKey, messageId, evidenceId, inputFingerprint, signal, scope]}
+      EvidenceSignal: {attributes: [stage, summary, content, sourceLocator]}
+      ScopeEnvelope: {attributes: [tenantId, installationId, repositoryId, pipelineId, revision], methods: [sameResource]}
+    relationship_labels:
+      CorrelationGroup>CorrelationContext: "contexto"
+      CorrelationContribution>CorrelationContext: "contexto"
+      CorrelationContribution>EvidenceSignal: "señal"
+      CorrelationContribution>ScopeEnvelope: "ámbito"
+
+  - id: clases-diagnostico
+    folder: 03-clases
+    order: 9
+    kind: classes
+    container: recommendation_service
+    orientation: portrait
+    destination: {documents: [Memoria, Capstone], section: "Diseño de la solución: modelo de dominio (a confirmar por el equipo)"}
+    title: "Agregados propuestos del diagnóstico frente a los registros implementados"
+    note: "*Nota.* Elaboración propia a partir del diseño de clases propuesto y del código del servicio de diagnóstico. Borde continuo: implementado; ámbar discontinuo: parcial; rojo punteado: propuesto. La línea discontinua con triángulo indica qué registro realiza cada agregado propuesto. El detalle completo está en el repositorio pipesor-docs (Anexo C)."
+    call: "La Figura N contrasta los agregados Diagnosis y HumanReview del diseño con los registros que implementa el código. El lector debe observar que el diagnóstico se guarda como una instantánea JSON y que la recomendación y la causa probable no existen como clases propias."
+    alt: "Clases propuestas Diagnosis, Recommendation, ProbableCause y HumanReview frente a los registros implementados."
+    simplifications:
+      - "Se omiten los records de recibos, trabajos de diagnóstico y outbox, y los controladores y servicios de aplicación."
+      - "Se muestran hasta seis atributos por clase."
+    classes:
+      Diagnosis: {attributes: [id, incidentId, version, status, probableCause, confidence], methods: [assertReadySnapshot]}
+      Recommendation: {attributes: [id, diagnosisId, description, critical]}
+      ProbableCause: {attributes: [value]}
+      HumanReview: {attributes: [id, diagnosticId, revision, decision, actualCause, comment], methods: [record, validateDecision]}
+      HumanReviewDecision: {}
+      OrchestratorDiagnosis: {attributes: [contextId, executionId, incidentId, hypothesis, evidence, sources]}
+      OrchestratorHypothesis: {attributes: [probableCause, recommendation, limitations, evidenceIds, chunkIds]}
+      ReviewRecord: {attributes: [id, revision, reviewer, decision, actualCause, comment]}
+    relationship_labels:
+      Diagnosis>Recommendation: "recomendaciones"
+      Diagnosis>ProbableCause: "hipótesis"
+      HumanReview>HumanReviewDecision: "decisión"
+      OrchestratorDiagnosis>OrchestratorHypothesis: "hipótesis"
+      OrchestratorDiagnosis>Diagnosis: "realiza"
+      ReviewRecord>HumanReview: "realiza"
+
+  # ------------------------------------------------------------------------------------------------
+  - id: datos-operacion
+    folder: 04-datos
+    order: 10
+    kind: data
+    schemas: [ops]
+    max_columns: 5
+    orientation: portrait
+    destination: {documents: [Memoria], section: "Diseño de la solución: modelo de datos (a confirmar por el equipo)"}
+    title: "Modelo de datos del esquema ops (Pipeline)"
+    note: "*Nota.* Elaboración propia a partir del modelo de datos y de las migraciones del servicio Pipeline. Todas las tablas están implementadas. Las flechas son claves foráneas; «ref.» marca referencias lógicas sin clave foránea. Se muestran hasta cinco columnas por tabla; el resto está en el diccionario de datos del repositorio pipesor-docs (Anexo C)."
+    call: "La Figura N presenta las tablas del servicio Pipeline. Conviene observar que cada incidente se vincula con sus ejecuciones mediante incident_runs y que incident_diagnoses es una proyección de lectura del diagnóstico."
+    alt: "Esquema ops con repositorios, pipelines, ejecuciones, etapas, incidentes, recibos, permisos y diagnósticos de incidentes."
+    simplifications:
+      - "Se muestran sin tipos la clave primaria, las claves foráneas y hasta cinco columnas por tabla."
+
+  - id: datos-evidencia-auditoria
+    folder: 04-datos
+    order: 11
+    kind: data
+    schemas: [evidence, audit]
+    max_columns: 6
+    orientation: portrait
+    destination: {documents: [Memoria], section: "Diseño de la solución: modelo de datos (a confirmar por el equipo)"}
+    title: "Modelo de datos de los esquemas evidence y audit"
+    note: "*Nota.* Elaboración propia a partir del modelo de datos y de las migraciones de Log/Event, Correlation y Pipeline. Todas las tablas están implementadas. Las flechas son claves foráneas; «ref.» marca referencias lógicas. Se muestran hasta seis columnas por tabla; el resto está en el diccionario de datos del repositorio pipesor-docs (Anexo C)."
+    call: "La Figura N reúne la evidencia registrada por Log/Event, los grupos y contextos de correlación y la auditoría transversal. El lector puede notar que el contexto correlacionado solo referencia la evidencia por identificador, sin claves foráneas entre servicios."
+    alt: "Esquemas evidence y audit: ítems de evidencia, grupos, contextos y recibos de correlación, y eventos de auditoría."
+    simplifications:
+      - "Se muestran sin tipos la clave primaria, las claves foráneas y hasta seis columnas por tabla."
+
+  - id: datos-diagnostico
+    folder: 04-datos
+    order: 12
+    kind: data
+    schemas: [diagnosis]
+    max_columns: 5
+    orientation: portrait
+    destination: {documents: [Memoria, Capstone], section: "Diseño de la solución: modelo de datos (a confirmar por el equipo)"}
+    title: "Modelo de datos del esquema diagnosis"
+    note: "*Nota.* Elaboración propia a partir del modelo de datos y de las migraciones del servicio de diagnóstico. Borde continuo: implementada; ámbar discontinuo: parcial; rojo punteado: propuesta; columnas en rojo: sin implementar. Se muestran hasta cinco columnas por tabla. El detalle completo está en el repositorio pipesor-docs (Anexo C)."
+    call: "La Figura N muestra el esquema del servicio de diagnóstico y lo que aún no se ha implementado. Destaca que tres tablas del diseño no existen y que varias columnas de diagnoses se guardan dentro de la instantánea output."
+    alt: "Esquema diagnosis con recibos, diagnósticos, revisiones, trabajos y outbox; tres tablas y seis columnas solo propuestas."
+    simplifications:
+      - "Se muestran sin tipos la clave primaria, las claves foráneas y hasta cinco columnas por tabla."
+
+  - id: datos-conocimiento
+    folder: 04-datos
+    order: 13
+    kind: data
+    schemas: [knowledge]
+    orientation: portrait
+    destination: {documents: [Memoria], section: "Diseño de la solución: modelo de datos (a confirmar por el equipo)"}
+    title: "Modelo de datos del esquema knowledge (RAG)"
+    note: "*Nota.* Elaboración propia a partir del modelo de datos y de las migraciones del servicio RAG. Ambas tablas están implementadas. La flecha es una clave foránea. Se muestran hasta ocho columnas por tabla; el resto está en el diccionario de datos del repositorio pipesor-docs (Anexo C)."
+    call: "La Figura N presenta el almacén de conocimiento del RAG. Cada documento autorizado se divide en fragmentos con su embedding, y el ámbito del documento limita qué conocimiento puede recuperar cada consulta."
+    alt: "Esquema knowledge: documentos de conocimiento y sus fragmentos con embedding vectorial."
+    simplifications:
+      - "Se muestran sin tipos la clave primaria, las claves foráneas y hasta ocho columnas por tabla."
+
+  - id: datos-ingesta
+    folder: 04-datos
+    order: 14
+    kind: data
+    schemas: [ingestion]
+    max_columns: 3
+    table_order: [github_connection_generations, github_connections, github_login_attempts,
+                  github_authorization_attempts, consent_records, capture_receipts,
+                  github_credential_operations, capture_observations, publication_outputs,
+                  capture_workflow_scopes, repository_admissions, capture_delivery_aliases]
+    orientation: portrait
+    destination: {documents: [Memoria], section: "Implementación: servicio de ingesta (a confirmar por el equipo)"}
+    title: "Modelo de datos del esquema ingestion"
+    note: "*Nota.* Elaboración propia a partir del modelo de datos y de las migraciones del servicio de ingesta. Todas las tablas están implementadas. Las flechas son claves foráneas. Por espacio se muestran hasta tres columnas por tabla; el resto está en el diccionario de datos del repositorio pipesor-docs (Anexo C)."
+    call: "La Figura N agrupa las tablas del servicio de ingesta en dos áreas: el vínculo con GitHub y el inicio de sesión, y la captura de eventos con su publicación. El lector puede seguir cómo un recibo de captura produce una observación y sus salidas publicadas."
+    alt: "Esquema ingestion: conexiones de GitHub, inicio de sesión, consentimientos, admisiones, recibos, observaciones y salidas."
+    simplifications:
+      - "Por espacio, se muestran sin tipos la clave primaria, las claves foráneas y hasta tres columnas por tabla."
+
+  # ------------------------------------------------------------------------------------------------
+  - id: secuencia-captura-fallo
+    folder: 05-secuencias
+    order: 15
+    kind: sequence
+    sequence: seq_a1_capture
+    max_message_width: 85
+    orientation: portrait
+    destination: {documents: [Memoria, Capstone], section: "Implementación: flujo de diagnóstico de un fallo (a confirmar por el equipo)"}
+    title: "Captura de un fallo de GitHub Actions hasta la entrega del contexto"
+    note: "*Nota.* Elaboración propia a partir del modelo de secuencias y del código. Todo está implementado; flechas discontinuas: respuestas; de punta abierta: mensajes asíncronos. Service Bus y NLP se indican en el mensaje; Log/Event, los reintentos y la idempotencia se omiten. El detalle completo está en el repositorio pipesor-docs (Anexo C)."
+    call: "La Figura N recorre la captura de un fallo desde el webhook firmado hasta la entrega del contexto correlacionado. Conviene observar que GitHub recibe la respuesta en cuanto existe un recibo durable y que el resto del proceso continúa de forma asíncrona."
+    alt: "Secuencia de captura: webhook, recibo, lectura de logs, Service Bus, NLP, correlación y entrega al diagnóstico."
+    simplifications:
+      - "Log/Event, que registra la evidencia en paralelo, no se dibuja."
+      - "Service Bus y NLP no tienen línea de vida: los mensajes asíncronos indican por dónde pasan."
+      - "Si la ejecución aún no está registrada, Correlation responde 503 y NLP reintenta; se explica en el texto."
+      - "Los reintentos por lease, la deduplicación por digest y los mensajes a dead-letter se explican en el texto."
+    participants:
+      - {id: gha, name: "GitHub Actions", element: github_actions}
+      - {id: ing, name: "Ingesta", element: ingestion_normalization_service}
+      - {id: pip, name: "Pipeline", element: pipeline_service}
+      - {id: cor, name: "Correlación", element: evidence_correlation_engine}
+      - {id: rec, name: "Diagnóstico", element: recommendation_service}
+    steps:
+      - {message: {from: gha, to: ing, text: "POST webhook workflow_run firmado", relationship: rel_github_actions_ingestion_event}}
+      - fragment:
+          kind: alt
+          branches:
+            - guard: "firma inválida"
+              steps:
+                - {message: {from: ing, to: gha, style: reply, text: "403, sin registro", relationship: rel_github_actions_ingestion_event}}
+            - guard: "admitido"
+              steps:
+                - {message: {from: ing, to: gha, style: reply, text: "204 tras guardar un recibo durable", relationship: rel_github_actions_ingestion_event}}
+      - {message: {from: ing, to: gha, text: "Lee run, jobs y logs", relationship: rel_ingestion_github_actions_read}}
+      - {message: {from: ing, to: ing, style: self, text: "Normaliza y enmascara la evidencia", relationship: rel_ingestion_postgresql_connector_metadata}}
+      - {message: {from: ing, to: pip, style: async, text: "Snapshot vía Service Bus", relationships: [rel_ingestion_service_bus, rel_service_bus_pipeline_service]}}
+      - {message: {from: pip, to: pip, style: self, text: "Abre el incidente", relationship: rel_pipeline_service_postgresql}}
+      - {message: {from: ing, to: cor, style: async, text: "Evidencia vía Service Bus y NLP", relationships: [rel_ingestion_service_bus, rel_service_bus_nlp, rel_nlp_correlation]}}
+      - {message: {from: cor, to: pip, text: "Verifica el incidente ORIGIN", relationship: rel_correlation_pipeline_operational_references}}
+      - {message: {from: cor, to: rec, text: "POST contexto; se encola el diagnóstico", relationship: rel_correlation_recommendation}}
+
+  - id: secuencia-diagnostico
+    folder: 05-secuencias
+    order: 16
+    kind: sequence
+    sequence: seq_a2_diagnosis
+    max_message_width: 110
+    orientation: portrait
+    destination: {documents: [Memoria, Capstone], section: "Implementación: flujo de diagnóstico de un fallo (a confirmar por el equipo)"}
+    title: "Diagnóstico asistido con recuperación RAG e inferencia en Azure OpenAI"
+    note: "*Nota.* Elaboración propia a partir del modelo de secuencias y del código de los servicios. Flechas negras: implementado; ámbar: parcial, es decir, implementado de otra forma que el diseño; discontinuas: respuestas. Los reintentos con espera exponencial se explican en el texto. El detalle completo está en el repositorio pipesor-docs (Anexo C)."
+    call: "La Figura N muestra cómo el servicio de diagnóstico procesa un contexto encolado. Lo importante es que la consulta al RAG y la inferencia ocurren en un worker asíncrono, y que el resumen llega a Pipeline mediante un outbox y no en la misma llamada."
+    alt: "Secuencia de diagnóstico: trabajo encolado, consulta RAG, inferencia, persistencia y resumen enviado a Pipeline."
+    simplifications:
+      - "El worker y el outbox se representan dentro del servicio de diagnóstico."
+      - "La validación de las citas de evidencia antes de guardar se explica en el texto."
+      - "Los reintentos (hasta ocho, con espera exponencial) y el estado FAILED se explican en el texto y no se dibujan."
+    participants:
+      - {id: rec, name: "Diagnóstico", element: recommendation_service}
+      - {id: rag, name: "RAG", element: rag_retrieval}
+      - {id: aoai, name: "Azure OpenAI", element: pretrained_llm_diagnostic_service}
+      - {id: pg, name: "PostgreSQL", element: postgresql_operational_store}
+      - {id: pip, name: "Pipeline", element: pipeline_service}
+    steps:
+      - {message: {from: rec, to: pg, text: "Reclama un trabajo de diagnóstico", relationship: rel_recommendation_service_postgresql}}
+      - {message: {from: rec, to: rag, text: "POST consulta de conocimiento", relationship: rel_recommendation_rag}}
+      - {message: {from: rag, to: aoai, text: "Embedding de la consulta", relationship: rel_rag_embeddings}}
+      - {message: {from: rag, to: pg, text: "Búsqueda por similitud en pgvector", relationship: rel_rag_pgvector}}
+      - fragment:
+          kind: alt
+          branches:
+            - guard: "hay coincidencias"
+              steps:
+                - {message: {from: rag, to: rec, style: reply, text: "Fragmentos con procedencia", relationship: rel_recommendation_rag}}
+            - guard: "sin coincidencias"
+              steps:
+                - {message: {from: rag, to: rec, style: reply, text: "no_match: inferencia sin conocimiento", relationship: rel_recommendation_rag}}
+      - {message: {from: rec, to: aoai, text: "Chat completion con esquema JSON estricto", relationship: rel_recommendation_llm}}
+      - {message: {from: aoai, to: rec, style: reply, text: "Hipótesis: causa, recomendación y citas", relationship: rel_recommendation_llm}}
+      - {message: {from: rec, to: pg, text: "Guarda el diagnóstico y el outbox", relationship: rel_recommendation_service_postgresql}}
+      - {message: {from: rec, to: pip, text: "PUT resumen del diagnóstico", relationship: rel_recommendation_pipeline_diagnosis_summary}}
+
+  - id: secuencia-revision-humana
+    folder: 05-secuencias
+    order: 17
+    kind: sequence
+    sequence: seq_a3_review
+    orientation: portrait
+    destination: {documents: [Memoria, Capstone], section: "Implementación: flujo de diagnóstico de un fallo (a confirmar por el equipo)"}
+    title: "Revisión humana del diagnóstico desde el dashboard"
+    note: "*Nota.* Elaboración propia a partir del modelo de secuencias y del código de los servicios. Todo está implementado; las flechas discontinuas son respuestas. Se omiten la reproyección del resumen en Pipeline y la consulta del informe desde GitHub Actions. El detalle completo está en el repositorio pipesor-docs (Anexo C)."
+    call: "La Figura N muestra cómo una persona revisa el diagnóstico desde el dashboard. Conviene observar que cada lectura comprueba los permisos en Pipeline y que una revisión concurrente se rechaza con un conflicto en lugar de sobrescribirse."
+    alt: "Secuencia de revisión humana: dashboard, permisos en Pipeline y registro de la revisión con control de conflictos."
+    simplifications:
+      - "La consulta del informe desde GitHub Actions con token OIDC, su sondeo y la subida del artifact se explican en el texto."
+      - "La reproyección del resumen en Pipeline tras la revisión se explica en el texto."
+    participants:
+      - {id: user, name: "Usuario técnico", element: technical_users}
+      - {id: dash, name: "Dashboard", element: web_dashboard}
+      - {id: rec, name: "Diagnóstico", element: recommendation_service}
+      - {id: pip, name: "Pipeline", element: pipeline_service}
+    steps:
+      - {message: {from: dash, to: pip, text: "GET cola de incidentes", relationship: rel_dashboard_pipeline_service}}
+      - {message: {from: dash, to: rec, text: "GET diagnóstico del incidente", relationship: rel_dashboard_recommendation_service}}
+      - {message: {from: rec, to: pip, text: "Resuelve el permiso de lectura", relationship: rel_recommendation_pipeline_diagnosis_entitlement}}
+      - {message: {from: rec, to: dash, style: reply, text: "Causa, evidencia y fuentes", relationship: rel_dashboard_recommendation_service}}
+      - {message: {from: user, to: dash, text: "Confirma o corrige la causa", relationship: rel_technical_users_dashboard}}
+      - {message: {from: dash, to: rec, text: "POST revisión con revisión esperada", relationship: rel_dashboard_recommendation_service}}
+      - fragment:
+          kind: alt
+          branches:
+            - guard: "otra revisión antes"
+              steps:
+                - {message: {from: rec, to: dash, style: reply, text: "409: el dashboard recarga", relationship: rel_dashboard_recommendation_service}}
+            - guard: "revisión vigente"
+              steps:
+                - {message: {from: rec, to: rec, style: self, text: "Guarda la revisión y el outbox", relationship: rel_human_review_postgresql}}
+                - {message: {from: rec, to: dash, style: reply, text: "201 con la nueva revisión", relationship: rel_dashboard_recommendation_service}}
+
+  - id: secuencia-inicio-sesion
+    folder: 05-secuencias
+    order: 18
+    kind: sequence
+    sequence: seq_b_login
+    max_message_width: 150
+    orientation: portrait
+    destination: {documents: [Memoria, Capstone], section: "Implementación: seguridad e identidad (a confirmar por el equipo)"}
+    title: "Inicio de sesión con GitHub mediante OAuth y PKCE"
+    note: "*Nota.* Elaboración propia a partir del modelo de secuencias y del código de ingesta y del dashboard. Flechas negras: implementado; discontinuas: respuestas o redirecciones. Se omiten la custodia del verifier, el registro del intento y el cierre de sesión. El detalle completo está en el repositorio pipesor-docs (Anexo C)."
+    call: "La Figura N describe el inicio de sesión con GitHub. El lector debe observar que el consentimiento se exige antes de redirigir a GitHub, que el código se canjea con el verifier PKCE y que el dashboard recibe un token de sesión firmado con una clave de Key Vault."
+    alt: "Secuencia de inicio de sesión: consentimiento, autorización en GitHub con PKCE, canje del código y token de sesión firmado."
+    simplifications:
+      - "Se omiten la custodia del verifier en Key Vault, los registros de intento en PostgreSQL y el cierre de sesión."
+      - "Las redirecciones del navegador se dibujan como mensajes entre el dashboard, la ingesta y GitHub."
+      - "El uso posterior del token contra Pipeline y Diagnóstico, validado con JWKS, se explica en el texto."
+      - "La casilla de consentimiento del dashboard se representa por el parámetro consent_version."
+    participants:
+      - {id: dash, name: "Dashboard", element: web_dashboard}
+      - {id: ing, name: "Ingesta", element: ingestion_normalization_service}
+      - {id: gh, name: "GitHub", element: github}
+      - {id: kv, name: "Key Vault", element: azure_key_vault}
+    steps:
+      - {message: {from: dash, to: ing, text: "GET start con consent_version", relationship: rel_dashboard_ingestion_github_connection}}
+      - fragment:
+          kind: alt
+          branches:
+            - guard: "falta el consentimiento"
+              steps:
+                - {message: {from: ing, to: dash, style: reply, text: "Redirige con error=consent_required", relationship: rel_dashboard_ingestion_github_connection}}
+            - guard: "consentimiento válido"
+              steps:
+                - {message: {from: ing, to: gh, style: reply, text: "Redirige a authorize con PKCE S256", relationship: rel_ingestion_github_connection}}
+      - {message: {from: gh, to: ing, style: reply, text: "Callback con code y state", relationship: rel_ingestion_github_connection}}
+      - {message: {from: ing, to: gh, text: "Canjea el código con el verifier", relationship: rel_ingestion_github_connection}}
+      - {message: {from: ing, to: gh, text: "Verifica identidad e instalaciones", relationship: rel_ingestion_github_connection}}
+      - {message: {from: ing, to: ing, style: self, text: "Activa el vínculo y registra el consentimiento", relationship: rel_ingestion_postgresql_connector_metadata}}
+      - {message: {from: ing, to: dash, style: reply, text: "Redirige con un handoff de un uso", relationship: rel_dashboard_ingestion_github_connection}}
+      - {message: {from: dash, to: ing, text: "POST sesión con el handoff", relationship: rel_dashboard_ingestion_github_connection}}
+      - {message: {from: ing, to: kv, text: "Firma el token de sesión", relationship: rel_ingestion_key_vault}}
+      - {message: {from: ing, to: dash, style: reply, text: "Token de sesión de una hora", relationship: rel_dashboard_ingestion_github_connection}}
+
+  # ------------------------------------------------------------------------------------------------
+  - id: despliegue-dev
+    folder: 06-despliegue
+    order: 19
+    kind: deployment
+    figure: deploy_dev_runtime
+    orientation: portrait
+    rankdir: [TB]
+    same_rank: [[n_github_actions, n_browser, n_ghcr], [n_postgresql, n_kv_app, n_foundry]]
+    stack: [[n_ingestion, n_jobs]]
+    destination: {documents: [Memoria, Capstone], section: "Implementación: despliegue (a confirmar por el equipo)"}
+    title: "Despliegue del entorno dev en Azure"
+    note: "*Nota.* Elaboración propia a partir de la infraestructura como código y de una observación de solo lectura del 27/11/2026, con PostgreSQL detenido. Todos los elementos dibujados están implementados. Las aplicaciones se agrupan por tipo de ingress. El detalle completo está en el repositorio pipesor-docs (Anexo C)."
+    call: "La Figura N muestra cómo se despliega el prototipo en el entorno dev. Conviene observar que solo cuatro aplicaciones exponen ingress externo y que las imágenes se descargan desde GHCR por digest."
+    alt: "Despliegue dev: Container Apps agrupadas por ingress, jobs, PostgreSQL, Service Bus, Key Vault, Foundry y GHCR."
+    simplifications:
+      - "Los dos Key Vault y los tres jobs se agrupan en un nodo cada uno; las nueve identidades administradas se omiten."
+      - "Las ocho aplicaciones se agrupan en dos nodos según su ingress: externo (dashboard, ingestion, pipeline, recommendation) e interno."
+      - "Todos los recursos de Azure están en el grupo rg-pipesor-dev (westus3); su marco se omite."
+      - "La GitHub App (OAuth con PKCE y webhook) se muestra en las figuras de contexto, contenedores e inicio de sesión."
+      - "Se omiten la red virtual, las subredes, Log Analytics (logs de plataforma) y Application Insights, que está desactivado."
+    nodes:
+      n_browser: {name: "Navegador"}
+      n_github_actions: {name: "GitHub Actions"}
+      n_ghcr: {name: "GHCR", text: "imágenes"}
+      n_ingestion: {name: "dashboard, ingestion, pipeline, recommendation", text: "ingress externo", group: environment,
+                    merge: [n_dashboard, n_pipeline, n_recommendation]}
+      n_nlp: {name: "nlp, rag, correlation, log-event", text: "ingress interno", group: environment, merge: [n_rag, n_correlation, n_log_event]}
+      n_jobs: {name: "3 jobs manuales", group: environment}
+      n_postgresql: {name: "PostgreSQL 17", text: "con pgvector"}
+      n_service_bus: {name: "Service Bus", text: "topic, 3 suscripciones"}
+      n_kv_app: {name: "Key Vault (2)", text: "Claves y secretos"}
+      n_foundry: {name: "Foundry", text: "gpt-6-luna y embeddings"}
+    groups:
+      environment: "Container Apps Environment (dev)"
+    edges:
+      - {from: n_browser, to: n_ingestion, label: "HTTPS"}
+      - {from: n_github_actions, to: n_ingestion, label: "webhook, informe"}
+      - {from: n_ingestion, to: n_service_bus, label: "publica"}
+      - {from: n_service_bus, to: n_ingestion, label: "suscripción"}
+      - {from: n_service_bus, to: n_nlp, label: "suscripciones"}
+      - {from: n_ingestion, to: n_foundry, label: "inferencia"}
+      - {from: n_nlp, to: n_foundry, label: "embeddings"}
+      - {from_group: environment, to: n_postgresql, label: "SQL"}
+      - {from_group: environment, to: n_kv_app, label: "secretos"}
+      - {from: n_ghcr, to_group: environment, label: "imágenes"}
+
+  - id: despliegue-entornos-ramas
+    folder: 06-despliegue
+    order: 20
+    kind: deployment
+    figure: deploy_environments_delivery
+    orientation: portrait
+    same_rank: [[d_dev, d_qa, d_preprod, d_prod]]
+    destination: {documents: [Memoria, Capstone], section: "Implementación: integración y entrega continua (a confirmar por el equipo)"}
+    title: "Estrategia de ramas, entrega de imágenes y entornos"
+    note: "*Nota.* Elaboración propia a partir de los workflows de CI, de la infraestructura como código y de las reglas de los repositorios. Borde continuo: implementado; rojo punteado: propuesto o sin definir. qa, preprod y prod solo tienen fundaciones. El detalle completo está en el repositorio pipesor-docs (Anexo C)."
+    call: "La Figura N resume cómo un cambio llega al entorno dev con una estrategia basada en main. El lector puede distinguir los pasos definidos de la promoción a qa, preprod y prod, que sigue propuesta, y de los puntos todavía sin definir."
+    alt: "Flujo de entrega: rama, PR, squash a main, CI, GHCR, PR de imágenes, plan y apply a dev; qa, preprod y prod propuestos."
+    simplifications:
+      - "Los seis puntos sin definir se agrupan en un nodo."
+      - "El squash a main y el apply se fusionan con el paso anterior."
+      - "La promoción entre entornos reutiliza el mismo digest de imagen; la etiqueta lo abrevia como «digest»."
+      - "El rollback, que restaura la entrada anterior de images.json, se explica en el texto."
+    nodes:
+      d_branch: {name: "Rama feature/ o fix/", group: service}
+      d_pr: {name: "PR con checks y squash a main", group: service, merge: [d_squash]}
+      d_ci: {name: "CI: build, escaneo y publicación", group: service}
+      d_ghcr: {name: "GHCR"}
+      d_images_pr: {name: "PR a images.json", group: iac}
+      d_plan: {name: "Plan y apply manual", group: iac, merge: [d_apply]}
+      d_dev: {name: "dev", group: environments}
+      d_qa: {name: "qa", group: environments}
+      d_preprod: {name: "preprod", group: environments}
+      d_prod: {name: "prod", group: environments}
+      t_gates: {name: "Sin definir", text: "gates, releases, despliegue automático, aprobaciones"}
+    groups:
+      service: "Repositorio de servicio"
+      iac: "Repositorio pipesor-iac"
+      environments: "Entornos"
+    edges:
+      - {from: d_branch, to: d_pr, label: "PR"}
+      - {from: d_pr, to: d_ci, label: "push a main"}
+      - {from: d_ci, to: d_ghcr, label: "imagen candidata"}
+      - {from: d_ci, to: d_images_pr, label: "candidate.json"}
+      - {from: d_images_pr, to: d_plan, label: "tras el merge"}
+      - {from: d_plan, to: d_dev, label: "tras revisar el plan"}
+      - {from: d_ghcr, to: d_dev, label: "digest"}
+      - {from: d_dev, to: d_qa, label: "digest"}
+      - {from: d_qa, to: d_preprod, label: "digest"}
+      - {from: d_preprod, to: d_prod, label: "digest"}

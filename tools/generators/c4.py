@@ -45,13 +45,6 @@ def load_presentation(path=PRESENTATION):
         return (yaml.safe_load(stream) or {}).get("descriptions") or {}
 
 
-def load_print_parts(path=PRESENTATION):
-    if not Path(path).exists():
-        return {}
-    with Path(path).open(encoding="utf-8") as stream:
-        return (yaml.safe_load(stream) or {}).get("print_parts") or {}
-
-
 def load_overlay(path=OVERLAY):
     if not Path(path).exists():
         return {}

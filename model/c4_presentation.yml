@@ -1,4 +1,4 @@
-# Descripciones legibles de los elementos en las vistas C4 canónicas y en sus variantes de impresión.
+# Descripciones legibles de los elementos en las vistas C4 canónicas.
 #
 # Autorizado por el responsable el 27/11/2026 (fase 2 de la auditoría de diagramas, decisión 6),
 # para cumplir la pregunta del checklist de c4model.com «¿Entiendes qué hace cada elemento?».
@@ -38,22 +38,3 @@ descriptions:
   ingestion_publication_component: "Publishes the frozen outputs to Service Bus and confirms them"
   ingestion_sign_in_component: "GitHub sign-in with PKCE and consent; issues signed session tokens"
   ingestion_github_connector_component: "Connects the user's GitHub account, verifies access and discovers workflows"
-
-# Partes de impresión A4 de una vista de componentes que no cabe a 8 pt en una sola página.
-# Cada parte dibuja los componentes indicados, sus relaciones y solo los vecinos con los que se
-# relacionan. La vista canónica completa sigue en out/<vista>.svg. No hay relaciones entre partes.
-print_parts:
-  c4_component_ingestion:
-    - id: c4_component_ingestion_capture
-      title: "C4 Level 3 — Ingestion Components (1/2: capture and publication)"
-      components:
-        - ingestion_webhook_component
-        - ingestion_capture_component
-        - ingestion_preparation_component
-        - ingestion_normalization_component
-        - ingestion_publication_component
-    - id: c4_component_ingestion_identity
-      title: "C4 Level 3 — Ingestion Components (2/2: sign-in and GitHub connector)"
-      components:
-        - ingestion_sign_in_component
-        - ingestion_github_connector_component

@@ -13,8 +13,8 @@
 # deployment.mvp_preparation.deployment_authorized sigue en false en architecture.yml (ADR-019) y
 # este modelo lo muestra como divergencia, sin cambiarlo.
 #
-# Generador: tools/generators/deployment.py. Salidas: build/deploy_*.dot, out/deploy_*.svg,
-# out/despliegue_guia.md y, con --document, out/doc/deploy_*.svg|png.
+# Generador: tools/generators/deployment.py. Salidas: build/deploy_*.dot, out/deploy_*.svg y
+# out/despliegue_guia.md.
 model_version: "1.0.0"
 architecture_source: model/architecture.yml
 overlay_source: model/implementation_status.yml
