@@ -26,7 +26,7 @@ Observación de despliegue (dev, 2026-11-27T22:07Z): 8 Container Apps Healthy (i
 
 ### C4 Level 1 — System Context (`c4_context`)
 
-Figuras: `out/c4_context.svg`, variantes en `out/doc/`.
+Figuras: `out/c4_context.svg`; para documentos: `out/figuras/01-contexto-contenedores/c4-contexto.png`.
 
 | Elemento dibujado | ID de modelo | Estado del modelo | Fuentes | Implementación | Evidencia |
 |---|---|---|---|---|---|
@@ -52,7 +52,7 @@ Figuras: `out/c4_context.svg`, variantes en `out/doc/`.
 
 ### C4 Level 2A — Ingestion and AIOps Processing (`c4_container_processing`)
 
-Figuras: `out/c4_container_processing.svg`, `out/c4_expo_*` y `out/doc/c4_expo_*`.
+Figuras: `out/c4_container_processing.svg`, `out/c4_expo_*`; para documentos: `out/figuras/01-contexto-contenedores/c4-contenedores-procesamiento.png`, `out/figuras/01-contexto-contenedores/c4-contenedores-consumo.png`.
 
 | Elemento dibujado | ID de modelo | Estado del modelo | Fuentes | Implementación | Evidencia |
 |---|---|---|---|---|---|
@@ -101,7 +101,7 @@ Figuras: `out/c4_container_processing.svg`, `out/c4_expo_*` y `out/doc/c4_expo_*
 
 ### C4 Level 2B — Consumption, Governance and Persistence (`c4_container_consumption`)
 
-Figuras: `out/c4_container_consumption.svg`, `out/c4_expo_*` y `out/doc/c4_expo_*`.
+Figuras: `out/c4_container_consumption.svg`, `out/c4_expo_*`; para documentos: `out/figuras/01-contexto-contenedores/c4-contenedores-procesamiento.png`, `out/figuras/01-contexto-contenedores/c4-contenedores-consumo.png`.
 
 | Elemento dibujado | ID de modelo | Estado del modelo | Fuentes | Implementación | Evidencia |
 |---|---|---|---|---|---|
@@ -146,7 +146,7 @@ Figuras: `out/c4_container_consumption.svg`, `out/c4_expo_*` y `out/doc/c4_expo_
 
 ### C4 Level 3 — Diagnostic Components (`c4_component_diagnostic`)
 
-Figuras: `out/c4_component_diagnostic.svg`, variantes en `out/doc/`.
+Figuras: `out/c4_component_diagnostic.svg`; para documentos: `out/figuras/02-componentes/componentes-diagnostico.png`.
 
 | Elemento dibujado | ID de modelo | Estado del modelo | Fuentes | Implementación | Evidencia |
 |---|---|---|---|---|---|
@@ -176,7 +176,7 @@ Figuras: `out/c4_component_diagnostic.svg`, variantes en `out/doc/`.
 
 ### C4 Level 3 — Ingestion Components (`c4_component_ingestion`)
 
-Figuras: `out/c4_component_ingestion.svg`, variantes en `out/doc/`.
+Figuras: `out/c4_component_ingestion.svg`; para documentos: `out/figuras/02-componentes/componentes-ingesta.png`.
 
 | Elemento dibujado | ID de modelo | Estado del modelo | Fuentes | Implementación | Evidencia |
 |---|---|---|---|---|---|
@@ -416,7 +416,9 @@ Figuras: `out/c4_component_ingestion.svg`, variantes en `out/doc/`.
 
 ## Modelo de datos
 
-### Modelo de datos (ER) — `out/er.svg` y `out/doc/er_*`
+### Modelo de datos (ER) — `out/er.svg`
+
+Figuras para documentos, una por esquema: `out/figuras/04-datos/datos-operacion.png`, `out/figuras/04-datos/datos-evidencia-auditoria.png`, `out/figuras/04-datos/datos-diagnostico.png`, `out/figuras/04-datos/datos-conocimiento.png`, `out/figuras/04-datos/datos-ingesta.png`.
 
 | Tabla | ID de entidad | Owner | Estado del modelo | Fuentes | Implementación | Evidencia (CREATE TABLE) |
 |---|---|---|---|---|---|---|

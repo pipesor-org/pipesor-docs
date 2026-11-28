@@ -1,13 +1,9 @@
-"""Bounded-context class diagrams: implementation status, code evidence, containers and A4 print."""
+"""Bounded-context class diagrams: implementation status, code evidence and containers."""
 
 from collections import Counter
 from copy import deepcopy
-import os
 from pathlib import Path
-import shutil
-import subprocess
 import sys
-import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,7 +11,6 @@ sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(ROOT / "tools" / "generators"))
 from validate_design import check_declarations, load_models, validate_design  # noqa: E402
 from tools.generators import classes as generator  # noqa: E402
-import document_figures  # noqa: E402
 import evidence  # noqa: E402
 
 NOT_IMPLEMENTED = {
@@ -186,7 +181,6 @@ class BoundedContextDesignTests(unittest.TestCase):
         self.model = deepcopy(self.design)
         self.model["relationships"].append({"from": "OrchestratorHypothesis", "to": "Recommendation", "type": "realizes",
                                             "label": "x"})
-        self.model["class_diagrams"][8]["print_parts"][0]["elements"].append("OrchestratorHypothesis")
         self.rejected("realizes requires an implemented, partial or divergent proposal")
         self.model = deepcopy(self.design)
         self.model["relationships"].append({"from": "OrchestratorHypothesis", "to": "Recommendation", "type": "uses"})
@@ -204,19 +198,6 @@ class BoundedContextDesignTests(unittest.TestCase):
         cd9 = next(d for d in self.model["class_diagrams"] if d["id"] == "CD-9")
         cd9["summary_members"].append("OrchestratorDiagnosis")
         self.rejected("CD-9: summary_members must be proposed members")
-
-    def test_print_parts_keep_members_and_relationships(self):
-        cd4 = next(d for d in self.model["class_diagrams"] if d["id"] == "CD-4")
-        cd4["print_parts"][-1]["elements"].remove("IncidentRunRole")
-        self.rejected("CD-4: print parts omit members ['IncidentRunRole']")
-        self.model = deepcopy(self.design)
-        cd4 = next(d for d in self.model["class_diagrams"] if d["id"] == "CD-4")
-        cd4["print_parts"][0]["elements"].remove("ExecutionOutcome")
-        cd4["print_parts"][2]["elements"].append("ExecutionOutcome")
-        self.rejected("CD-4: print parts omit relationship Incident -> ExecutionOutcome")
-        self.model = deepcopy(self.design)
-        next(d for d in self.model["class_diagrams"] if d["id"] == "CD-4")["print_parts"][1]["suffix"] = "z"
-        self.rejected("CD-4: print part suffixes must be a, b, c... in order")
 
     # Generation ----------------------------------------------------------------------------
     def test_status_marks_and_titles(self):
@@ -237,61 +218,12 @@ class BoundedContextDesignTests(unittest.TestCase):
         summary = sources["CD-9"].split('"Diagnosis" as Diagnosis', 1)[1].split("}", 1)[0]
         self.assertNotIn("-id:", summary)
 
-    def test_member_wrapping_keeps_compartments(self):
-        lines = generator.member_lines("+appendHumanReviewMetadata(UUID, UUID, String, HumanReviewDecision, Instant, "
-                                       "String): void", True, "method")
-        self.assertGreater(len(lines), 1)
-        self.assertTrue(all(line.startswith("  {method}") for line in lines[1:]))
-        self.assertEqual(generator.member_lines("-id: UUID", True), ["  -id: UUID"])
-
-    def test_deterministic_print_sources(self):
-        script = (
-            "from tools.generators.classes import *; "
-            "d,a,m=load_models([ROOT/'model/design.yml',ROOT/'model/architecture.yml',ROOT/'model/domain.yml']); "
-            "print(''.join(generate_puml(d,v,document=True,members=p['elements'],title=p['title'],direction=l[0],"
-            "clusters=l[1],wrap=l[2],anchors=l[3]) for v in d['class_diagrams'] for p in v['print_parts'] "
-            "for l in PRINT_LAYOUTS))")
-        outputs = [subprocess.run([sys.executable, "-c", script], cwd=ROOT,
-                                  env={**os.environ, "PYTHONHASHSEED": seed}, capture_output=True,
-                                  text=True, check=True, timeout=60).stdout for seed in ("1", "42")]
-        self.assertEqual(*outputs)
-
     def test_navigation_covers_every_diagram(self):
         navigation = generator.navigation_markdown(self.model, self.architecture)
         for diagram in self.model["class_diagrams"]:
             self.assertIn(f"({diagram['id']}.svg)", navigation)
         self.assertIn("[`c4_container_processing`](c4_container_processing.svg) → `rag_retrieval` → [CD-11]",
                       navigation)
-
-    def test_normalized_svg_root_accepts_print_size(self):
-        with tempfile.TemporaryDirectory() as folder:
-            svg = Path(folder) / "x.svg"
-            svg.write_text('<svg xmlns="http://www.w3.org/2000/svg" style="width:300px;height:100px;background:#FFF;" '
-                           'width="300px" height="100px" viewBox="0 0 300 100"><text font-size="12">a</text></svg>',
-                           encoding="utf-8")
-            generator.normalize_svg_root(svg)
-            document_figures.set_svg_print_size(svg, 10.0, 3.33)
-            text = svg.read_text(encoding="utf-8")
-            self.assertTrue(text.startswith('<svg width="10.00cm" height="3.33cm" '))
-            self.assertNotIn("width:300px", text)
-
-    @unittest.skipUnless(shutil.which("java") and shutil.which("dot"), "PlantUML needs Java and Graphviz")
-    def test_print_parts_reach_eight_points(self):
-        model = deepcopy(self.design)
-        model["class_diagrams"] = [d for d in model["class_diagrams"] if d["id"] in {"CD-7", "CD-10"}]
-        with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as folder:
-            _, measured = generator.measure_print(model, Path(folder) / "classes")
-            for diagram in model["class_diagrams"]:
-                for part in diagram["print_parts"]:
-                    fid = diagram["id"] + part["suffix"]
-                    with self.subTest(figure=fid):
-                        pick = generator.best(measured[fid], document_figures.MIN_POINTS,
-                                              document_figures.TARGET_POINTS)
-                        self.assertIsNotNone(pick)
-                        layout, page, _, width, height, smallest = pick
-                        self.assertGreaterEqual(smallest, document_figures.MIN_POINTS)
-                        self.assertLessEqual(width, document_figures.PAGES[page][0] + 1e-6)
-                        self.assertLessEqual(height, document_figures.PAGES[page][1] + 1e-6)
 
     @unittest.skipUnless((WORKSPACE / "services").is_dir(), "sibling clones not available")
     def test_workspace_declarations(self):

@@ -736,7 +736,6 @@ def check_diagrams(design, classes, elements, views, containers, architecture):
         errors.append("diagram IDs must be unique")
     component_view = RECOMMENDATION_RULES["navigation_views"][-1]
     container_views = [v for v in views.values() if v.get("kind") == "c4_container"]
-    relationships = [r for r in design["relationships"] if isinstance(r, dict)]
     used, detailed = set(), set()
     for diagram in diagrams:
         did, zoom = diagram.get("id"), diagram.get("zoom_target")
@@ -788,44 +787,12 @@ def check_diagrams(design, classes, elements, views, containers, architecture):
         notes = diagram.get("notes", [])
         if not isinstance(notes, list) or any(not isinstance(n, str) or not n.strip() for n in notes):
             errors.append(f"{did}: notes must be nonempty strings")
-        errors.extend(check_print_parts(diagram, relationships))
     for diagram in diagrams:
         missing = set(diagram.get("summary_members", [])) - detailed
         if missing:
             errors.append(f"{diagram.get('id')}: summary members {sorted(missing)} need a detailed figure")
     if used != set(classes):
         errors.append(f"unrendered/unknown classes: {sorted(used ^ set(classes))}")
-    return errors
-
-
-def check_print_parts(diagram, relationships):
-    """Print parts split a figure for A4; together they keep every member and relationship."""
-    did, members = diagram["id"], diagram["elements"]
-    parts = diagram.get("print_parts")
-    if parts is None:
-        return []
-    errors = []
-    if not isinstance(parts, list) or len(parts) < 2 or any(not isinstance(p, dict) for p in parts):
-        return [f"{did}: print_parts must list at least two parts"]
-    suffixes = [p.get("suffix") for p in parts]
-    if suffixes != [chr(ord("a") + i) for i in range(len(parts))]:
-        errors.append(f"{did}: print part suffixes must be a, b, c... in order")
-    covered = set()
-    for part in parts:
-        where = f"{did}{part.get('suffix')}"
-        elements = part.get("elements")
-        if not isinstance(part.get("title"), str) or not part["title"].strip():
-            errors.append(f"{where}: print part title required")
-        if not isinstance(elements, list) or not elements or not set(elements) <= set(members):
-            errors.append(f"{where}: print part elements must be members of {did}")
-            continue
-        covered.update(elements)
-    if covered != set(members):
-        errors.append(f"{did}: print parts omit members {sorted(set(members) - covered)}")
-    for rel in relationships:
-        if rel.get("from") in members and rel.get("to") in members and not any(
-                {rel["from"], rel["to"]} <= set(p.get("elements") or []) for p in parts):
-            errors.append(f"{did}: print parts omit relationship {rel['from']} -> {rel['to']}")
     return errors
 
 

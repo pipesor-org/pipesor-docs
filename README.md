@@ -273,16 +273,18 @@ Las vistas C4, lógicas y físicas se regeneraron. El C4 de componentes ya no re
 descripciones y muestra los elementos externos con texto oscuro. Modelar no acredita
 despliegue.
 
-## Figuras para documentos — 24/11/2026
+## Figuras para documentos — 27/11/2026
 
-Las vistas de [`out/`](out/) están pensadas para diapositivas de 16:9. Insertadas a 15,9 cm, el
-ancho útil de una página A4, su texto queda entre 3 y 6 pt. `make doc-figures`, incluido en
-`make all`, genera en [`out/doc/`](out/doc/) variantes de impresión de las vistas lógicas,
-físicas, C4 2A/2B y C4 de componentes. Usan los mismos modelos, con flechas numeradas, sin
-iconos y con el texto a la escala de la página. Las C4 2A/2B conservan sus posiciones y rutas.
+Las vistas de [`out/`](out/) están pensadas para pantalla y diapositivas de 16:9; insertadas a
+15,9 cm, el ancho útil de una página A4, su texto queda entre 3 y 6 pt. Para la Memoria de Tesis
+y el Capstone, `make figuras`, incluido en `make all`, genera en [`out/figuras/`](out/figuras/README.md)
+veinte figuras desde [`model/document_figures.yml`](model/document_figures.yml): contexto y
+contenedores, componentes, clases, datos, secuencias y despliegue, cada una en su carpeta.
 
-El generador prueba varias composiciones y elige una en la que ningún texto impreso baja de 8 pt
-en A4 con márgenes de 2,54 cm. [`out/doc/guia_figuras.md`](out/doc/guia_figuras.md) indica para
-cada figura la orientación, el tamaño de inserción y el texto mínimo. Cuando la leyenda no cabe
-legible dentro de la figura, la guía trae la tabla de relaciones para colocarla junto a ella.
-Los PNG declaran 300 ppp: insertados al 100 %, conservan el tamaño comprobado.
+Cada figura ocupa una página y no se parte: cabe en 15,9 × 19,0 cm, su texto mide 9 pt o más al
+ancho indicado y el PNG declara 300 ppp, de modo que insertado al 100 % conserva el tamaño
+comprobado. Las etiquetas están en español y solo distinguen tres estados (implementado, parcial
+y propuesto) por estilo de línea y color. El título APA, la nota, el párrafo de llamada, el texto
+alternativo y lo que se simplificó están en el README de cada carpeta; el detalle técnico sigue en
+las vistas completas y en [`out/trazabilidad.md`](out/trazabilidad.md). Sustituyen a las variantes
+partidas de `out/doc/`, retiradas el mismo día.

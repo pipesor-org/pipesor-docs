@@ -117,9 +117,8 @@ Alcance:
 - La capa de una clase de código se deriva de su paquete; si el paquete no
   nombra capa (`diagnosis.review`, `receipt`, módulos planos de RAG) es
   `unlayered`. Es un hecho del código y no responde la pregunta 24.
-- Impresión A4: cada figura declara `print_parts`, partes coherentes que juntas
-  conservan todos los miembros y relaciones. El generador elige dirección,
-  agrupación y página para que ningún texto quede por debajo de 8 pt.
+- Las figuras para documentos se generan aparte, en `out/figuras/`, desde
+  `model/document_figures.yml`; este modelo no declara su composición.
 
 Límites: no cambia `model/architecture.yml` ni `model/domain.yml`; las clases
 `proposed` siguen siendo propuesta y un estado `implemented` no aprueba el

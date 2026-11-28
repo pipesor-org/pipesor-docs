@@ -6,22 +6,18 @@ participants, or is marked implementation-only with a reason; every message carr
 implementation state and repo:path:line evidence (tools/generators/evidence.py). The generator
 draws what the model and the code say; it adds no architecture and proves no runtime behaviour.
 
-Outputs: build/<id>.puml and out/<id>.svg (full views), out/secuencias_guia.md (Spanish guide
-with the evidence of every step) and, with --document or render_documents(), print variants for
-A4 in out/doc/ (long sequences split at their sections, numbering kept continuous).
+Outputs: build/<id>.puml and out/<id>.svg (full views) and out/secuencias_guia.md (Spanish guide
+with the evidence of every step).
 """
 
 from __future__ import annotations
 
 import argparse
-from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
 from pathlib import Path
 import re
 import shutil
 import subprocess
 import sys
-import tempfile
 
 import yaml
 
@@ -35,8 +31,6 @@ MODEL = ROOT / "model" / "sequence_presentation.yml"
 ARCHITECTURE = ROOT / "model" / "architecture.yml"
 BUILD = ROOT / "build"
 OUT = ROOT / "out"
-DOC_BUILD = BUILD / "doc"
-DOC_OUT = OUT / "doc"
 GUIDE = OUT / "secuencias_guia.md"
 JAR = ROOT / "tools" / "plantuml.jar"
 
@@ -65,14 +59,12 @@ FONT = 12
 TITLE_FONT = 14
 # Message labels are wrapped here, not by PlantUML: a label may use the room of every lifeline gap
 # its arrow spans, so long arrows keep one or two lines and short ones stay narrow.
-CHARS_PER_GAP = {"full": 40, "print": 22}
-MAX_CHARS = {"full": 110, "print": 60}
-PER_GAP_OPTIONS = (17, 22, 30)  # label widths tried for every print candidate; the most legible wins
-NOTE_CHARS = 48  # characters per note line (notes appear in the full view only)
-GUARD_WRAP = {"full": 90, "print": 48}  # characters per line of a fragment guard
-TITLE_WRAP = {"full": 140}  # characters per title line
+CHARS_PER_GAP = 40
+MAX_CHARS = 110
+NOTE_CHARS = 48  # characters per note line
+GUARD_WRAP = 90  # characters per line of a fragment guard
+TITLE_WRAP = 140  # characters per title line
 FOOTER = "Generated from model/sequence_presentation.yml; evidence in out/secuencias_guia.md"
-CANDIDATE_SPAN = 3  # sections added per PlantUML run while extending a print part
 
 MODEL_KEYS = {"model_version", "purpose", "authorization", "architecture_source", "evidence_source",
               "audit_sources", "sequences"}
@@ -164,10 +156,6 @@ def validate(presentation, architecture, repos=None):
         seen.add(sid)
         where = f"sequence {sid}"
         errors.extend(validate_sequence(sequence, ctx, repos, where))
-    # Print parts are named <id>_p<n>; they must not collide with another sequence.
-    for sid in seen:
-        if isinstance(sid, str) and re.fullmatch(r".+_p\d+", sid) and re.sub(r"_p\d+$", "", sid) in seen:
-            errors.append(f"sequence {sid}: id collides with a print part of another sequence")
     return errors
 
 
@@ -405,13 +393,13 @@ def message_label(message, width):
     return "\\n".join(lines)
 
 
-def label_width(message, order, mode, per_gap=None):
+def label_width(message, order):
     """Characters per line: the room of the lifeline gaps the arrow spans."""
     span = max(abs(order[message["to"]] - order[message["from"]]), 1)
-    return min((per_gap or CHARS_PER_GAP[mode]) * span, MAX_CHARS[mode])
+    return min(CHARS_PER_GAP * span, MAX_CHARS)
 
 
-def legend_lines(mode):
+def legend_lines():
     """Short lines: arrow colour and tag give the implementation state of each message."""
     def item(state, text=None):
         tag = STATE_TAGS[state]
@@ -422,13 +410,10 @@ def legend_lines(mode):
             f"{item('divergent')}   {item('not_implemented', 'modeled only')}",
             f"{item('external', 'not verifiable in code')}   <i>italic</i>: implemented, not modeled",
             "──▶ call   ╌╌▶ reply   ╌╌▷ asynchronous   dashed box: not in architecture.yml",
-            # Print variants hide the stereotypes, as the other document figures do.
-            *(["Boxes: blue container or component · gray external system or person · green datastore"]
-              if mode == "print" else []),
             "endlegend"]
 
 
-def header(title, mode, start):
+def header(title):
     return ["@startuml",
             "skinparam shadowing false",
             f"skinparam defaultFontSize {FONT}",
@@ -448,13 +433,11 @@ def header(title, mode, start):
             "}",
             "</style>",
             "hide footbox",
-            *(["hide stereotype"] if mode == "print" else []),
-            # Print variants carry their title in the document caption, as the other document figures.
-            *([f"title {wrapped(title, TITLE_WRAP[mode])}"] if mode == "full" else []),
-            f"autonumber {start}"]
+            f"title {wrapped(title, TITLE_WRAP)}",
+            "autonumber 1"]
 
 
-def emit(steps, mode, order, lines, depth=0, per_gap=None):
+def emit(steps, order, lines, depth=0):
     pad = "  " * depth
     for step in steps:
         if "section" in step:
@@ -463,46 +446,44 @@ def emit(steps, mode, order, lines, depth=0, per_gap=None):
             m = step["message"]
             color = STATE_COLORS[m["state"]]
             arrow = ARROWS[m["style"]]
-            label = message_label(m, label_width(m, order, mode, per_gap))
+            label = message_label(m, label_width(m, order))
             lines.append(f"{pad}{m['from']} -[{color}]{arrow[1:]} {m['to']} : {label}")
-            if mode == "full" and m.get("note"):
+            if m.get("note"):
                 lines.append(f"{pad}note right #FFF8E1: {wrapped(m['note'], NOTE_CHARS)}")
         else:
             f = step["fragment"]
             for index, branch in enumerate(f["branches"]):
-                guard = wrapped(branch["guard"], GUARD_WRAP[mode])
+                guard = wrapped(branch["guard"], GUARD_WRAP)
                 if f["kind"] == "loop":
-                    guard = wrapped(f["label"], GUARD_WRAP[mode])
+                    guard = wrapped(f["label"], GUARD_WRAP)
                 elif f["kind"] == "group":
-                    guard = f"{wrapped(f['label'], GUARD_WRAP[mode])} [{guard}]"
+                    guard = f"{wrapped(f['label'], GUARD_WRAP)} [{guard}]"
                 lines.append(f"{pad}{f['kind'] if index == 0 else 'else'} {guard}")
-                emit(branch["steps"], mode, order, lines, depth + 1, per_gap)
+                emit(branch["steps"], order, lines, depth + 1)
             lines.append(f"{pad}end")
 
 
-def generate_puml(sequence, ctx, *, mode="full", steps=None, start=1, title=None, participants=None, per_gap=None):
-    """PlantUML source of a sequence (or of a print part when steps/participants are given)."""
-    steps = sequence["steps"] if steps is None else steps
-    if participants is None:
-        participants = sequence["participants"]
-    lines = header(title or sequence["title"], mode, start)
+def generate_puml(sequence, ctx):
+    """PlantUML source of a sequence."""
+    participants = sequence["participants"]
+    lines = header(sequence["title"])
     lines.extend(participant_line(p, ctx) for p in participants)
-    emit(steps, mode, {p["id"]: index for index, p in enumerate(participants)}, lines, per_gap=per_gap)
-    lines.extend(legend_lines(mode))
+    emit(sequence["steps"], {p["id"]: index for index, p in enumerate(participants)}, lines)
+    lines.extend(legend_lines())
     lines.extend([f"footer {creole(FOOTER)}", "@enduml", ""])
     return "\n".join(lines)
 
 
-def plantuml(paths, out_dir, fmt="svg"):
-    """Compile PlantUML sources into out_dir (absolute) and return the produced files."""
+def plantuml(paths, out_dir):
+    """Compile PlantUML sources into SVG files in out_dir (absolute) and return them."""
     out_dir.mkdir(parents=True, exist_ok=True)
     command = ["java", "-Djava.awt.headless=true", "-DPLANTUML_LIMIT_SIZE=16384", "-jar", str(JAR),
-               "-charset", "UTF-8", f"-t{fmt}", "-failfast2", "-nometadata", "-o", str(out_dir.resolve()),
+               "-charset", "UTF-8", "-tsvg", "-failfast2", "-nometadata", "-o", str(out_dir.resolve()),
                *map(str, paths)]
     result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
     if result.returncode:
         raise RuntimeError(f"PlantUML failed ({result.returncode}): {result.stdout}{result.stderr}".strip())
-    produced = [out_dir / f"{Path(p).stem}.{fmt}" for p in paths]
+    produced = [out_dir / f"{Path(p).stem}.svg" for p in paths]
     for path in produced:
         if not path.is_file() or path.stat().st_size == 0:
             raise RuntimeError(f"PlantUML did not produce {path}")
@@ -510,7 +491,7 @@ def plantuml(paths, out_dir, fmt="svg"):
 
 
 def normalize_svg(path):
-    """Put width/height first on the root and drop the CSS size, so the print size can be set."""
+    """Put width/height first on the root and drop the CSS size."""
     data = path.read_text(encoding="utf-8")
     start = data.index("<svg")
     end = data.index(">", start)
@@ -579,12 +560,8 @@ def guide(presentation, ctx, repos):
               "  outbox). Discontinua con punta llena: respuesta. Flecha sobre el mismo participante: paso interno.",
               "- Una relación del contenedor se acepta para un participante componente y al revés; las respuestas",
               "  recorren la relación en sentido inverso.",
-              "- Las notas solo aparecen en la vista completa (`out/<id>.svg`); en la impresión están en esta guía.",
-              "- La impresión omite el título (va en el pie de figura del documento) y los estereotipos, como las",
-              "  demás figuras para documentos: azul, contenedor o componente; gris, sistema externo o persona; verde,",
-              "  almacén de datos; blanca con borde discontinuo, implementación no modelada.",
-              "- Las variantes de impresión A4 (`out/doc/seq_*`) dividen las secuencias largas por secciones en",
-              "  partes con numeración continua; sus tamaños están en `out/doc/guia_figuras.md`.", ""]
+              "- Las notas aparecen en la vista completa (`out/<id>.svg`). Las figuras para documentos están en",
+              "  `out/figuras/05-secuencias/`.", ""]
     for sequence in presentation["sequences"]:
         participants = {p["id"]: p for p in sequence["participants"]}
         names = {pid: p["name"] for pid, p in participants.items()}
@@ -654,194 +631,6 @@ def guide(presentation, ctx, repos):
 
 
 # --------------------------------------------------------------------------------------------
-# Print variants
-
-
-@dataclass
-class Part:
-    id: str
-    title: str
-    sequence: dict
-    steps: list
-    start: int
-    participants: list
-    per_gap: int = CHARS_PER_GAP["print"]
-
-    def puml(self, ctx):
-        return generate_puml(self.sequence, ctx, mode="print", steps=self.steps, start=self.start,
-                             title=self.title, participants=self.participants, per_gap=self.per_gap)
-
-
-def sections(sequence):
-    """Split the top-level steps at each section marker."""
-    groups = []
-    for step in sequence["steps"]:
-        if "section" in step or not groups:
-            groups.append([])
-        groups[-1].append(step)
-    return groups
-
-
-def part_of(sequence, groups, first, last, title_suffix, per_gap=CHARS_PER_GAP["print"]):
-    """Sections first..last of a sequence, with the lifelines they use and continuous numbering."""
-    steps = [step for group in groups[first:last + 1] for step in group]
-    start = 1 + sum(len(messages(group)) for group in groups[:first])
-    used = set()
-    for m in messages(steps):
-        used.update((m["from"], m["to"]))
-    participants = [p for p in sequence["participants"] if p["id"] in used]
-    return Part("", sequence["title"] + title_suffix, sequence, steps, start, participants, per_gap)
-
-
-def measure(parts, ctx, directory):
-    """Render candidate parts in one PlantUML run and return their printed sizes per page."""
-    doc = _document_figures()
-    sources = []
-    for index, part in enumerate(parts):
-        source = directory / f"candidate_{index:03d}.puml"
-        source.write_text(part.puml(ctx), encoding="utf-8")
-        sources.append(source)
-    return [{page: doc.printed_sizes(svg, page) for page in doc.PAGES} for svg in plantuml(sources, directory)]
-
-
-def plan_parts(sequence, ctx, directory):
-    """Split a sequence at section boundaries into the fewest parts legible on an A4 page.
-
-    Returns [(first group, last group, page, label width)]. A uniform orientation is preferred
-    when it needs no more parts than a mixed one; portrait wins ties.
-    """
-    doc = _document_figures()
-    groups = sections(sequence)
-    best = {}  # (first, last) -> {page: (smallest printed pt, label width)}
-
-    def legible(first, last):
-        if (first, last) not in best:
-            # One PlantUML run measures the next few extensions of a part that starts at `first`.
-            ends = range(last, min(last + CANDIDATE_SPAN, len(groups)))
-            keys = [(end, width) for end in ends for width in PER_GAP_OPTIONS]
-            candidates = [part_of(sequence, groups, first, end, "", width) for end, width in keys]
-            for (end, width), result in zip(keys, measure(candidates, ctx, directory)):
-                entry = best.setdefault((first, end), {})
-                for page in doc.PAGES:
-                    if page not in entry or result[page][3] > entry[page][0]:
-                        entry[page] = (result[page][3], width)
-        return best[(first, last)]
-
-    def fits(first, last, pages):
-        return any(legible(first, last)[page][0] >= doc.MIN_POINTS for page in pages)
-
-    def greedy(pages):
-        plan, first = [], 0
-        while first < len(groups):
-            if not fits(first, first, pages):
-                return None
-            last = first
-            while last + 1 < len(groups) and fits(first, last + 1, pages):
-                last += 1
-            page = next(p for p in pages if legible(first, last)[p][0] >= doc.MIN_POINTS)
-            plan.append((first, last, page, legible(first, last)[page][1]))
-            first = last + 1
-        return plan
-
-    plans = [plan for plan in (greedy(("portrait",)), greedy(("landscape",))) if plan]
-    mixed = greedy(("portrait", "landscape"))
-    if mixed is None:
-        bad = next(i for i in range(len(groups)) if not fits(i, i, tuple(doc.PAGES)))
-        title = groups[bad][0].get("section", "(untitled)")
-        raise ValueError(f"{sequence['id']}: section {title!r} does not reach {doc.MIN_POINTS} pt on an A4 page")
-    uniform = min(plans, key=len) if plans else None
-    return uniform if uniform and len(uniform) <= len(mixed) else mixed
-
-
-def print_parts(sequence, ctx, directory):
-    groups = sections(sequence)
-    plan = plan_parts(sequence, ctx, directory)
-    parts = []
-    for number, (first, last, page, width) in enumerate(plan, 1):
-        suffix = "" if len(plan) == 1 else f" (part {number} of {len(plan)})"
-        part = part_of(sequence, groups, first, last, suffix, width)
-        part.id = sequence["id"] if len(plan) == 1 else f"{sequence['id']}_p{number}"
-        parts.append((part, page))
-    return parts
-
-
-def _document_figures():
-    # Imported on use: document_figures may import this module to collect the print variants.
-    try:
-        from . import document_figures
-    except ImportError:
-        import document_figures
-    return document_figures
-
-
-def render_parts(planned, ctx, out, build, scratch):
-    """Render [(part, page)] in two PlantUML runs (SVG, then PNG at 300 dpi of the printed width)."""
-    doc = _document_figures()
-    sources = []
-    for part, _ in planned:
-        source = build / f"{part.id}.puml"
-        source.write_text(part.puml(ctx), encoding="utf-8")
-        sources.append(source)
-    svgs = plantuml(sources, out)
-    figures, png_sources = [], []
-    for (part, page), source, svg in zip(planned, sources, svgs):
-        normalize_svg(svg)
-        _, width_cm, height_cm, smallest = doc.printed_sizes(svg, page)
-        if smallest < doc.MIN_POINTS:
-            raise ValueError(f"{part.id}: smallest text {smallest:.1f} pt on {page}")
-        doc.set_svg_print_size(svg, width_cm, height_cm)
-        view_width = float(re.search(r'viewBox="[\d.]+ [\d.]+ ([\d.]+)', svg.read_text(encoding="utf-8")).group(1))
-        # PlantUML draws one pixel per SVG unit at 96 dpi; scale it to PNG_DPI at the printed width.
-        dpi = round(96 * (width_cm / 2.54 * doc.PNG_DPI) / view_width)
-        png_source = scratch / f"{part.id}.puml"
-        png_source.write_text(source.read_text(encoding="utf-8").replace(
-            "@startuml\n", f"@startuml\nskinparam dpi {dpi}\n", 1), encoding="utf-8")
-        png_sources.append(png_source)
-        figures.append({"id": part.id, "title": part.title, "page": page, "legend": "en la figura",
-                        "width_cm": round(width_cm, 2), "height_cm": round(height_cm, 2),
-                        "min_pt": round(smallest, 2)})
-    for png in plantuml(png_sources, out, "png"):
-        doc.set_png_dpi(png, doc.PNG_DPI)
-    return figures
-
-
-def render_part(part, page, ctx, out, build, scratch):
-    return render_parts([(part, page)], ctx, out, build, scratch)[0]
-
-
-def render_documents(out=DOC_OUT, build=DOC_BUILD, model_path=MODEL, architecture_path=ARCHITECTURE):
-    """Print variants for A4 (out/doc/<id>.svg and .png at 300 dpi); returns one dict per figure.
-
-    Each dict has id, title, page ('portrait' or 'landscape'), legend ('en la figura'), width_cm,
-    height_cm and min_pt (smallest printed text once inserted at that size).
-    """
-    presentation, architecture = load_models(model_path, architecture_path)
-    errors = validate(presentation, architecture)
-    if errors:
-        raise ValueError("sequence presentation invalid:\n" + "\n".join(errors))
-    ctx = Context(architecture)
-    out, build = Path(out), Path(build)
-    out.mkdir(parents=True, exist_ok=True)
-    build.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="pipesor-seq-") as tmp:
-        scratch = Path(tmp)
-        directories = []
-        for sequence in presentation["sequences"]:
-            directories.append(scratch / sequence["id"])
-            directories[-1].mkdir()
-        # Sequences are planned independently; results keep the model order.
-        with ThreadPoolExecutor(max_workers=len(directories)) as pool:
-            plans = list(pool.map(lambda args: print_parts(args[0], ctx, args[1]),
-                                  zip(presentation["sequences"], directories)))
-        planned = [item for plan in plans for item in plan]
-        expected = {part.id for part, _ in planned}
-        for stale in [*out.glob("seq_*.svg"), *out.glob("seq_*.png"), *build.glob("seq_*.puml")]:
-            if stale.stem not in expected:
-                stale.unlink()
-        return render_parts(planned, ctx, out, build, scratch)
-
-
-# --------------------------------------------------------------------------------------------
 
 
 def render_full(presentation, ctx, out=OUT, build=BUILD):
@@ -865,7 +654,6 @@ def render_full(presentation, ctx, out=OUT, build=BUILD):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--validate-only", action="store_true", help="validate the model and stop")
-    parser.add_argument("--document", action="store_true", help="also render the A4 print variants in out/doc")
     args = parser.parse_args(argv)
     presentation, architecture = load_models()
     repos = evidence.repositories()
@@ -886,10 +674,6 @@ def main(argv=None):
         print(f"generated: {svg.relative_to(ROOT)}")
     GUIDE.write_text(guide(presentation, ctx, repos), encoding="utf-8")
     print(f"generated: {GUIDE.relative_to(ROOT)}")
-    if args.document:
-        for figure in render_documents():
-            print(f"generated: out/doc/{figure['id']}.svg/.png ({figure['page']}, {figure['width_cm']:.1f}x"
-                  f"{figure['height_cm']:.1f} cm, min {figure['min_pt']:.1f} pt)")
     return 0
 
 

@@ -232,7 +232,7 @@ Registrarlo exige un DD y, si se quiere en `domain.yml`, un campo de custodio qu
 
 Por eso las Figuras 1 y 7 repiten huella. Al ancho de inserción del documento (15,8 cm y 23,6 cm en la Figura 1), los textos se imprimen entre 3,3 y 5,6 pt; solo los títulos superan 7 pt.
 
-Las variantes de `out/doc/` se comprueban para que ningún texto baje de 8 pt en A4. La [guía de figuras](../../out/doc/guia_figuras.md) indica la orientación y el tamaño de inserción de cada una. Reinsertarlas en el Capstone es tarea de sus autores.
+Las variantes de `out/doc/` se comprobaban para que ningún texto bajara de 8 pt en A4. El 27/11/2026 las sustituyeron las figuras de [`out/figuras/`](../../out/figuras/README.md): una por página, sin partes, con texto de 9 pt o más y su título, nota APA y ancho de inserción en el README de cada carpeta. Reinsertarlas en el Capstone es tarea de sus autores.
 
 **Hallazgo nuevo.** pipesor-iac crea la clave `pipesor-rag-signing`, le da a RAG el rol Crypto User y le pasa `PIPESOR_SIGNING_KEY_ID`, pero RAG no firma tokens: solo valida JWKS. Además, `docs/key-vault-integration.md` de pipesor-iac contradice el módulo `workloads` en:
 

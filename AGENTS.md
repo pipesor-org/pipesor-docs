@@ -11,7 +11,7 @@ Codex is NOT the architecture decision authority.
 - Persistent domain SSOT: `model/domain.yml`, explained by `model/domain_decisions.md`, within ADR-018 boundaries.
 - Proposed class-design SSOT: `model/design.yml`, explained by `model/design_decisions.md`. It describes proposed classes, not approved or implemented application code.
 - Presentation models: `model/logical_presentation.yml`, `model/physical_presentation.yml` and `model/c4_container_presentation.yml`. They define visual composition and projections of existing architecture facts; they cannot create architectural decisions.
-- Implementation overlay: `model/implementation_status.yml` (authorized by the owner on 27/11/2026) records, for existing architecture and domain IDs, whether code implements them and where (`repo:path:line` at pinned revisions). It creates, removes or reinterprets no architecture, cannot change `status` or `source`, and closes no open question. `model/c4_presentation.yml`, `model/sequence_presentation.yml` and `model/deployment_presentation.yml` (same date) are presentation models under the rules above; participants or nodes marked `implementation_only` show implemented facts that are not modeled and never become architecture by being drawn.
+- Implementation overlay: `model/implementation_status.yml` (authorized by the owner on 27/11/2026) records, for existing architecture and domain IDs, whether code implements them and where (`repo:path:line` at pinned revisions). It creates, removes or reinterprets no architecture, cannot change `status` or `source`, and closes no open question. `model/c4_presentation.yml`, `model/sequence_presentation.yml`, `model/deployment_presentation.yml` and `model/document_figures.yml` (same date) are presentation models under the rules above; participants or nodes marked `implementation_only` show implemented facts that are not modeled and never become architecture by being drawn.
 - Generated artifacts: `model/db.dbml`, `build/` and `out/`. DBML, SQL, ER and the data dictionary derive from `model/domain.yml`; DBML is not an independent database SSOT.
 
 Authority is by subject, as recorded in ADR-018 and model governance: Project Charter for scope; architecture/invariants and applicable Accepted ADRs for architecture; tech drift resolutions and applicable technology ADRs for technology. `docs/research/arquitectura-informacion.md` derives functional needs within those limits and must be read against subsequent decisions. Do not impose a new linear precedence.
@@ -77,6 +77,7 @@ If Make or required dependencies are unavailable, report the limitation without 
 
 - Never hand-edit `model/db.dbml`, `build/` or `out/`.
 - Fix generators, not generated SVG/PDF files.
+- Document figures for Word live in `out/figuras/<folder>/` (PNG at 300 ppp plus a generated README.md per folder) and come only from `model/document_figures.yml` through `make figuras`. One figure per page, never split into parts; if a figure does not fit at 9 pt, reduce its detail in the model. Intermediate SVGs stay in `build/figuras/`.
 - Output must be reproducible from the same model and dependency versions.
 - Do not treat generated artifacts as architecture source files.
 

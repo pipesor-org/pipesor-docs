@@ -15,9 +15,8 @@ The views do not add architecture, approve a deployment or prove runtime behavio
 divergence between ``deployment.mvp_preparation.deployment_authorized`` and the observed dev
 environment is drawn as a note and never resolved here.
 
-``main()`` writes build/<id>.dot, out/<id>.svg and out/despliegue_guia.md; ``--document`` also
-writes the A4 print variants (out/doc/<id>.svg and .png); ``--validate-only`` only validates.
-``render_documents()`` is the entry point for the document figures generator.
+``main()`` writes build/<id>.dot, out/<id>.svg and out/despliegue_guia.md; ``--validate-only``
+only validates.
 """
 
 from __future__ import annotations
@@ -43,7 +42,6 @@ ARCHITECTURE = ROOT / "model" / "architecture.yml"
 OVERLAY = ROOT / "model" / "implementation_status.yml"
 BUILD = ROOT / "build"
 OUT = ROOT / "out"
-DOC_OUT = OUT / "doc"
 GUIDE = OUT / "despliegue_guia.md"
 
 STATES = ("deployed", "implemented", "proposed", "tbd")
@@ -69,7 +67,7 @@ DEFAULT_WRAP = 26
 TOP_KEYS = {"model_version", "architecture_source", "overlay_source", "purpose", "authorization",
             "max_nodes_per_figure", "evidence_limits", "states", "figures"}
 
-# Presentation: line style encodes the state, fill colour the category (document_figures palette).
+# Presentation: line style encodes the state, fill colour the category.
 FONT = 14
 FONT_NAME = "DejaVu Sans"
 STATE_STYLE = {"deployed": "solid", "implemented": "dashed", "proposed": "dotted", "tbd": "dotted"}
@@ -88,11 +86,7 @@ CATEGORY_TEXT = {"prototype": "Azul: Pipesor (servicios, jobs, entornos)",
                  "persistence": "Verde: persistencia y secretos",
                  "platform": "Blanco: plataforma o paso de entrega no modelado",
                  "tbd": "Gris oscuro: TBD"}
-# A4 print candidates: page, rank direction, legend columns (0 = legend in the guide), edge labels.
-DOC_LAYOUTS = tuple((page, rankdir, columns, "label")
-                    for columns in (2, 3, 0)
-                    for page, rankdir in (("portrait", "TB"), ("portrait", "LR"), ("landscape", "LR"),
-                                          ("landscape", "TB")))
+LEGEND_COLUMNS = 3
 
 
 class ValidationError(ValueError):
@@ -560,21 +554,16 @@ def legend_entries(figure, elements):
 
 
 def edge_numbers(figure):
-    """Edges are numbered in declared order; the guide and the print legend use the same numbers."""
+    """Edges are numbered in declared order; the view and the guide use the same numbers."""
     return {edge["id"]: number for number, edge in enumerate(figure.get("edges") or [], 1)}
 
 
-def legend_table(figure, elements, columns, numbered):
-    cells = []
-    if numbered:
-        cells += [(f'<TD ALIGN="RIGHT" VALIGN="TOP"><B>{number:02d}</B></TD>', edge["label"])
-                  for number, edge in enumerate(figure.get("edges") or [], 1)]
-    cells += [(f'<TD {sample} WIDTH="22" HEIGHT="14"> </TD>', text) for sample, text in legend_entries(figure, elements)]
+def legend_table(figure, elements, columns=LEGEND_COLUMNS):
+    cells = [(f'<TD {sample} WIDTH="22" HEIGHT="14"> </TD>', text) for sample, text in legend_entries(figure, elements)]
     per_column = -(-len(cells) // columns)
-    width = 30 if columns >= 3 else 38
     stacks = []
     for column in range(columns):
-        rows = "".join(f'<TR>{left}<TD ALIGN="LEFT" BALIGN="LEFT" VALIGN="TOP">{lines(text, width)}</TD></TR>'
+        rows = "".join(f'<TR>{left}<TD ALIGN="LEFT" BALIGN="LEFT" VALIGN="TOP">{lines(text, 30)}</TD></TR>'
                        for left, text in cells[column * per_column:(column + 1) * per_column])
         stacks.append(f'<TD VALIGN="TOP"><TABLE BORDER="0" CELLBORDER="0" CELLSPACING="3">{rows}</TABLE></TD>')
     return f'<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="2" CELLPADDING="0"><TR>{"".join(stacks)}</TR></TABLE>'
@@ -593,18 +582,13 @@ def tbd_panel(figure, columns=3):
             f'<TR><TD COLSPAN="{columns}" ALIGN="LEFT"><B>No definido (TBD)</B></TD></TR>{rows}</TABLE>')
 
 
-def figure_label(figure, elements, columns, title=None, numbered=False):
-    """Graph label under the drawing: title (views only), TBD panel and legend; None when empty."""
-    parts = []
-    if title:
-        parts.append(f'<FONT POINT-SIZE="{FONT + 4}"><B>{escape(title)}</B></FONT>')
+def figure_label(figure, elements):
+    """Graph label under the drawing: title, TBD panel and legend."""
+    parts = [f'<FONT POINT-SIZE="{FONT + 4}"><B>{escape(figure["title"])}</B></FONT>']
     panel = tbd_panel(figure)
     if panel:
         parts.append(panel)
-    if columns:
-        parts.append(legend_table(figure, elements, columns, numbered))
-    if not parts:
-        return None
+    parts.append(legend_table(figure, elements))
     rows = "".join(f'<TR><TD ALIGN="LEFT">{part}</TD></TR>' for part in parts)
     return f'<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="4" CELLPADDING="0">{rows}</TABLE>>'
 
@@ -617,17 +601,15 @@ def anchor(figure, endpoint):
     return group_nodes(figure, endpoint)[0]["id"], f"cluster_{endpoint}"
 
 
-def generate_dot(figure, architecture, *, rankdir=None, legend_columns=3, document=False):
-    """Deterministic DOT source of a figure; the view adds its title above the legend."""
+def generate_dot(figure, architecture):
+    """Deterministic DOT source of a figure; its title goes above the legend."""
     elements = {e["id"]: e for e in architecture.get("elements") or []}
     wrap = figure.get("wrap", DEFAULT_WRAP)
     graph = Digraph(figure["id"], comment="GENERATED from model/deployment_presentation.yml; do not edit")
-    graph.attr(rankdir=rankdir or figure["rankdir"], newrank="true", compound="true", bgcolor="white",
+    graph.attr(rankdir=figure["rankdir"], newrank="true", compound="true", bgcolor="white",
                pad="0.15", nodesep="0.14", ranksep="0.22", fontname=FONT_NAME, fontsize=str(FONT),
                labelloc="b", labeljust="l")
-    label = figure_label(figure, elements, legend_columns, None if document else figure["title"], numbered=document)
-    if label:
-        graph.attr(label=label)
+    graph.attr(label=figure_label(figure, elements))
     graph.attr("node", fontname=FONT_NAME, fontsize=str(FONT), margin="0.1,0.05")
     graph.attr("edge", fontname=FONT_NAME, fontsize=str(FONT), color=EDGE_COLOR, fontcolor="#1E293B",
                arrowsize="0.7")
@@ -714,7 +696,7 @@ def generate_dot(figure, architecture, *, rankdir=None, legend_columns=3, docume
         if edge["id"] in loose:
             attrs.update(constraint="false", weight="0")
         number = f"<B>{numbers[edge['id']]:02d}</B>"
-        text = number if document else f"{number} {lines(edge['label'], 22)}"
+        text = f"{number} {lines(edge['label'], 22)}"
         attrs.update(label=f"<{text}>", tooltip=edge["description"],
                      style=STATE_STYLE[edge["state"]], penwidth=f"{STATE_PEN[edge['state']]:.1f}")
         if edge["state"] == "tbd":
@@ -723,8 +705,8 @@ def generate_dot(figure, architecture, *, rankdir=None, legend_columns=3, docume
     return graph.source
 
 
-def run_dot(source, target, *extra):
-    subprocess.run(["dot", *extra, f"-T{target.suffix[1:]}", str(source), "-o", str(target)], check=True, cwd=ROOT)
+def run_dot(source, target):
+    subprocess.run(["dot", f"-T{target.suffix[1:]}", str(source), "-o", str(target)], check=True, cwd=ROOT)
 
 
 def render_view(figure, architecture, build=BUILD, out=OUT):
@@ -734,50 +716,6 @@ def render_view(figure, architecture, build=BUILD, out=OUT):
     source.write_text(generate_dot(figure, architecture), encoding="utf-8")
     run_dot(source, out / f"{figure['id']}.svg")
     return out / f"{figure['id']}.svg"
-
-
-def _print_helpers():
-    """document_figures supplies the A4 page sizes and the print helpers (imported only for print)."""
-    try:
-        from . import document_figures
-    except ImportError:
-        import document_figures
-    return document_figures
-
-
-def render_document(figure, architecture, out=DOC_OUT, build=BUILD):
-    """Render every A4 candidate and keep the one document_figures.choose selects."""
-    doc = _print_helpers()
-    out.mkdir(parents=True, exist_ok=True)
-    build.mkdir(parents=True, exist_ok=True)
-    fid = figure["id"]
-    svg, png, source = out / f"{fid}.svg", out / f"{fid}.png", build / f"{fid}_doc.dot"
-    results = []
-    for layout in DOC_LAYOUTS:
-        source.write_text(generate_dot(figure, architecture, rankdir=layout[1], legend_columns=layout[2],
-                                       document=True), encoding="utf-8")
-        run_dot(source, svg)
-        results.append((layout, *doc.printed_sizes(svg, layout[0])))
-    layout, scale, width_cm, height_cm, smallest = doc.choose(fid, results)
-    source.write_text(generate_dot(figure, architecture, rankdir=layout[1], legend_columns=layout[2],
-                                   document=True), encoding="utf-8")
-    run_dot(source, svg)
-    doc.set_svg_print_size(svg, width_cm, height_cm)
-    run_dot(source, png, f"-Gdpi={doc.PNG_DPI * scale:.2f}")
-    doc.set_png_dpi(png, doc.PNG_DPI)
-    return {"id": fid, "title": figure["title"], "page": layout[0],
-            "legend": "en la figura" if layout[2] else "tabla en la guía",
-            "width_cm": round(width_cm, 2), "height_cm": round(height_cm, 2), "min_pt": round(smallest, 2)}
-
-
-def render_documents(out=DOC_OUT, build=BUILD):
-    """Print variants of every deployment figure: out/doc/<id>.svg and .png (300 ppp).
-
-    Returns one dict per figure with id, title, page ('portrait' or 'landscape'), legend
-    ('en la figura' or 'tabla en la guía'), width_cm, height_cm and min_pt.
-    """
-    presentation, architecture, overlay = load()
-    return [render_document(figure, architecture, out, build) for figure in check(presentation, architecture, overlay)]
 
 
 # --------------------------------------------------------------------------- guide
@@ -831,10 +769,10 @@ def figure_section(figure, repos):
     fid = figure["id"]
     groups, nodes = figure_index(figure)
     text = [f"## {figure['title']} (`{fid}`)", "",
-            f"Vista: [SVG]({fid}.svg) · Impresión A4 (`--document`): [SVG](doc/{fid}.svg) · [PNG](doc/{fid}.png)", "",
+            f"Vista: [SVG]({fid}.svg)", "",
             " ".join(figure["summary"].split()), "",
-            "En la vista, cada flecha lleva su número y su etiqueta; en la versión impresa solo el número, y esta "
-            "guía hace de leyenda (tabla de aristas y leyenda de estados y colores)."
+            "En la vista, cada flecha lleva su número y su etiqueta; esta guía trae la tabla de aristas y la leyenda "
+            "de estados y colores. La figura para documentos está en `out/figuras/06-despliegue/`."
             + (" Los puntos TBD no tienen aristas: van en el recuadro «No definido (TBD)» bajo el dibujo."
                if any(n["state"] == "tbd" for n in figure["nodes"]) else ""), ""]
     elements = {n.get("element") for n in figure["nodes"] if n.get("element")}
@@ -928,7 +866,6 @@ def guide(presentation, architecture, overlay):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--validate-only", action="store_true")
-    parser.add_argument("--document", action="store_true", help="also write the A4 print variants in out/doc")
     args = parser.parse_args(argv)
     presentation, architecture, overlay = load()
     figures = check(presentation, architecture, overlay)
@@ -939,10 +876,6 @@ def main(argv=None):
         print(f"generated: {render_view(figure, architecture).relative_to(ROOT)}")
     GUIDE.write_text(guide(presentation, architecture, overlay), encoding="utf-8")
     print(f"generated: {GUIDE.relative_to(ROOT)}")
-    if args.document:
-        for result in render_documents():
-            print(f"generated: out/doc/{result['id']}.svg|png ({result['page']}, legend {result['legend']}, "
-                  f"{result['width_cm']:.1f}x{result['height_cm']:.1f} cm, min {result['min_pt']:.1f} pt)")
     return 0
 
 
