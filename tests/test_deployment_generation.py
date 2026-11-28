@@ -61,7 +61,7 @@ class DeploymentValidationTests(unittest.TestCase):
         self.assertRejected("does not exist")
 
     def test_rejects_tbd_without_reason(self):
-        del node(self.model, "deploy_environments_delivery", "t_gates")["reason"]
+        del node(self.model, "deploy_environments_delivery", "t_approvals")["reason"]
         self.assertRejected("tbd requires a non-empty reason")
 
     def test_rejects_an_edge_with_an_unknown_endpoint(self):
@@ -89,7 +89,7 @@ class DeploymentValidationTests(unittest.TestCase):
         self.assertRejected("duplicate id 'n_browser'")
 
     def test_rejects_edges_to_tbd_points(self):
-        edge(self.model, "deploy_environments_delivery", "d_dev_qa")["to"] = "t_gates"
+        edge(self.model, "deploy_environments_delivery", "d_dev_qa")["to"] = "t_approvals"
         self.assertRejected("tbd nodes are listed in the TBD panel")
 
     def test_divergence_note_tracks_the_model(self):
@@ -142,7 +142,7 @@ class DeploymentRenderingTests(unittest.TestCase):
         delivery = figure(self.presentation, "deploy_environments_delivery")
         source = dep.generate_dot(delivery, self.architecture)
         self.assertIn("No definido (TBD)", source)
-        self.assertNotIn("\tt_gates [", source)
+        self.assertNotIn("\tt_approvals [", source)
         self.assertIn("deployment_authorized: false (ADR-019)", source)
         self.assertRegex(source, r"id=d_dev_qa[^\]]*style=dotted")
 

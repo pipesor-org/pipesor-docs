@@ -48,7 +48,7 @@ README (1 commit por repo).
 | Clases | `out/CD-*.svg` · `clases-operacion`, `-ingesta`, `-correlacion` y `-diagnostico` | `design.yml` | CD-1..3 propuestos con marca por clase; diagramas de agregados implementados por bounded context |
 | ER | `out/er.svg` · `datos-*` (5 figuras, una por esquema) | `domain.yml` + overlay | 33 de 36 tablas implementadas; `diagnoses` en parte; 3 tablas y 6 columnas solo modeladas |
 | Secuencias | `out/seq_*.svg` · `secuencia-*` (4 figuras) | `sequence_presentation.yml` | Implementado y desplegado en dev, con divergencias marcadas |
-| Despliegue | `out/deploy_*.svg` · `despliegue-dev` y `despliegue-entornos-ramas` | `deployment_presentation.yml` | dev desplegado (observado el 27/11); qa/preprod/prod propuestos; ramas: lo definido y TBD |
+| Despliegue | `out/deploy_*.svg` · `despliegue-dev` y `despliegue-entornos-ramas` | `deployment_presentation.yml` | dev desplegado (observado el 27/11); qa/preprod/prod, la promoción y sus gates previstos para TP2; ramas: lo definido (release inactivo, apply manual autorizado, historial de `images.json` como registro) y dos puntos por definir (aprobaciones de PR y CODEOWNERS, PD-035) |
 
 La matriz de trazabilidad completa (cada elemento → ID de modelo, ADR/DD y `repo:ruta:línea`) está en
 [`out/trazabilidad.md`](../../out/trazabilidad.md). Las guías de cada familia: [`out/figuras/README.md`](../../out/figuras/README.md),
@@ -128,7 +128,7 @@ Se registran sin resolverlos; cada uno remite a su evidencia en el overlay o en 
 | ER | Preguntas 1–3, 5, 6 y 7 (DQ-001, A-005, PD-003); tablas `inferred`: `execution_event_receipts`, `diagnosis_jobs`, `pipeline_access_grants` (`ia_only`) |
 | Secuencia (a) | PD-033 (reentrega y mensajes agotados, sin lector de DLQ), PD-031, PD-034, PD-030, PD-037; horizontes de DD-021 sin aprobación registrada; preguntas 13 y 20; A-004 (`cancelled` no abre incidente) |
 | Secuencia (b) | Pregunta 21 (sessionStorage, solapamiento de claves, `repository_owner_id`) y pregunta 14; PD-027, PD-030; ingestion#24 (límite de frecuencia y limpieza de custodia) |
-| Despliegue | PD-035, PD-015, PD-017/PD-030, PD-021, PD-026; topología de qa/preprod/prod sin definir; gates, releases y despliegue automático TBD |
+| Despliegue | PD-035, PD-015, PD-017/PD-030, PD-021, PD-026; topología de qa/preprod/prod sin definir. Corrección del responsable (27/11/2026): los gates están definidos en IaC ADR 001 y previstos para TP2, los releases están definidos e inactivos mientras solo exista dev, no hay despliegue automático porque cada apply se autoriza (IaC ADR 004) y el historial de `images.json` es el registro de despliegues; siguen por definir las aprobaciones mínimas de PR con CODEOWNERS y el orden de entrega (PD-035) |
 
 ## Qué debe validar cada dueño de servicio y qué evidencia falta
 

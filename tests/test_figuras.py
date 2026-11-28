@@ -65,6 +65,37 @@ class ModelRuleTests(unittest.TestCase):
             fig["note"] = fig["note"].replace("ámbar", "gris")
         self.assertIn("«parcial» style", self.errors(drop_amber))
 
+    def test_class_boxes_have_a_single_border(self):
+        # Cell borders inside a rounded table drew a square frame behind the rounded one.
+        _, specs = figuras.validate(self.m)
+        for fid in ("clases-operacion", "clases-ingesta", "clases-correlacion", "clases-diagnostico"):
+            with self.subTest(figure=fid):
+                source = figuras.generate_dot(figure(self.m, fid), specs[fid], "TB")
+                self.assertNotIn('CELLBORDER="1"', source)
+                self.assertIn("<HR/>", source)
+
+    def test_delivery_figure_marks_only_open_points_as_tbd(self):
+        _, specs = figuras.validate(self.m)
+        spec = specs["despliegue-entornos-ramas"]
+        states = {n["id"]: n["state"] for n in spec["nodes"]}
+        self.assertEqual(states["t_approvals"], figuras.TBD)
+        self.assertEqual(states["d_gates"], figuras.PROPOSED)
+        self.assertEqual(states["d_release"], figuras.IMPLEMENTED)
+        self.assertEqual(states["d_plan"], figuras.IMPLEMENTED)
+        tbd = [n for n in spec["source"]["nodes"] if n["state"] == "tbd"]
+        self.assertEqual({n["id"] for n in tbd}, {"t_approvals", "t_order"})
+        promotion = [e for e in spec["edges"] if e["to"] in {"d_qa", "d_preprod", "d_prod"}]
+        self.assertEqual({(e["label"], e["state"]) for e in promotion}, {("previsto para TP2", figuras.PROPOSED)})
+        self.assertIn("gris: por definir", figure(self.m, "despliegue-entornos-ramas")["note"])
+
+    def test_dev_figure_draws_sql_and_secrets_from_both_app_groups(self):
+        _, specs = figuras.validate(self.m)
+        edges = {(e.get("from"), e.get("to")): e["label"] for e in specs["despliegue-dev"]["edges"]}
+        for group in ("n_ingestion", "n_nlp"):
+            self.assertTrue(edges[(group, "n_postgresql")].startswith("SQL"))
+            self.assertEqual(edges[(group, "n_kv_app")], "secretos")
+        self.assertIn("sin nlp", edges[("n_nlp", "n_postgresql")])
+
     def test_content_limits(self):
         def too_many_lifelines(m):
             fig = figure(m, "secuencia-inicio-sesion")

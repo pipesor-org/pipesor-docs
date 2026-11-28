@@ -5,7 +5,7 @@ Figuras documentales generadas desde `model/document_figures.yml`; no editar a m
 ## Agregado Incident del contexto de operación (Pipeline)
 
 - **Archivo:** [`clases-operacion.png`](clases-operacion.png)
-- **Orientación:** vertical · **ancho de inserción:** 15,9 cm (alto 17,1 cm) · texto mínimo 9,4 pt
+- **Orientación:** vertical · **ancho de inserción:** 15,9 cm (alto 16,5 cm) · texto mínimo 9,5 pt
 - **Destino:** Memoria · Diseño de la solución: modelo de dominio (a confirmar por el equipo)
 - **Título APA:** *Agregado Incident del contexto de operación (Pipeline)*
 
@@ -25,7 +25,7 @@ Figuras documentales generadas desde `model/document_figures.yml`; no editar a m
 ## Agregados GitHubConnection y CaptureReceipt del contexto de ingesta
 
 - **Archivo:** [`clases-ingesta.png`](clases-ingesta.png)
-- **Orientación:** vertical · **ancho de inserción:** 15,9 cm (alto 16,5 cm) · texto mínimo 9,0 pt
+- **Orientación:** vertical · **ancho de inserción:** 15,9 cm (alto 16,1 cm) · texto mínimo 9,1 pt
 - **Destino:** Memoria · Diseño de la solución: modelo de dominio (a confirmar por el equipo)
 - **Título APA:** *Agregados GitHubConnection y CaptureReceipt del contexto de ingesta*
 
@@ -46,7 +46,7 @@ Figuras documentales generadas desde `model/document_figures.yml`; no editar a m
 ## Agregado CorrelationGroup del contexto de correlación
 
 - **Archivo:** [`clases-correlacion.png`](clases-correlacion.png)
-- **Orientación:** vertical · **ancho de inserción:** 14,0 cm (alto 10,5 cm) · texto mínimo 10,0 pt
+- **Orientación:** vertical · **ancho de inserción:** 13,8 cm (alto 10,1 cm) · texto mínimo 10,0 pt
 - **Destino:** Memoria · Diseño de la solución: modelo de dominio (a confirmar por el equipo)
 - **Título APA:** *Agregado CorrelationGroup del contexto de correlación*
 
@@ -65,7 +65,7 @@ Figuras documentales generadas desde `model/document_figures.yml`; no editar a m
 ## Agregados propuestos del diagnóstico frente a los registros implementados
 
 - **Archivo:** [`clases-diagnostico.png`](clases-diagnostico.png)
-- **Orientación:** vertical · **ancho de inserción:** 15,9 cm (alto 14,9 cm) · texto mínimo 9,6 pt
+- **Orientación:** vertical · **ancho de inserción:** 15,9 cm (alto 14,5 cm) · texto mínimo 9,7 pt
 - **Destino:** Memoria y Capstone · Diseño de la solución: modelo de dominio (a confirmar por el equipo)
 - **Título APA:** *Agregados propuestos del diagnóstico frente a los registros implementados*
 

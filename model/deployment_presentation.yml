@@ -593,7 +593,7 @@ figures:
       ranks:
         - [d_branch, d_pr, d_squash, d_ci]
         - [d_apply, d_plan, d_images_pr, d_images_set, d_ghcr]
-        - [d_dev, d_qa, d_preprod, d_prod]
+        - [d_dev, d_qa, d_preprod, d_prod, d_gates]
       align:
         - [d_ci, d_images_set]
         - [d_apply, d_dev]
@@ -661,6 +661,19 @@ figures:
           - ci:.github/workflows/image-assurance.yml:23
           - ci:.github/workflows/image-assurance.yml:63-81
           - ci:.github/workflows/publish-container.yml:93-131
+      - id: d_release
+        name: "release SemVer (actions/release)"
+        implementation_only: true
+        category: platform
+        group: g_service_repo
+        details: ["definido, inactivo en dev-only", "stable exige validación en preprod"]
+        state: implemented
+        evidence:
+          - ci:actions/release/action.yml:1-4
+          - ci:README.md:80-81
+          - ingestion:.github/workflows/release.yml:44-45
+        sources:
+          - docs/development/cicd.md:107-110
       - id: d_ghcr
         name: "GHCR"
         implementation_only: true
@@ -685,12 +698,14 @@ figures:
         implementation_only: true
         category: platform
         group: g_iac_repo
-        details: ["CI valida el archivo · merge"]
+        details: ["CI valida el archivo · merge", "su historial es el registro de despliegues"]
         state: implemented
         evidence:
           - iac:docs/dev-runtime-deployment.md:157-160
           - iac:environments/dev/main.tf:75-81
           - iac:tests/images.test.js:22-29
+        sources:
+          - docs/development/cicd.md:136-138
       - id: d_plan
         name: "plan nuevo desde main"
         implementation_only: true
@@ -707,12 +722,13 @@ figures:
         implementation_only: true
         category: platform
         group: g_iac_repo
-        details: ["plan revisado · autorización explícita"]
+        details: ["plan revisado · autorización explícita", "sin despliegue automático (IaC ADR 004)"]
         state: implemented
         evidence:
           - iac:docs/dev-runtime-deployment.md:7
           - iac:docs/dev-runtime-deployment.md:159-161
           - iac:docs/adr-001-branching-and-promotion.md:103
+          - iac:docs/adr-004-mvp-state-and-deployment.md:152-153
       - id: d_dev
         name: "dev"
         implementation_only: true
@@ -761,33 +777,19 @@ figures:
           - iac:environments/prod/main.tf:1-73
           - iac:environments/prod/terraform.tfvars.example:1-6
           - iac:README.md:25
-      - id: t_gates
-        name: "gates entre entornos"
-        state: tbd
-        reason: "Los Environments con revisores de qa, preprod y prod están por configurar; no hay gate definido."
+      - id: d_gates
+        name: "gates de promoción"
+        implementation_only: true
+        category: platform
+        group: g_environments
+        details: ["mismo digest verificado en el anterior", "aprobación de QA y de producción", "previsto (TP2)"]
+        state: proposed
         evidence:
+          - iac:docs/adr-001-branching-and-promotion.md:59-64
           - iac:docs/adr-001-branching-and-promotion.md:31-32
         sources:
           - docs/development/cicd.md:180
           - docs/development/cicd.md:249-251
-      - id: t_releases
-        name: "releases y tags SemVer"
-        state: tbd
-        reason: "release.yml está deshabilitado en el código (if: false) y stable exige una validación preprod que no existe."
-        evidence:
-          - ingestion:.github/workflows/release.yml:44-45
-          - ci:README.md:80-81
-        sources:
-          - docs/development/cicd.md:107-110
-      - id: t_auto_deploy
-        name: "despliegue automático a dev"
-        state: tbd
-        reason: "La plantilla terraform-dev.yml.example es un andamiaje inactivo (if: ${{ false }}) con un runner propuesto."
-        evidence:
-          - iac:.github/workflow-templates/terraform-dev.yml.example:1-3
-          - iac:.github/workflow-templates/terraform-dev.yml.example:45-48
-        sources:
-          - docs/development/cicd.md:152-154
       - id: t_approvals
         name: "aprobaciones de PR y CODEOWNERS"
         state: tbd
@@ -800,13 +802,6 @@ figures:
         reason: "PD-035 no especifica el contrato de entrega backend–IaC (artefactos, migraciones, promoción)."
         sources:
           - docs/architecture/pending-decisions.md:226
-      - id: t_record
-        name: "registro de despliegue (IaC ADR 001)"
-        state: tbd
-        reason: "ADR 001 pide SHA, digest del plan, aprobadores y timestamps; en Git solo queda el historial de images.json."
-        evidence:
-          - iac:docs/adr-001-branching-and-promotion.md:105-110
-          - iac:docs/dev-runtime-deployment.md:157-159
     edges:
       - id: d_branch_pr
         from: d_branch
@@ -850,6 +845,17 @@ figures:
         evidence:
           - ci:.github/workflows/publish-container.yml:125-131
           - iac:tools/images.js:112-131
+      - id: d_ci_release
+        from: d_ci
+        to: d_release
+        label: "nombra un candidato"
+        description: >-
+          El release da un tag SemVer y un GitHub Release a un digest ya publicado, sin reconstruir; el workflow
+          de cada servicio está desactivado hasta autorizar su activación.
+        state: implemented
+        evidence:
+          - ci:actions/release/action.yml:1-4
+          - ingestion:.github/workflows/release.yml:44-45
       - id: d_set_pr
         from: d_images_set
         to: d_images_pr
@@ -906,7 +912,7 @@ figures:
       - id: d_dev_qa
         from: d_dev
         to: d_qa
-        label: "mismo digest"
+        label: "mismo digest · previsto (TP2)"
         description: >-
           Promoción declarada: el mismo digest en el root siguiente (images.js promote). Hoy fallaría:
           qa no tiene images.json y readDocument lo exige.
@@ -918,7 +924,7 @@ figures:
       - id: d_qa_preprod
         from: d_qa
         to: d_preprod
-        label: "mismo digest"
+        label: "mismo digest · previsto (TP2)"
         description: "Promoción declarada de qa a preprod tras verificar en qa y la aprobación independiente de QA."
         state: proposed
         evidence:
@@ -926,7 +932,7 @@ figures:
       - id: d_preprod_prod
         from: d_preprod
         to: d_prod
-        label: "mismo digest"
+        label: "mismo digest · previsto (TP2)"
         description: "Promoción declarada de preprod a prod tras verificar en preprod y la aprobación de producción."
         state: proposed
         evidence:
