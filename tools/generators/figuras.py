@@ -54,15 +54,17 @@ FORBIDDEN = (re.compile(r"repo:"), re.compile(r"rel_"), re.compile(r"Generated",
 KINDS = ("c4_context", "c4_container", "c4_component", "classes", "data", "sequence", "deployment")
 DOMAIN_STEREOTYPES = {"Aggregate", "Entity", "ValueObject", "Enum", "Record"}
 
-# Three states at most, by colour and line style.
-IMPLEMENTED, PARTIAL, PROPOSED = "implementado", "parcial", "propuesto"
+# Three states at most per figure, by colour and line style. «Por definir» (grey) only appears where a
+# presentation model keeps a point open with evidence (state tbd, deployment figures).
+IMPLEMENTED, PARTIAL, PROPOSED, TBD = "implementado", "parcial", "propuesto", "por definir"
 STATE = {"implemented": IMPLEMENTED, "external": IMPLEMENTED, "partial": PARTIAL, "divergent": PARTIAL,
-         "not_implemented": PROPOSED, "deployed": IMPLEMENTED, "proposed": PROPOSED, "tbd": PROPOSED}
-STYLE = {IMPLEMENTED: ("#334155", "solid"), PARTIAL: ("#B45309", "dashed"), PROPOSED: ("#B91C1C", "dotted")}
-NOTE_WORDS = {PARTIAL: "ámbar", PROPOSED: "roj"}
+         "not_implemented": PROPOSED, "deployed": IMPLEMENTED, "proposed": PROPOSED, "tbd": TBD}
+STYLE = {IMPLEMENTED: ("#334155", "solid"), PARTIAL: ("#B45309", "dashed"), PROPOSED: ("#B91C1C", "dotted"),
+         TBD: ("#64748B", "dashed")}
+NOTE_WORDS = {PARTIAL: "ámbar", PROPOSED: "roj", TBD: "gris: por definir"}
 FILL = {"system": "#DBEAFE", "internal": "#EFF6FF", "external": "#F1F5F9", "datastore": "#ECFDF5",
         "person": "#E2E8F0", "class": "#FFFBEB", "table": "#FFFFFF"}
-ORDER = {IMPLEMENTED: 0, PARTIAL: 1, PROPOSED: 2}
+ORDER = {IMPLEMENTED: 0, PARTIAL: 1, PROPOSED: 2, TBD: 3}
 
 
 def worst(states):
@@ -465,6 +467,7 @@ def validate(m):
             common(figure, folders)
             spec = SPECS[figure["kind"]](figure, m)
             states = figure_states(figure["kind"], spec)
+            check(len(states) <= 3, f"{fid}: {len(states)} implementation states drawn (max 3)")
             for state, word in NOTE_WORDS.items():
                 mentioned = word in figure["note"].lower()
                 check(mentioned == (state in states),
@@ -495,21 +498,32 @@ def node_html(node):
 def class_html(node):
     colour, style = STYLE[node["state"]]
     border_style = {"solid": "ROUNDED", "dashed": "DASHED", "dotted": "DOTTED"}[style]
-    head = f'<TR><TD BGCOLOR="{FILL["class"]}"><FONT COLOR="#334155">«{escape(node["stereotype"])}»</FONT><BR/><B>{escape(node["name"])}</B></TD></TR>'
+    rounded = border_style == "ROUNDED"
+    # Rounded box: the table's own rounded fill colours the header. Square (dashed or dotted) box: the
+    # table stays white so no colour shows between the dashes, and the header cell is filled.
+    head_fill = "" if rounded else f' BGCOLOR="{FILL["class"]}"'
+    head = f'<TR><TD{head_fill}><FONT COLOR="#334155">«{escape(node["stereotype"])}»</FONT><BR/><B>{escape(node["name"])}</B></TD></TR>'
     body = node["values"] if node["stereotype"] == "Enum" else node["attributes"]
     rows = [head]
     if body:
-        rows.append('<TR><TD ALIGN="LEFT" BALIGN="LEFT">' + "<BR/>".join(escape(x) for x in body) + "</TD></TR>")
+        rows.append('<TR><TD ALIGN="LEFT" BALIGN="LEFT" BGCOLOR="white">' + "<BR/>".join(escape(x) for x in body) + "</TD></TR>")
     if node["methods"]:
-        rows.append('<TR><TD ALIGN="LEFT" BALIGN="LEFT">' + "<BR/>".join(escape(x) for x in node["methods"]) + "</TD></TR>")
-    return (f'<<TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4" COLOR="{colour}" '
-            f'STYLE="{border_style}" BGCOLOR="white">' + "".join(rows) + "</TABLE>>")
+        rows.append('<TR><TD ALIGN="LEFT" BALIGN="LEFT" BGCOLOR="white">' + "<BR/>".join(escape(x) for x in node["methods"])
+                    + "</TD></TR>")
+    # One outer border only: cell borders would draw a square frame behind a rounded one, so the UML
+    # compartments are separated with horizontal rules.
+    return (f'<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="4" COLOR="{colour}" '
+            f'STYLE="{border_style}" BGCOLOR="{FILL["class"] if rounded else "white"}">' + "<HR/>".join(rows) + "</TABLE>>")
 
 
 def table_html(node):
     colour, style = STYLE[node["state"]]
     border_style = {"solid": "ROUNDED", "dashed": "DASHED", "dotted": "DOTTED"}[style]
-    rows = [f'<TR><TD COLSPAN="2" BGCOLOR="#E2E8F0"><B>{escape(node["name"])}</B></TD></TR>']
+    # As in class boxes, a rounded table takes the header colour as its own (rounded) fill, so no square
+    # corner of a filled cell shows outside the border. The body sits in one white cell holding an inner
+    # table: separate white cells would let the header colour show through their seams.
+    rounded, header = border_style == "ROUNDED", "#E2E8F0"
+    rows = []
     for row in node["rows"]:
         name = escape(row["name"])
         if row["state"] != IMPLEMENTED:
@@ -520,8 +534,12 @@ def table_html(node):
         rows.append(f'<TR><TD ALIGN="LEFT">{name}</TD><TD ALIGN="LEFT">{detail}</TD></TR>')
     if node["hidden"]:
         rows.append(f'<TR><TD COLSPAN="2" ALIGN="LEFT"><FONT COLOR="#475569">+{node["hidden"]} columnas</FONT></TD></TR>')
+    head_fill = "" if rounded else f' BGCOLOR="{header}"'
+    body = '<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1">' + "".join(rows) + "</TABLE>"
     return (f'<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1" COLOR="{colour}" '
-            f'STYLE="{border_style}" BGCOLOR="white">' + "".join(rows) + "</TABLE>>")
+            f'STYLE="{border_style}" BGCOLOR="{header if rounded else "white"}">'
+            f'<TR><TD{head_fill}><B>{escape(node["name"])}</B></TD></TR>'
+            f'<TR><TD BGCOLOR="white" CELLPADDING="0">{body}</TD></TR></TABLE>>')
 
 
 def dot_node(node, alias):
@@ -534,13 +552,14 @@ def dot_node(node, alias):
     shape = {"datastore": "cylinder", "person": "box"}.get(kind, "box")
     styles = ["filled"] + ([] if kind == "datastore" else ["rounded"]) + ([] if style == "solid" else [style])
     width = "0.6"
-    return (f'{alias} [shape={shape} style="{",".join(styles)}" fillcolor="{FILL.get(kind, FILL["internal"])}" '
+    fill = FILL["external"] if node["state"] == TBD else FILL.get(kind, FILL["internal"])
+    return (f'{alias} [shape={shape} style="{",".join(styles)}" fillcolor="{fill}" '
             f'color="{colour}" penwidth={2.0 if style != "solid" else 1.2} width={width} label={node_html(node)}]')
 
 
 def dot_edge(edge, src, dst, extra=""):
     colour, style = STYLE[edge.get("state", IMPLEMENTED)]
-    label = f' label=<{wrap(edge["label"], 16)}>' if edge.get("label") else ""
+    label = f' label=<{wrap(edge["label"], edge.get("wrap", 16))}>' if edge.get("label") else ""
     return (f'{src} -> {dst} [color="{colour}" fontcolor="#1F2937" style={style} '
             f'penwidth={1.8 if style != "solid" else 1.1}{label}{extra}]')
 
@@ -835,7 +854,8 @@ def readme_root(doc, rows):
              "Estados de implementación, explicados en la nota de cada figura: línea o borde continuo, implementado; "
              "ámbar discontinuo, parcial (implementado en parte o de otra forma); rojo punteado, propuesto (modelado, "
              "sin implementar). En las secuencias la línea discontinua indica una respuesta, por lo que un mensaje "
-             "parcial se dibuja en ámbar grueso.", "",
+             "parcial se dibuja en ámbar grueso. En la figura de entornos y ramas, el rojo punteado es lo previsto "
+             "para TP2 y el gris discontinuo lo que sigue por definir.", "",
              "| Orden | Figura | Carpeta | Documento | Sección propuesta | Orientación | Ancho (cm) |",
              "|---|---|---|---|---|---|---|"]
     for figure in sorted(doc["figures"], key=lambda f: f["order"]):
